@@ -31,3 +31,4 @@ packages = ["src/subiculum_rnn"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+pythonpath = ["scripts"]  # tests import the lab data converter package from scripts/

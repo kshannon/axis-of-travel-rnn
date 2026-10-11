@@ -12,19 +12,22 @@ version   = "0.1.0"
 #   pixi run subiculum-rnn env list
 
 # Lab notebook
-note = "zsh scripts/new_labnote.sh"
+notebook-entry = "zsh scripts/new_labnote.sh"
 
 # Environment figures and a RatInABox smoke run
 env-plot  = "python scripts/plot_envs.py"
 sim-smoke = "python scripts/smoke_agent.py"
+
+# Lab data converter (docs/lab_data_transform/): MATLAB files to CSV and Parquet
+transform-lab = "python scripts/transform_lab_data.py"
 
 # Testing
 test     = "python -m pytest"
 test-cov = "python -m pytest --cov=subiculum_rnn --cov-report=term-missing"
 
 # Jupyter notebooks: create one from the template; strip outputs on commit (once per clone)
-notebook           = "subiculum-rnn notebook new"
-nbstripout-install = "nbstripout --install --attributes .gitattributes"
+new-jupyter-nb       = "subiculum-rnn notebook new"
+nbstripout-install   = "nbstripout --install --attributes .gitattributes"
 
 
 ###################### ======== DEPENDENCIES ======== ######################
@@ -38,6 +41,8 @@ scipy   = ">=1.11"
 
 # Data I/O
 pynwb    = ">=2.5"
+h5py     = ">=3.10"   # for MATLAB v7.3 .mat files
+pyarrow  = ">=14"     # the full package: Parquet frames and CSV
 dandi    = ">=0.58"
 zarr     = ">=3,<4"
 xarray   = ">=2023.6"
