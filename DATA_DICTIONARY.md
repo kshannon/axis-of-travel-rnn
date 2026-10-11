@@ -1,5 +1,7 @@
 # Data dictionary
 
+Exact shapes and columns for the lab's variables and our tables are in docs/lab_data_transform/tables.md.
+
 **60 Hz:** The camera takes 60 frames every second, so one frame lasts 1/60 of a second, about 17 ms.
 
 **ACSF:** Artificial cerebrospinal fluid, the infusion with no drug in it. It is the comparison for muscimol, 5 sessions. The files only say ACSF.
@@ -50,6 +52,8 @@
 
 **Duplicate run:** A run labeled twice, with the same label and nearly the same frames. There are 5, probably from the automatic tool starting a run at every gate crossing.
 
+**dvtFileName and dvtPathName:** The name of the tracker's original file that the lab started from, and the folder it sat in on the lab's computer. We do not read them as data. We only copy them into our record of the run, see Manifest (transformer).
+
 **Environment:** A maze or arena described only by its shape, in a small config file. We have open_arena, triple_t, triple_t_rot90 and plus_maze, and triple_t_rot45 is still to come. It never means the software environment. Each one gets a short fingerprint of its shape, so a dataset can be traced to its exact geometry.
 
 **Epoch:** A labeled part of a session, named by its role as arena, track or variant. It comes from one stamped segment, and it also carries an environment and a condition. Not to be confused with a training epoch, which is one pass over the training data. Epochs keep the arena and the track apart, which matters because the arena has no runs and can only give foraging statistics. The transformer keeps every epoch, and stage 2 drops any under 10 seconds, see The 10 second rule.
@@ -73,6 +77,8 @@
 **Goal:** One of the four reward sites where a route ends. Each side has an inner goal and an outer goal.
 
 **Group:** The top folder a rat's files sit in, such as NS14Data or JL1HPCData. One folder is one rat.
+
+**HDRadians:** The lab's heading, one value per frame, see Heading. We read it as stored and do not work it out again.
 
 **Head-direction model:** A possible add-on that would give the simulated rat a head that can point away from travel, fitted from real data. It is not needed for the first milestone.
 
@@ -108,6 +114,10 @@
 
 **Manifest (transformer):** The transformer's record of what it did, with versions, settings, the commit and a fingerprint of every lab file it read.
 
+**masterTemplate and PathTemplate:** The lab's drawing of the track in camera pixels. masterTemplate is probably the outline the lab clicked, and PathTemplate probably holds one point per centimeter along each path, see True north. We do not read them, and stage 2 will use them to place the track, see Registration.
+
+**maxGap:** The longest gap the lab filled by interpolation, 30 frames or half a second, see Lost, filled and unfilled samples. We read it into the sessions table and warn when it is not 30.
+
 **Midpoint of the lights:** The point halfway between the front and back lights. We use it to measure direction of travel, speed and the heading offset. Which single point the network gets is still open. It sits a few centimeters ahead of the body.
 
 **Missing stamps:** Six sessions have no timeStamps, five from JL1 plus NS14_rec14, so the converter gives them no epochs. Stage 2 may fall back on long tracked stretches, but NS14_rec14 has no safe fallback.
@@ -117,6 +127,10 @@
 **Muscimol:** A GABAA receptor agonist drug infused to reduce the activity of somatic action potentials. It shows up as musc in the tags bilatmusc and leftmusc, 7 sessions. We convert them but keep them out of the baseline set.
 
 **Notebooks:** A Jupyter notebook in notebooks, one question each, made from a template and committed without outputs.
+
+**nRealLights:** How many lights the tracker followed, which is 2, see LED. We read it only to check that it is 2.
+
+**nRuns:** The lab's count of clean runs on each path, in the order of pathList, see Run markers. We read it only to check our clean runs against it, and it matched in all 108 sessions where starts and ends alternate.
 
 **Occupancy and coverage:** Occupancy is how much time the rat spends in each small square of the room. Coverage is the share of squares it visited.
 
@@ -128,13 +142,19 @@
 
 **Path and path id:** A path is one numbered kind of run in the lab's labels, and the path id is its number. A session uses only some paths, for example 1 to 4, 9 and 10. How path ids map onto our four routes is still an open question.
 
+**pathList:** The path ids used in one session, which differ from session to session, see Path and path id. We read it only to line up nRuns and runPosMarkers with their paths.
+
 **Pause:** A spot where the camera stopped and restarted. The time column jumps by more than 0.1 s, sometimes by many minutes, while the frame numbers keep counting. 32 of the 109 tracking files have one, and we never treat the two sides as continuous. We never sample a trajectory across a pause, and a run with a pause inside it gets a flag, see Run flags.
 
 **Perturbation experiment:** Switching off or adding noise to the axis-like units and seeing how much worse prediction gets, compared with other units. It shows whether they matter to the network, not to the brain.
 
 **Phase:** A label on each frame or time step for what the rat is doing. For lab data it is run, between or forage. For synthetic data it is run, dwell, return or forage, where dwell is waiting at a goal or the start.
 
+**pixelDvt:** A copy of the lab's cleaned tracking, one row per frame, with one more value on each row, the run label the lab painted on, see Painted label. We read only that painted label from it, and only when its frames and times match the tracking file.
+
 **Plus maze:** A small plus-shaped maze with four 0.5 m arms, only for debugging. It is not in the paper.
+
+**processedDVT:** The lab's cleaned tracking, one row per frame, with the frame number, the time and the positions of the lights, see Tracking file. We read it, taking the frame, the time, both lights and the extra lights, see Average and mashup light. A light the lab could not fill is stored as 1, see Sentinel value.
 
 **Protocol:** A label for the whole session from its tag. It is standard, rotation, infusion, dark or other, where other means a tag we have not seen. It says what the session was meant to be, not what we measured. We use it to pick sessions, for example the baseline set is every session whose protocol is standard.
 
@@ -145,6 +165,8 @@
 **Rate map:** A map of how fast a neuron fires at each place. The analysis file is full of them.
 
 **RatInABox:** The Python library we use to simulate agents. Its agent is a single point with no body, and its head direction is just its travel direction smoothed over 0.15 s.
+
+**rawDVT:** The tracker's original output before the lab cleaned it, on the tracker's own number scale with 0 for a lost light, not in pixels, see Whole-number positions. The lab turned it into processedDVT. We do not read it.
 
 **Registration:** Putting camera pixels onto the room frame with a scale, a shift, a rotation and maybe a flip, using the track itself as the target. Pooling sessions needs it. Stage 2 will do it.
 
@@ -176,9 +198,15 @@
 
 **Running floor:** The speed above which a frame counts as running. The lab used 10 px/s, about 3 cm/s. We use 30 px/s for the heading offset, and the offset moves less than 2.3 degrees between the two.
 
+**runPosMarkers:** The lab's start and end frame of each clean run, path by path, see Run markers. We read it only to check our clean runs against it. Its twin runTimeMarkers holds the same runs as times in seconds, and we do not read that one.
+
 **Runs between stamps:** NS15_rec20 has about 37 runs in the 13,745 frames between its arena and track stamps. Maybe false starts, maybe a stamp problem. Those runs belong to no epoch.
 
 **Runs table:** One row per paired run, numbered by start frame, with its path id and clean or dirty mark. Dirty runs are in it, and nothing is dropped at this stage. It is the starting point for the run statistics the generator needs, such as which path follows which. Its flags mark duplicates, overlaps and pauses, and stage 2 acts on them.
+
+**sampleRate:** The camera's frames per second, which is 60, see 60 Hz. We read it into the sessions table and warn when it is not 60. The lab worked it out from the times at 2 rows near the start, so a pause there would make it wrong, see Pause.
+
+**samplesLost, samplesFilled and samplesUnfilled:** The lab's flags for each light on each frame, saying it was lost, filled or left unfilled, see Lost, filled and unfilled samples. We read the filled and unfilled flags into the frames table and use the unfilled ones to blank the stand-in positions, see Sentinel value. We do not read samplesLost, since it is just the other two together.
 
 **Seed:** The number that fixes random choices so a result can be repeated. Seeds are always explicit and never cherry-picked.
 
@@ -238,5 +266,6 @@
 
 **Variant:** A non-standard session, marked by a tag in the file name. Its third part comes after the arena and the track and is either the track under a drug or darkness, or a rotated track. 33 of the 109 sessions are variants.
 
-**Whole-number positions:** The tracker's original output, rawDVT, used its own number scale with 0 for lost. The lab rescaled it to pixels and rounded every sample, so all tracking positions are whole numbers. We do not read rawDVT.
- 
+**vel and acc:** The lab's own speed and direction of motion for each light, measured over 6 frames or 0.1 s, and acc is the same thing differenced once more. We do not read either, because stage 2 works out speed and direction of travel again from the positions, see Speed and Direction of travel. This vel is not the field called vel in Swapped field names.
+
+**Whole-number positions:** The tracker's original output, rawDVT, used its own number scale with 0 for lost. The lab rescaled it to pixels and rounded every sample, so all tracking positions are whole numbers. We do not read rawDVT, see rawDVT.
