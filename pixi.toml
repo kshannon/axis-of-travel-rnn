@@ -19,7 +19,7 @@ env-plot  = "python scripts/plot_envs.py"
 sim-smoke = "python scripts/smoke_agent.py"
 
 # Lab data converter (docs/lab_data_transform/): MATLAB files to CSV and Parquet
-transform-lab = "python scripts/transform_lab_data.py"
+transform-lab = { cmd = "python -m lab_data_transform.main", env = { PYTHONPATH = "scripts" } }
 
 # Testing
 test     = "python -m pytest"
