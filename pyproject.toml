@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "subiculum-rnn"
-dynamic = ["version"]  # single source of truth: __version__ in src/subiculum_rnn/__init__.py
+name = "axis-of-travel-rnn"
+dynamic = ["version"]  # single source of truth: __version__ in src/axis_of_travel_rnn/__init__.py
 description = "Do axis-of-travel-like representations emerge in a vanilla RNN trained to predict future position?"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -20,15 +20,21 @@ dependencies = [
 ]
 
 [project.scripts]
-subiculum-rnn = "subiculum_rnn.cli:main"
+axis-of-travel-rnn = "cli:main"
 
 [tool.hatch.version]
-path = "src/subiculum_rnn/__init__.py"
+path = "src/axis_of_travel_rnn/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/subiculum_rnn"]
+packages = [
+  "src/axis_of_travel_rnn",
+  "src/cli",
+  "src/environments",
+  "src/proj_helpers",
+  "src/lab_data_transform",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-pythonpath = ["scripts"]  # tests import the lab data converter package from scripts/
+pythonpath = ["src"]  # tests import the packages from src/ without an install

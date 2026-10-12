@@ -4,7 +4,7 @@ Fixtures for the converter tests: a lab root holding the synthetic session in bo
 
 import pytest
 
-import subiculum_rnn.paths
+import proj_helpers.paths
 
 from .synthetic_mat import example_session, session_names, write_session
 
@@ -16,7 +16,7 @@ def no_local_config(monkeypatch):
     """
     def refuse(*args, **kwargs):
         raise AssertionError("a test read configs/local.yaml; pass config instead")
-    monkeypatch.setattr(subiculum_rnn.paths, "local_config", refuse)
+    monkeypatch.setattr(proj_helpers.paths, "local_config", refuse)
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ The notebook group: create a working notebook from the template.
 
 from pathlib import Path
 
-from ..notebooks import new_notebook
+from proj_helpers.notebooks import new_notebook
 from ._output import fail
 
 
@@ -13,7 +13,7 @@ def register(commands) -> None:
         "new", help="create a notebook from the template",
         description="Create a Jupyter notebook from the template: reads "
                     "templates/notebook.ipynb and writes "
-                    "notebooks/<date>_<name>.ipynb with the date, title, name "
+                    "src/notebooks/<date>_<name>.ipynb with the date, title, name "
                     "and author filled in.")
     p.add_argument("name", metavar="<name>", nargs="+",
                    help="notebook name, slugified, e.g. matlab axis analysis")
@@ -22,7 +22,7 @@ def register(commands) -> None:
     p.add_argument("--author", metavar="TEXT",
                    help="header author (default: git's user.name)")
     p.add_argument("--dir", metavar="DIR", type=Path,
-                   help="directory to write into (default: notebooks/ in the checkout)")
+                   help="directory to write into (default: src/notebooks/ in the checkout)")
     p.set_defaults(func=new)
 
 

@@ -1,6 +1,6 @@
 """Environments: parametric geometry loaded from configs/environments/.
 
-    from subiculum_rnn.environments import load_environment, to_ratinabox
+    from environments import load_environment, to_ratinabox
     spec = load_environment("triple_t")   # configs/environments/triple_t.yaml
     env = to_ratinabox(spec)              # RatInABox Environment, same frame
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from ..paths import environments_dir
+from proj_helpers.paths import environments_dir
 from .common import EnvSpec, rotate_spec, to_ratinabox
 from .open_field import build_circle
 from .plus_maze import build_plus_maze

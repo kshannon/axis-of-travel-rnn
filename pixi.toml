@@ -1,7 +1,7 @@
 [workspace]
 authors   = ["Kyle Shannon <kyle@kmshannon.com>"]
 channels  = ["conda-forge"]
-name      = "subiculum-rnn"
+name      = "axis-of-travel-rnn"
 platforms = ["osx-arm64", "linux-64"]
 version   = "0.1.0"
 
@@ -9,24 +9,20 @@ version   = "0.1.0"
 ###################### ======== TASKS ======== ######################
 [tasks]
 # Project CLI is an installed console script, no task needed:
-#   pixi run subiculum-rnn env list
+#   pixi run axis-of-travel-rnn env list
 
-# Lab notebook
-notebook-entry = "zsh scripts/new_labnote.sh"
-
-# Environment figures and a RatInABox smoke run
-env-plot  = "python scripts/plot_envs.py"
-sim-smoke = "python scripts/smoke_agent.py"
+# Lab notebook: a dated entry from templates/labnotebook.md, optional slug words
+new-labnote = 'axis-of-travel-rnn labnote new'
 
 # Lab data converter (docs/lab_data_transform/): MATLAB files to CSV and Parquet
-transform-lab = { cmd = "python -m lab_data_transform.main", env = { PYTHONPATH = "scripts" } }
+transform-lab = "python -m lab_data_transform"
 
 # Testing
 test     = "python -m pytest"
-test-cov = "python -m pytest --cov=subiculum_rnn --cov-report=term-missing"
+test-cov = "python -m pytest --cov=src --cov-report=term-missing"
 
 # Jupyter notebooks: create one from the template; strip outputs on commit (once per clone)
-new-jupyter-nb       = "subiculum-rnn notebook new"
+new-jupyter-nb       = "axis-of-travel-rnn notebook new"
 nbstripout-install   = "nbstripout --install --attributes .gitattributes"
 
 
@@ -62,7 +58,7 @@ pyyaml = ">=6"
 pynapple = ">=0.4"
 ratinabox = ">=1"
 # The project package itself, editable so src/ edits are live.
-subiculum-rnn = { path = ".", editable = true }
+axis-of-travel-rnn = { path = ".", editable = true }
 
 ###################### ======== DEV / CUDA FEATURES ======== ######################
 [feature.dev.dependencies]

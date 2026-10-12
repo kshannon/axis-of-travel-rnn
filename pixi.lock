@@ -2303,6 +2303,18 @@ packages:
   purls: []
   size: 2834037
   timestamp: 1782208056112
+- pypi: ./
+  name: axis-of-travel-rnn
+  version: 0.1.0
+  sha256: 81dbc9475949bcef96ad39a9bdf7019a7d1e80e461323b07c17f9faccb8fe353
+  requires_dist:
+  - numpy>=1.26
+  - pydantic>=2.5
+  - pyyaml>=6
+  - xarray>=2023.6
+  - zarr>=3,<4
+  requires_python: '>=3.12'
+  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/azure-core-cpp-1.16.3-h206d751_0.conda
   sha256: fffc66e9be8806a92b314e27129c42b1298ea7065028c9e5d175dacb07829261
   md5: 0cabc152dc8896c3a4c4aebf2b308627
@@ -11493,18 +11505,6 @@ packages:
   - pkg:pypi/statsmodels?source=hash-mapping
   size: 11537488
   timestamp: 1764984166760
-- pypi: ./
-  name: subiculum-rnn
-  version: 0.1.0
-  sha256: ef7f736ad90454c549d09e07ce2b3fe87ad39243667e72c8fd2cc7125e972acf
-  requires_dist:
-  - numpy>=1.26
-  - pydantic>=2.5
-  - pyyaml>=6
-  - xarray>=2023.6
-  - zarr>=3,<4
-  requires_python: '>=3.12'
-  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/svt-av1-4.0.1-hecca717_0.conda
   sha256: 4a1d2005153b9454fc21c9bad1b539df189905be49e851ec62a6212c2e045381
   md5: 2a2170a3e5c9a354d09e4be718c43235

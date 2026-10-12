@@ -9,7 +9,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import scipy.io as sio
-from subiculum_rnn.paths import local_config
+from proj_helpers.paths import local_config
 
 
 def lab_root():

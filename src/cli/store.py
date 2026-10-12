@@ -4,7 +4,7 @@ The store group: init and inspect.
 
 from pathlib import Path
 
-from ..store import Store, resolve_store
+from axis_of_travel_rnn.store import Store, resolve_store
 from ._output import emit, fail, lines
 
 

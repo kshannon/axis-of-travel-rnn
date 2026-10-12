@@ -4,7 +4,7 @@ Machine-local paths: flag, then environment, then configs/local.yaml, then defau
 
 from pathlib import Path
 
-from subiculum_rnn.paths import resolve_path
+from proj_helpers.paths import resolve_path
 
 
 def test_resolution_order_is_flag_env_local_default(tmp_path: Path):
