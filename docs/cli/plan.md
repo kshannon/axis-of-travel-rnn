@@ -4,15 +4,16 @@ Read with spec.md. No code here.
 
 ## Architecture
 
-    src/subiculum_rnn/
+    src/proj_helpers/
       paths.py                  repo_root(), configs_dir(), environments_dir()
+    src/axis_of_travel_rnn/
       store.py                  resolve_store(), open_store(); Store: marker, layout, init, artifacts, counts
-      cli/
-        __init__.py             build_parser(), main(); GROUPS (name, one-line help); STUBS table
-        _output.py              table(), lines(), emit(), fail(), not_implemented()
-        store.py                store init, store inspect
-        env.py                  env list, env inspect
-        artifacts.py            one list command, registered for datasets, models, experiments
+    src/cli/
+      __init__.py               build_parser(), main(); GROUPS (name, one-line help); STUBS table
+      _output.py                table(), lines(), emit(), fail(), not_implemented()
+      store.py                  store init, store inspect
+      env.py                    env list, env inspect
+      artifacts.py              one list command, registered for datasets, models, experiments
 
 Dispatch is the standard argparse idiom. Every command is `def cmd(args) -> int`
 bound with `set_defaults(func=cmd)`; `main` calls `args.func(args)` and turns a
