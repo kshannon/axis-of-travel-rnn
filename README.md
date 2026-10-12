@@ -1,4 +1,4 @@
-# subiculum-rnn
+# axis-of-travel-rnn
 
 This repository contains a computational neuroscience research project investigating whether axis-of-travel-like representations can emerge spontaneously in a simple recurrent neural network (RNN) trained to predict an animal's future position during spatial navigation. The biological motivation is the literature describing axis-of-travel representations in the subiculum. The computational question is:
 > If a simple recurrent network is trained only to predict future position from behavioral
@@ -22,34 +22,32 @@ pixi run nbstripout-install   # once per clone: notebooks are committed without 
 
 # 4. Check it works
 pixi run test
-pixi run subiculum-rnn env list
+pixi run axis-of-travel-rnn env list
 
 # 5. Choose where artifacts live: artifacts/ in this checkout by default,
 #    or a directory elsewhere, for example on an external drive. Machine-local
 #    paths go in configs/local.yaml (git-ignored); copy the example and edit it,
 #    see "Machine-local paths" below.
 cp configs/local.example.yaml configs/local.yaml
-pixi run subiculum-rnn store init                       # creates the store named in local.yaml
-pixi run subiculum-rnn store inspect
+pixi run axis-of-travel-rnn store init     # creates the store named in local.yaml
+pixi run axis-of-travel-rnn store inspect
 ```
 
 ## Using the project
 
-The `subiculum-rnn` command orchestrates everything; the science lives in the
-package under `src/subiculum_rnn/`. Commands are grouped by layer, and every
-group and command has `--help` with what it reads, what it writes and an
-example. The contract is [docs/cli/spec.md](docs/cli/spec.md).
+- The `axis-of-travel-rnn` command orchestrates everything
+- Commands are grouped by layer, and every group and command has `--help` with what it reads, what it writes and an example.
 
 ```bash
-pixi run subiculum-rnn --help                      # the groups: store, env, agent, data, model, analysis, experiment, notebook
-pixi run subiculum-rnn store inspect               # where artifacts go, marker, counts
-pixi run subiculum-rnn env list                    # environment configs and geometry hashes
-pixi run subiculum-rnn env inspect triple_t --json # one environment; the JSON is exactly what gets hashed
-pixi run subiculum-rnn data list                   # registered datasets in the store
-pixi run subiculum-rnn model list                  # registered models (model animals)
-pixi run subiculum-rnn experiment list             # registered experiments (populations)
-pixi run note                                      # new lab notebook entry
-pixi run notebook <name>                           # new Jupyter notebook from the template, named by date and slug
+pixi run axis-of-travel-rnn --help                      # the groups: store, env, agent, data, model, analysis, experiment, notebook, labnote
+pixi run axis-of-travel-rnn store inspect               # where artifacts go, marker, counts
+pixi run axis-of-travel-rnn env list                    # environment configs and geometry hashes
+pixi run axis-of-travel-rnn env inspect triple_t --json # one environment; the JSON is exactly what gets hashed
+pixi run axis-of-travel-rnn data list                   # registered datasets in the store
+pixi run axis-of-travel-rnn model list                  # registered models (model animals)
+pixi run axis-of-travel-rnn experiment list             # registered experiments (populations)
+pixi run new-labnote [slug words]                       # new lab notebook entry
+pixi run new-jupyter-nb <name>                          # new Jupyter notebook from the template, named by date and slug
 ```
 
 Artifacts (datasets, models, experiments) are written only by this command,
@@ -68,13 +66,41 @@ outputs, so `pixi run nbstripout-install` belongs in every clone.
 ## Machine-local paths
 
 `configs/local.yaml` holds the paths that depend on the machine, nothing else:
-`STORE` for the artifact store, `RAW_DATA` for the lab's recordings and
-`TRANSFORMED_RAW_DATA` for the tables made from them. It is git-ignored; copy
+`STORE` for the artifact store, `LAB_DATA` for the lab's recordings and
+`TRANSFORMED_LAB_DATA` for the tables made from them. It is git-ignored; copy
 `configs/local.example.yaml` and edit. Every such path is resolved in one order:
 the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
-`SUBICULUM_RNN_RAW`, `SUBICULUM_RNN_TRANSFORMED_RAW`), then this file, then the
+`SUBICULUM_RNN_LAB`, `SUBICULUM_RNN_TRANSFORMED_LAB`), then this file, then the
 built-in default. Nothing in it is ever hashed into a manifest, so two machines
 with different drives produce identical artifacts.
+
+## Converting the lab data
+
+The lab's MATLAB recordings are converted once into plain tables so the rest of
+the work never touches MATLAB: `sessions.csv`, `epochs.csv`, `runs.csv` and
+`events.csv`, one Parquet file of per-frame tracking for each session under
+`frames/`, and `manifest.json` and `checks.json` recording what was written and
+what each check found. The converter reorganizes the lab's own segmentation and
+checks it; it does no analysis. A session that fails a check is reported and the
+others still convert. The recordings and the tables stay outside the repository.
+
+Before running, set both paths in `configs/local.yaml` (see "Machine-local paths"
+above): `LAB_DATA`, the folder of lab MATLAB files, and `TRANSFORMED_LAB_DATA`,
+the folder the tables are written to. The converter reads these two keys from
+that file only, and exits 2 naming the problem if one is missing, `LAB_DATA` is
+not a folder, or the output folder is inside the lab folder or this repository.
+
+```bash
+pixi run transform-lab --dry-run      # list sessions, skipped files and the files it would write; writes nothing
+pixi run transform-lab                # convert every session
+pixi run transform-lab --sample 2     # only the first 2 sessions per subject
+pixi run transform-lab --only NS14    # only sessions whose id starts with NS14
+```
+
+Do the dry run first. A real run exits 0 when every selected session was
+written and 1 when any failed. Each run rewrites the tables, so a run with
+`--only` or `--sample` leaves tables for just those sessions; to start clean,
+delete the output folder. Details are in [docs/lab_data_transform/](docs/lab_data_transform/).
 
 ## How synthetic data will be generated
 
@@ -96,14 +122,19 @@ are stubs that exit 3; the contract is [docs/cli/spec.md](docs/cli/spec.md).
 
 ```
 configs/         declarative YAML; environments today, datasets, models, training and experiments later
-src/subiculum_rnn/
-  environments/  parametric geometry (triple-T, open arena, plus maze), content hashes, RatInABox adapter
-  store.py       the artifact store: resolution order, marker, layout, manifest scan
-  cli/           the command line entry point: groups, stub table, real commands
+src/
+  axis_of_travel_rnn/  the core package; store.py is the artifact store: resolution order, marker, layout, manifest scan
+  cli/                 the command line entry point: groups, stub table, real commands
+  environments/        parametric geometry (triple-T, open arena, plus maze), content hashes, RatInABox adapter
+  proj_helpers/        machine-local paths, lab data access, new notebooks and lab notes from the templates
+  lab_data_transform/  the lab data converter (docs/lab_data_transform/), `pixi run transform-lab`
+  notebooks/           the working Jupyter notebooks
+templates/       the notebook and lab notebook templates
+datasets/        datasets on disk, git-ignored; synthetic/
 tests/           unit tests for the store and the CLI
 docs/            reproduction steps, and per-feature spec, plan and tasks (docs/cli/)
 artifacts/       the default store: datasets, models, experiments (git-ignored, regenerable)
-labnotebook/     dated entries, `pixi run note`
+labnotebook/     dated entries, `pixi run new-labnote`
 ```
 
 ## Replicability and Reproducibility
