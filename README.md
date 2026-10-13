@@ -50,6 +50,9 @@ pixi run new-labnote [slug words]                       # new lab notebook entry
 pixi run new-jupyter-nb <name>                          # new Jupyter notebook from the template, named by date and slug
 ```
 
+`pixi run test-cov` runs the tests with coverage. `python -m axis_of_travel_rnn` is the same as the
+`axis-of-travel-rnn` command, and `store inspect`, `env list` and `env inspect` take `--json`.
+
 Artifacts (datasets, models, experiments) are written only by this command,
 into a store outside git: `--store DIR` for one run, the `SUBICULUM_RNN_STORE`
 variable, the `STORE` key in `configs/local.yaml`, or `artifacts/` in the
@@ -132,7 +135,7 @@ src/
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored; synthetic/
 tests/           unit tests for the store and the CLI
-docs/            reproduction steps, and per-feature spec, plan and tasks (docs/cli/)
+docs/            per-feature spec, plan and tasks (cli/, lab_data_transform/, notebooks/)
 artifacts/       the default store: datasets, models, experiments (git-ignored, regenerable)
 labnotebook/     dated entries, `pixi run new-labnote`
 ```
@@ -156,6 +159,22 @@ To that end, this README provides all instructions needed to reproduce our synth
 | **Versioned data provenance**          | Each synthetic dataset has a manifest with all generation parameters, seeds, the environment geometry hash and an ID                          |
 | **Logged and versioned training runs** | Every dataset, model and experiment is a directory under `artifacts/` with a `manifest.yaml` recording config, seed, code commit and lockfile |
 | **Cross-platform**                     | `pixi.toml` targets `linux-64`, `osx-arm64`                                                                                                   |
+
+These versioning layers are recorded separately and never conflated:
+
+| layer                  | identified by                       |
+| ---------------------- | ----------------------------------- |
+| code                   | git commit                          |
+| environment (software) | `pixi.lock`                         |
+| environment (geometry) | config name plus `EnvSpec.hash`     |
+| dataset                | dataset id and manifest             |
+| model configuration    | config file under `configs/models/` |
+| model instance         | model id, seed, checkpoint          |
+| analysis               | analysis config plus code commit    |
+
+Git tracks code, configs, docs, tests, the lab notebook and `pixi.lock`. It does not track the store
+(`artifacts/` or wherever `SUBICULUM_RNN_STORE` points), `figures/`, checkpoints, or anything regenerable from
+configs, code and seeds.
 
 
 ## Citation
