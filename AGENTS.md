@@ -58,9 +58,8 @@ settings and dotfiles are never changed by project work.
 
 ## Map
 
-- `README.md`: what this is, how to run it, layout.
+- `README.md`: what this is, how to run it, versioning layers, layout.
 - `docs/cli/`: CLI spec, plan and tasks.
-- `docs/reproduction.md`: setup, commands, versioning layers.
 - `docs/research_plan.md` and `docs/data_dictionary.md`: phases, milestones,
   stored fields; arrive with the docs PR.
 - `configs/`: declarative YAML; environments today, agents, datasets, models,
