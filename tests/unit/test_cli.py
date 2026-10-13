@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from subiculum_rnn.cli import STUBS, build_parser, main
-from subiculum_rnn.cli._output import not_implemented
+from cli import STUBS, build_parser, main
+from cli._output import not_implemented
 
 ENV_NAMES = ["open_arena", "plus_maze", "triple_t", "triple_t_rot90"]
 KINDS = [("data", "datasets"), ("model", "models"), ("experiment", "experiments")]
 STUB_COMMANDS = [f"{group} {command}" for group, command, _ in STUBS]
 REAL = {"store init", "store inspect", "env list", "env inspect", "data list",
-        "model list", "experiment list", "notebook new"}
+        "model list", "experiment list", "notebook new", "labnote new"}
 
 
 def _commands(parser):

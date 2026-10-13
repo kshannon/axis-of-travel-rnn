@@ -8,7 +8,7 @@ LOCAL_CONFIG = "configs/local.yaml"
 
 
 def repo_root() -> Path:
-    """The checkout containing this package (src/subiculum_rnn/paths.py)."""
+    """The checkout containing this package (src/proj_helpers/paths.py)."""
     return Path(__file__).resolve().parents[2]
 
 

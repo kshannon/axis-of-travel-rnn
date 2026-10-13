@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 from . import __version__
-from .paths import LOCAL_CONFIG, repo_root, resolve_path
+from proj_helpers.paths import LOCAL_CONFIG, repo_root, resolve_path
 
 ENV_VAR = "SUBICULUM_RNN_STORE"
 MARKER = "store.yaml"

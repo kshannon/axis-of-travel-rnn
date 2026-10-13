@@ -1,4 +1,4 @@
-# subiculum-rnn: instructions for coding agents
+# axis-of-travel-rnn: instructions for coding agents
 
 Project rules for Agent interaction are here, as well as brief context on the project. The bottom is a mapping to help describe where to find information based on goals.
 
@@ -58,14 +58,19 @@ settings and dotfiles are never changed by project work.
 
 ## Map
 
-- `README.md`: what this is, how to run it, layout.
+- `README.md`: what this is, how to run it, versioning layers, layout.
 - `docs/cli/`: CLI spec, plan and tasks.
-- `docs/reproduction.md`: setup, commands, versioning layers.
 - `docs/research_plan.md` and `docs/data_dictionary.md`: phases, milestones,
   stored fields; arrive with the docs PR.
 - `configs/`: declarative YAML; environments today, agents, datasets, models,
   training and experiments as they land. `configs/local.yaml` is the one
   machine-local file: paths only, git-ignored, never hashed.
-- `src/subiculum_rnn/`: environments, store and cli today; behavior, datasets,
-  models and analysis as they land.
+- `src/axis_of_travel_rnn/`: the store today; behavior, datasets, models and
+  analysis as they land. `src/cli/`: the command line. `src/environments/`:
+  environment geometry.
+- `src/proj_helpers/`: paths, lab data access, new notebooks and lab notes.
+- `src/lab_data_transform/`: the lab data converter (`docs/lab_data_transform/`).
+- `src/notebooks/`: the working notebooks. `templates/`: the notebook and lab
+  note templates.
+- `datasets/`: datasets on disk, git-ignored.
 - `tmp/planning/`: the full project overview and working notes, never committed.

@@ -1,12 +1,12 @@
 # Notebook template
 
 PR on branch `agents/notebook-template`: one command that creates a Jupyter notebook in
-`notebooks/` from a standard template, so a new notebook never starts by copy-pasting.
+`src/notebooks/` from a standard template, so a new notebook never starts by copy-pasting.
 
 ## Overview
 
-`subiculum-rnn notebook new <name>` copies `templates/notebook.ipynb` to
-`notebooks/YYYY-MM-DD_<name>.ipynb`, filling in the title, date and name. The template is
+`axis-of-travel-rnn notebook new <name>` copies `templates/notebook.ipynb` to
+`src/notebooks/YYYY-MM-DD_<name>.ipynb`, filling in the title, date and name. The template is
 a real notebook, edited in Jupyter like any other, so changing what every new notebook
 starts with means editing one file, not code. A notebook is a working document, not an
 artifact: nothing here touches the store or manifests.
@@ -15,12 +15,12 @@ artifact: nothing here touches the store or manifests.
 
 ### Command
 
-- `subiculum-rnn notebook new <name> [--title TEXT] [--author TEXT] [--dir DIR]`: create
-  the notebook and print its path. `<name>` is slugified the way `pixi run note` slugifies lab notebook
+- `axis-of-travel-rnn notebook new <name> [--title TEXT] [--author TEXT] [--dir DIR]`: create
+  the notebook and print its path. `<name>` is slugified the way `pixi run new-labnote` slugifies lab notebook
   names (lowercase, runs of non-alphanumerics become one dash). `--title` defaults to the
   name with dashes turned into spaces. `--author` defaults to git's `user.name`. `--dir`
-  defaults to `notebooks/` in the checkout.
-- `pixi run notebook <name>` is the same command as a pixi task.
+  defaults to `src/notebooks/` in the checkout.
+- `pixi run new-jupyter-nb <name>` is the same command as a pixi task.
 - Refuses to overwrite: an existing file at the target path is an error naming it, exit 2.
   An empty slug is an error, exit 2.
 - The `notebook` group joins the CLI spec's command table; it is the first group whose
@@ -33,7 +33,7 @@ artifact: nothing here touches the store or manifests.
 2. Code, setup: `%load_ext autoreload`, `%autoreload 2`, `%matplotlib inline`,
    `%config InlineBackend.figure_format = "retina"`; imports: `Path`, `numpy as np`,
    `pandas as pd`, `matplotlib.pyplot as plt`, `scienceplots` (registers the styles),
-   `subiculum_rnn`, `load_environment` and `list_environments` from the environments
+   `axis_of_travel_rnn`, `load_environment` and `list_environments` from the environments
    package, `resolve_store` from the store; `plt.style.use(["science", "notebook",
    "no-latex"])`; `rng = np.random.default_rng(0)`; `store = resolve_store(None)`; a
    context print of package version, git commit, store path and today's date.
@@ -59,7 +59,7 @@ template is committed without outputs like every notebook; run its cells once af
 
 ## Non-Functional Requirements
 
-- `src/subiculum_rnn/notebooks.py` holds one function, `new_notebook(name, title, directory,
+- `src/proj_helpers/notebooks.py` holds one function, `new_notebook(name, title, directory,
   today)`, reading and writing through `nbformat`; `cli/notebook.py` is the group module.
 - Dependencies, dev feature only: `nbformat` (already present through jupyter, declared
   explicitly), `nbstripout`, and `scienceplots` from PyPI. `nbformat` is imported inside the function so
@@ -76,6 +76,6 @@ template is committed without outputs like every notebook; run its cells once af
 - Executing notebooks or parameterizing them (papermill).
 - Exporting a finished notebook to PDF or HTML: its own small feature. PDF needs pandoc
   plus LaTeX or a headless browser; HTML needs nothing extra.
-- Subfolders under `notebooks/`; `--dir` covers other locations.
+- Subfolders under `src/notebooks/`; `--dir` covers other locations.
 - Registering notebooks in the store or linking them to artifacts.
 - A LaTeX installation or the `ieee` and `nature` styles.

@@ -4,8 +4,8 @@ The env group: list and inspect the environment configs in the checkout.
 
 import math
 
-from ..environments import list_environments, load_environment
-from ..paths import environments_dir
+from environments import list_environments, load_environment
+from proj_helpers.paths import environments_dir
 from ._output import emit, fail, lines, table
 
 

@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from subiculum_rnn.paths import repo_root
-from subiculum_rnn.store import (ENV_VAR, KINDS, STORE_VERSION, Store,
-                                 StoreError, open_store, resolve_store)
+from proj_helpers.paths import repo_root
+from axis_of_travel_rnn.store import (ENV_VAR, KINDS, STORE_VERSION, Store,
+                                      StoreError, open_store, resolve_store)
 
 
 def _artifact(store: Store, kind: str, name: str, declared_id: str) -> None:

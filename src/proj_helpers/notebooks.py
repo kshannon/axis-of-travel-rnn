@@ -1,5 +1,5 @@
 """
-New notebooks: the slug, the author, and the template with its placeholders filled.
+New notebooks and lab notes: the slug, the author, and the template with its placeholders filled.
 """
 
 import re
@@ -41,7 +41,7 @@ def new_notebook(name: str, *, title: str | None = None, author: str | None = No
     if not slug:
         raise ValueError("notebook name has no letters or digits")
     if directory is None:
-        directory = repo_root() / "notebooks"
+        directory = repo_root() / "src" / "notebooks"
     if template is None:
         template = repo_root() / "templates" / "notebook.ipynb"
     if today is None:
@@ -62,4 +62,40 @@ def new_notebook(name: str, *, title: str | None = None, author: str | None = No
             cell.source = cell.source.replace(placeholder, value)
     directory.mkdir(parents=True, exist_ok=True)
     nbformat.write(notebook, path)
+    return path
+
+
+def new_labnote(words: str = "", *, directory: Path | None = None,
+                template: Path | None = None, now: datetime | None = None) -> Path:
+    """
+    Write <directory>/<date>.md, or <date>__<slug>.md, from the template and return its path.
+    """
+    if directory is None:
+        directory = repo_root() / "labnotebook"
+    if template is None:
+        template = repo_root() / "templates" / "labnotebook.md"
+    if now is None:
+        now = datetime.now().astimezone()
+    day = now.date().isoformat()
+    if words:
+        slug = slugify(words)
+        if not slug:
+            raise ValueError("slug is empty after cleanup")
+        path = directory / f"{day}__{slug}.md"
+        title = slug.replace("-", " ")
+    else:
+        path = directory / f"{day}.md"
+        title = day
+    if path.exists():
+        raise FileExistsError(f"{path.name} already exists")
+    fields = {
+        "{{DATE}}": day,
+        "{{CREATED}}": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "{{TITLE}}": title,
+    }
+    text = template.read_text()
+    for placeholder, value in fields.items():
+        text = text.replace(placeholder, value)
+    directory.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
     return path

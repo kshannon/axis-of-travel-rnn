@@ -1,4 +1,4 @@
-# subiculum-rnn CLI
+# axis-of-travel-rnn CLI
 
 PR 1, branch `feature/cli`: the package layout, the store, real `store`, `env` and
 list commands, and bare stubs for everything else. Later PRs implement one group at a
@@ -6,11 +6,11 @@ time under their own spec, plan and tasks.
 
 ## Overview
 
-One command, `subiculum-rnn`, orchestrates the pipeline: environments, behavioral agents,
+One command, `axis-of-travel-rnn`, orchestrates the pipeline: environments, behavioral agents,
 datasets, models, analysis, experiments. It is a thin layer over this package with no science
 capabilities of its own. Every command that produces data writes a registered artifact with a
 manifest into a store, and the CLI is the only path that writes artifacts. Helpers that write
-nothing stay in `scripts/`.
+nothing stay in `src/proj_helpers/`.
 
 An artifact is the recorded product of one pipeline step: a dataset of synthetic trajectories, a
 trained model (one model animal), or an experiment (a population of models trained under one
@@ -57,7 +57,7 @@ defined in code only when the command is implemented.
 | `experiment inspect <experiment> [--json]` | members with status, results | a population's outcome including its failures |
 | `experiment run --config <yaml> [--dry-run]` | train a population from one config under one manifest, adopting members that already exist | vary one or two factors at a time under one id |
 | `experiment reproduce <experiment> [--dry-run]` | verify commit, lockfile and hashes; re-run into a linked experiment; compare | reproducibility is a command, not a hope |
-| `notebook new <name> [--title TEXT] [--author TEXT] [--dir DIR]` | create a Jupyter notebook from `templates/notebook.ipynb` as `notebooks/<date>_<slug>.ipynb` | a notebook never starts by copy-pasting; see docs/notebooks/spec.md |
+| `notebook new <name> [--title TEXT] [--author TEXT] [--dir DIR]` | create a Jupyter notebook from `templates/notebook.ipynb` as `src/notebooks/<date>_<slug>.ipynb` | a notebook never starts by copy-pasting; see docs/notebooks/spec.md |
 
 ### Global options and shared flags
 
@@ -137,7 +137,7 @@ command's own PR.
 
 - Python 3.12, argparse from the standard library, no new dependencies. `main(argv) -> int`
   is testable in-process with `--store` at a temporary directory and runs from any directory.
-- `src/subiculum_rnn/cli/` package, standard argparse idioms, shared output helpers in
+- `src/cli/` package, standard argparse idioms, shared output helpers in
   one module. Stubs are rows in one table; a group gets its own module once it has a real
   command beyond `list`. Store resolution and layout live in the package, not the CLI.
 - Module docstrings are one line of text on its own line between the quotes. Design and
@@ -153,5 +153,5 @@ command's own PR.
 - Automatic calibration of agent configs from real statistics; the numbers are written by hand.
 - Interactive prompts, TUI, colors, shell completion.
 - Experiment tracking services, databases, DVC, remote or cluster launchers.
-- Plotting from the CLI; `scripts/` keeps the figure helpers.
+- Plotting from the CLI; figure helpers live in `src/proj_helpers/`.
 - Deleting or editing artifacts; a change is a new id.

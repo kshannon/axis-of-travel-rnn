@@ -5,16 +5,16 @@ Read with spec.md. No code here.
 ## Architecture
 
     templates/notebook.ipynb           the template: a real notebook, placeholders in cell sources
-    src/subiculum_rnn/notebooks.py     slugify(), git_user_name(), new_notebook(...) -> Path
-    src/subiculum_rnn/cli/notebook.py  register(commands): the `new` command
-    src/subiculum_rnn/cli/__init__.py  GROUPS gains "notebook"; the module registers
-    pixi.toml                          dev deps nbformat, nbstripout, scienceplots; tasks notebook, nbstripout-install
+    src/proj_helpers/notebooks.py      slugify(), git_user_name(), new_notebook(...) -> Path
+    src/cli/notebook.py                register(commands): the `new` command
+    src/cli/__init__.py                GROUPS gains "notebook"; the module registers
+    pixi.toml                          dev deps nbformat, nbstripout, scienceplots; tasks new-jupyter-nb, nbstripout-install
     .gitattributes                     *.ipynb filter=nbstripout and diff=ipynb
     README.md                          quick start step, usage line, SciencePlots reference
     docs/cli/spec.md                   notebook row in the command table, status line
     tests/unit/test_notebooks.py       generation and no-overwrite; the git filter strips outputs
 
-Data flow: name, slugified, gives `notebooks/<date>_<slug>.ipynb`. The template is read
+Data flow: name, slugified, gives `src/notebooks/<date>_<slug>.ipynb`. The template is read
 with nbformat, `{{DATE}}`, `{{TITLE}}`, `{{NAME}}`, `{{AUTHOR}}` and `{{CREATED}}` are
 replaced in every cell source, the result is written with nbformat, the path is printed.
 Slug rule is the lab notebook's: lowercase, runs of non-alphanumerics become one dash,

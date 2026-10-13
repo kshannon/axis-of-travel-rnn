@@ -2,7 +2,7 @@
 Listing registered artifacts: datasets, models and experiments.
 """
 
-from ..store import open_store
+from axis_of_travel_rnn.store import open_store
 from ._output import emit, table
 
 OPTIONAL = ("environment", "dataset", "created", "description")

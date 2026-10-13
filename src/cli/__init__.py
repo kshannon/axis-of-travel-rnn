@@ -1,12 +1,12 @@
 """
-Command-line entry point: subiculum-rnn <group> <command>.
+Command-line entry point: axis-of-travel-rnn <group> <command>.
 """
 
 import argparse
 
-from .. import __version__
-from ..store import ENV_VAR, StoreError
-from . import artifacts, env, notebook, store
+from axis_of_travel_rnn import __version__
+from axis_of_travel_rnn.store import ENV_VAR, StoreError
+from . import artifacts, env, labnote, notebook, store
 from ._output import fail, not_implemented
 
 GROUPS = {
@@ -18,6 +18,7 @@ GROUPS = {
     "analysis": "hidden states and axis-of-travel analysis",
     "experiment": "experiments: populations of models",
     "notebook": "jupyter notebooks from the template",
+    "labnote": "lab notebook entries from the template",
 }
 
 STUBS = (
@@ -40,7 +41,7 @@ STUBS = (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="subiculum-rnn",
+        prog="axis-of-travel-rnn",
         description="Axis-of-travel emergence in position-predicting RNNs.",
         epilog="Exit codes: 0 success, 1 no command, 2 usage error or unusable store, "
                "3 not implemented, 4 provenance mismatch.")
@@ -61,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     artifacts.register(commands["model"], "models")
     artifacts.register(commands["experiment"], "experiments")
     notebook.register(commands["notebook"])
+    labnote.register(commands["labnote"])
     for group_name, command, summary in STUBS:
         p = commands[group_name].add_parser(command, help=summary)
         p.set_defaults(func=not_implemented, name=f"{group_name} {command}")

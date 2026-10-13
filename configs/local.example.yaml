@@ -1,3 +1,3 @@
 STORE: /path/to/subiculum-rnn-store
-RAW_DATA: /path/to/raw-matlab-files
-TRANSFORMED_RAW_DATA: /path/to/transformed-raw-tables
+LAB_DATA: /path/to/lab-matlab-files
+TRANSFORMED_LAB_DATA: /path/to/transformed-lab-data

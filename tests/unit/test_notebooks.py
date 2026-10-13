@@ -1,18 +1,18 @@
 """
-New notebooks: the filled template, the refusal to overwrite, and the git filter.
+New notebooks and lab notes: the filled template, the refusal to overwrite, and the git filter.
 """
 
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import nbformat
 import pytest
 
-from subiculum_rnn.notebooks import new_notebook, slugify
-from subiculum_rnn.paths import repo_root
+from proj_helpers.notebooks import new_labnote, new_notebook, slugify
+from proj_helpers.paths import repo_root
 
 
 def _run(cwd: Path, command: list[str]) -> str:
@@ -46,6 +46,30 @@ def test_new_notebook_fills_the_template_and_refuses_to_overwrite(tmp_path: Path
     assert slugify("  Hello,  World!! ") == "hello-world"
     with pytest.raises(ValueError, match="no letters or digits"):
         new_notebook("!!!", **options)
+
+
+NOW = datetime(2026, 10, 12, 9, 5, 7, tzinfo=timezone(timedelta(hours=-7)))
+
+
+def test_new_labnote_without_words_is_named_by_the_date(tmp_path: Path):
+    path = new_labnote(directory=tmp_path, now=NOW)
+    assert path == tmp_path / "2026-10-12.md"
+    assert path.read_text() == ("---\ndate: 2026-10-12\ncreated: 2026-10-12T09:05:07-0700\n"
+                                "tags: []\n---\n\n# 2026-10-12\n\n")
+
+
+def test_new_labnote_with_words_is_named_by_the_slug(tmp_path: Path):
+    path = new_labnote("Axis  Analysis, Take 2!", directory=tmp_path, now=NOW)
+    assert path == tmp_path / "2026-10-12__axis-analysis-take-2.md"
+    assert "\n# axis analysis take 2\n" in path.read_text()
+    with pytest.raises(ValueError, match="slug is empty"):
+        new_labnote("!!!", directory=tmp_path, now=NOW)
+
+
+def test_new_labnote_refuses_an_existing_file(tmp_path: Path):
+    new_labnote("notes", directory=tmp_path, now=NOW)
+    with pytest.raises(FileExistsError, match="2026-10-12__notes.md already exists"):
+        new_labnote("notes", directory=tmp_path, now=NOW)
 
 
 def test_git_filter_stores_notebooks_without_outputs(tmp_path: Path):
