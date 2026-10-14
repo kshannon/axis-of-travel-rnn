@@ -69,7 +69,7 @@ settings and dotfiles are never changed by project work.
   analysis as they land. `src/cli/`: the command line. `src/environments/`:
   environment geometry.
 - `src/proj_helpers/`: paths, lab data access, new notebooks and lab notes.
-- `src/lab_data_transform/`: the lab data converter (`docs/lab_data_transform/`).
+- `src/transform_lab_data/`: the lab data converter (`docs/transform_lab_data/`).
 - `src/notebooks/`: the working notebooks. `templates/`: the notebook and lab
   note templates.
 - `datasets/`: datasets on disk, git-ignored.

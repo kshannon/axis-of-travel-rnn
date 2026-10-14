@@ -94,16 +94,16 @@ that file only, and exits 2 naming the problem if one is missing, `LAB_DATA` is
 not a folder, or the output folder is inside the lab folder or this repository.
 
 ```bash
-pixi run transform-lab --dry-run      # list sessions, skipped files and the files it would write; writes nothing
-pixi run transform-lab                # convert every session
-pixi run transform-lab --sample 2     # only the first 2 sessions per subject
-pixi run transform-lab --only NS14    # only sessions whose id starts with NS14
+pixi run transform-lab-data --dry-run      # list sessions, skipped files and the files it would write; writes nothing
+pixi run transform-lab-data                # convert every session
+pixi run transform-lab-data --sample 2     # only the first 2 sessions per subject
+pixi run transform-lab-data --only NS14    # only sessions whose id starts with NS14
 ```
 
 Do the dry run first. A real run exits 0 when every selected session was
 written and 1 when any failed. Each run rewrites the tables, so a run with
 `--only` or `--sample` leaves tables for just those sessions; to start clean,
-delete the output folder. Details are in [docs/lab_data_transform/](docs/lab_data_transform/).
+delete the output folder. Details are in [docs/transform_lab_data/](docs/transform_lab_data/).
 
 ## How synthetic data will be generated
 
@@ -130,12 +130,12 @@ src/
   cli/                 the command line entry point: groups, stub table, real commands
   environments/        parametric geometry (triple-T, open arena, plus maze), content hashes, RatInABox adapter
   proj_helpers/        machine-local paths, lab data access, new notebooks and lab notes from the templates
-  lab_data_transform/  the lab data converter (docs/lab_data_transform/), `pixi run transform-lab`
+  transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
   notebooks/           the working Jupyter notebooks
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored; synthetic/
 tests/           unit tests for the store and the CLI
-docs/            per-feature spec, plan and tasks (cli/, lab_data_transform/, notebooks/)
+docs/            per-feature spec, plan and tasks (cli/, transform_lab_data/, process_lab_data/, notebooks/)
 artifacts/       the default store: datasets, models, experiments (git-ignored, regenerable)
 labnotebook/     dated entries, `pixi run new-labnote`
 ```

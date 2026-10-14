@@ -1,5 +1,5 @@
 """
-Convert the lab's MATLAB files into CSV tables and Parquet frames, run as pixi run transform-lab.
+Convert the lab's MATLAB files into CSV tables and Parquet frames, run as pixi run transform-lab-data.
 """
 
 import argparse
@@ -19,7 +19,7 @@ def parse_args(argv):
     The command line: --dry-run, --only PREFIX and --sample N, where N is at least 1.
     """
     parser = argparse.ArgumentParser(
-        prog="lab_data_transform", description="Convert the lab's MATLAB files to CSV tables and Parquet frames.")
+        prog="transform_lab_data", description="Convert the lab's MATLAB files to CSV tables and Parquet frames.")
     parser.add_argument("--dry-run", action="store_true", help="print what would be converted and written, then stop")
     parser.add_argument("--only", metavar="PREFIX",
                         help="sessions whose id is PREFIX or continues it after an underscore")
@@ -34,7 +34,7 @@ def refuse(message):
     """
     Print a configuration problem to stderr and exit 2.
     """
-    print(f"lab_data_transform: {message}", file=sys.stderr)
+    print(f"transform_lab_data: {message}", file=sys.stderr)
     raise SystemExit(2)
 
 

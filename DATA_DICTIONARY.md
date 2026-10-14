@@ -1,6 +1,6 @@
 # Data dictionary
 
-Exact shapes and columns for the lab's variables and our tables are in docs/lab_data_transform/tables.md.
+Exact shapes and columns for the lab's variables and our tables are in docs/transform_lab_data/tables.md.
 
 **60 Hz:** The camera takes 60 frames every second, so one frame lasts 1/60 of a second, about 17 ms.
 

@@ -14,8 +14,8 @@ version   = "0.1.0"
 # Lab notebook: a dated entry from templates/labnotebook.md, optional slug words
 new-labnote = 'axis-of-travel-rnn labnote new'
 
-# Lab data converter (docs/lab_data_transform/): MATLAB files to CSV and Parquet
-transform-lab = "python -m lab_data_transform"
+# Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
+transform-lab-data = "python -m transform_lab_data"
 
 # Testing
 test     = "python -m pytest"
