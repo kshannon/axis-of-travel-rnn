@@ -1,3 +1,4 @@
 STORE: /path/to/subiculum-rnn-store
 LAB_DATA: /path/to/lab-matlab-files
-TRANSFORMED_LAB_DATA: /path/to/transformed-lab-data
+TRANSFORMED_LAB_DATA: /path/to/transformed-lab-data # conversion of lab .mat data to .csv/.parquets
+PROCESSED_LAB_DATA: /path/to/processed-lab-data # process the transformed data for synthetic generator
