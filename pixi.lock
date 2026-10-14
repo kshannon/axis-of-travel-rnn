@@ -2336,7 +2336,7 @@ packages:
 - pypi: ./
   name: axis-of-travel-rnn
   version: 0.1.0
-  sha256: 71c9e0f99e77da004125a9cafcbd5ab109253d28782c6ab4163f37ba5e44f7f3
+  sha256: 535053178cc96076f00df3f27a448d02186ac5594f3d90b3a8e87145db4496d5
   requires_dist:
   - numpy>=1.26
   - pydantic>=2.5

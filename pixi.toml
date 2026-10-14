@@ -20,6 +20,9 @@ transform-lab-data = "python -m transform_lab_data"
 # Lab data processor (docs/process_lab_data/): the converter's tables to trajectory blocks in metres
 process-lab-data = "python -m process_lab_data"
 
+# Lab data viewer (docs/view_lab_data/): play blocks and runs in the browser, save a verdict per run
+view-lab-data = "python -m view_lab_data"
+
 # Testing
 test     = "python -m pytest"
 test-cov = "python -m pytest --cov=src --cov-report=term-missing"
