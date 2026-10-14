@@ -12,9 +12,9 @@ Read with spec.md. No code.
         kinematics.py      the one versioned derivation of speed and turn rate (also used by synthetic data)
         output.py          write a block parquet, the blocks csv, the manifest
     src/axis_of_travel_rnn/trajectory.py   the schema and the loader that reads a block (real or synthetic)
-    tests/unit/lab_data_clean/             small synthetic tables, no real data
-    configs/local.example.yaml             CLEAN_LAB_DATA
-    pixi.toml                              task clean-lab
+    tests/unit/process_lab_data/           small synthetic tables, no real data
+    configs/local.example.yaml             PROCESSED_LAB_DATA
+    pixi.toml                              task process-lab-data
 
 ## Data flow
 
@@ -40,7 +40,7 @@ csv files and the manifest. `--dry-run` stops after the funnel and prints what w
 - Blocks, not runs, are the unit (spec Overview). Labels carry the runs.
 - One derivation of speed and turn rate for real and synthetic trajectories, in the core package
   and versioned in the manifest, so statistics compare like with like.
-- Native 60 Hz and metres on disk. No resampling, no cell encoding. The place cell encoding
+- Native 60 Hz and meters on disk. No resampling, no cell encoding. The place cell encoding
   belongs to the model config, not the dataset.
 - Frame parameters are fitted per session and per epoch and written down, never hard coded.
 - Phase labels follow the first rule in the spec until the viewer says otherwise.

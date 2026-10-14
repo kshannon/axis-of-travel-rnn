@@ -1,9 +1,9 @@
 # Lab data clean
 
-Stage 2 of the lab data: turn the converter's tables (stage 1, `docs/lab_data_transform/`) into
+Stage 2 of the lab data: turn the converter's tables (stage 1, `docs/transform_lab_data/`) into
 continuous, labelled trajectories in metres, the validation set for a trained network and the
 source of the statistics the synthetic generator is fitted to. Everything is written outside
-the repository under `CLEAN_LAB_DATA` in `configs/local.yaml`.
+the repository under `PROCESSED_LAB_DATA` in `configs/local.yaml`.
 
 ## Out of Scope
 
@@ -49,7 +49,7 @@ camera convention (LED2 to LED1, y down) to the convention (0 along +x, counterc
 The track rotated so its axes align with the room axes and translated so the start site maps
 to the config's start. Scale, flip, rotation and offset go in the manifest per session.
 
-### Outputs, under `CLEAN_LAB_DATA`
+### Outputs, under `PROCESSED_LAB_DATA`
 
 `track/blocks.csv` and `arena/blocks.csv`, one wide row per block: `block_id`, `session_id`,
 `subject_id`, `date`, `environment`, `epoch`, `frame_start`, `frame_end`, `duration_s`,
@@ -75,7 +75,7 @@ epoch, scale within 20 percent of the session's track-extent estimate, runs in `
 
 ## Non-Functional Requirements
 
-`src/lab_data_clean/` in the shape of the converter: `__main__.py`, named values at the top of
-each file, one-line docstrings, `pixi run clean-lab`, `--dry-run`, exit 0, 1 (a session failed a
+`src/process_lab_data/` in the shape of the converter: `__main__.py`, named values at the top of
+each file, one-line docstrings, `pixi run process-lab-data`, `--dry-run`, exit 0, 1 (a session failed a
 check) or 2 (setup). pyarrow and numpy only. Tests on small synthetic tables: block cutting at
 pauses and gaps, the frame conversion on known points, phase labels on a scripted run.
