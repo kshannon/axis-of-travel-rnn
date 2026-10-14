@@ -4,8 +4,9 @@ Turn the converter's tables into labelled trajectory blocks in metres, run as pi
 
 import argparse
 import sys
-from collections import Counter
 from pathlib import Path
+
+import numpy as np
 
 from proj_helpers import paths
 from proj_helpers.paths import repo_root
@@ -27,6 +28,7 @@ def parse_args(argv):
     parser.add_argument("--dry-run", action="store_true", help="print the funnel counts and what would be written, then stop")
     parser.add_argument("--only", metavar="PREFIX",
                         help="sessions whose id is PREFIX or continues it after an underscore")
+    parser.add_argument("--list", action="store_true", help="with --dry-run, also print one line per block")
     return parser.parse_args(argv)
 
 
@@ -69,17 +71,21 @@ def print_counts(counts):
         print(f"  {step}: {count}")
 
 
-def dry_run(epochs, root):
+def dry_run(blocks, root, listing):
     """
-    Print the epochs that would become blocks, per kind and one per line, and the files that would be written.
+    Print the blocks that would be written per kind, their duration spread, the files to write and, with --list, each block.
     """
-    print("dry run, nothing is written")
-    print("epochs that would become blocks per kind:")
-    for kind, count in sorted(Counter(e["epoch"] for e in epochs).items()):
-        print(f"  {kind}: {count}")
-    print(f"epochs that would become blocks ({len(epochs)}):")
-    for e in epochs:
-        print(f"  {e['session_id']}  {e['epoch']}  {e['duration_s']:.0f} s")
+    print(f"dry run, nothing is written (gap rule: {select.GAP_LIGHTS} light unfilled over max_gap)")
+    print("blocks per kind: count, total s, duration s at min, median, 90th percentile, max")
+    for kind in select.EPOCHS:
+        seconds = [b["duration_s"] for b in blocks if b["epoch"] == kind]
+        if seconds:
+            spread = ", ".join(f"{v:.0f}" for v in np.percentile(seconds, [0, 50, 90, 100]))
+            print(f"  {kind}: {len(seconds)} blocks, {sum(seconds):.0f} s, durations {spread}")
+    if listing:
+        print(f"blocks ({len(blocks)}):")
+        for b in blocks:
+            print(f"  {b['block_id']}  {b['n_frames']} frames  {b['duration_s']:.1f} s")
     print(f"files to write under {root}:")
     for name in BLOCKS_CSV + (MANIFEST,):
         print(f"  {name}")
@@ -91,12 +97,14 @@ def main(argv=None, config=None):
     """
     args = parse_args(argv)
     source, root = roots(paths.local_config() if config is None else config)
-    epochs, counts = select.funnel(select.read_tables(source), args.only)
-    print_counts(counts)
+    tables = select.read_tables(source)
+    epochs, counts = select.funnel(tables, args.only)
+    blocks, block_counts = select.blocks_of(source, epochs, tables["sessions"])
+    print_counts(counts + block_counts)
     if args.dry_run:
-        dry_run(epochs, root)
+        dry_run(blocks, root, args.list)
         return 0
-    print("block writing arrives with T3 and T6, nothing is written", file=sys.stderr)
+    print("block writing arrives with T6, nothing is written", file=sys.stderr)
     return 3
 
 

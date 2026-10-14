@@ -8,6 +8,8 @@ import pytest
 
 import process_lab_data.__main__ as entry
 
+from .conftest import S1, S6
+
 # the transformed folder and the output folder under tmp_path, the tables in "transformed", None leaving that key out
 GUARDS = [
     pytest.param("transformed", None, "PROCESSED_LAB_DATA", id="a missing key"),
@@ -33,11 +35,14 @@ def test_a_bad_setup_exits_2_naming_the_problem(tmp_path, transformed, monkeypat
     assert problem in capsys.readouterr().err
 
 
-def test_a_dry_run_prints_the_funnel_and_writes_nothing(config, transformed, capsys):
+def test_a_dry_run_prints_the_funnel_and_the_blocks_and_writes_nothing(config, transformed, capsys):
     before = sorted(transformed.rglob("*"))
-    assert entry.main(["--dry-run"], config=config) == 0
+    assert entry.main(["--dry-run", "--list"], config=config) == 0
     out = capsys.readouterr().out
     assert "sessions, all sessions: 6" in out and "epochs, condition baseline: 3" in out
+    assert "blocks, cut at pauses and gaps: 4" in out and "blocks, at least 10 s: 2" in out
+    assert "  arena: 1 blocks, 10 s, durations 10, 10, 10, 10" in out
+    assert f"  {S1}_track_01  600 frames  10.0 s" in out and S6 not in out
     assert "track/blocks.csv" in out and "manifest.json" in out
     assert not Path(config["PROCESSED_LAB_DATA"]).exists()
     assert sorted(transformed.rglob("*")) == before

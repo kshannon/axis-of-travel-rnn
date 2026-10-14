@@ -36,16 +36,22 @@ viewer, keyed by `block_id` or `(session_id, run)`) when present.
 
 Sessions: `protocol == standard`, not `exclude` in annotations, group not JL1HPCData. Epochs:
 `arena` and `track` with `condition == baseline`. A block is cut at every pause (a step in `t`
-over 0.1 s), at every stretch with either light unfilled for more than `max_gap` frames, and at
-the epoch bounds. Also blocks shorter than 10 secs will be dropped. Runs keep the lab's `clean` flag
+over 0.1 s), at every stretch with both lights unfilled for more than `max_gap` frames (decided
+2026-10-14 from the dry runs, see blocks.md: cutting on either light fragmented the track into
+15 s pieces), and at the epoch bounds. Also blocks shorter than 10 secs will be dropped. Runs keep the lab's `clean` flag
 and a run flagged `duplicate_of` keeps only its first occurrence. `overlap_frames` is applied by the
 cut rule defined in tables.md 3.1. The counts surviving each step are printed and written to the manifest.
 
 ### Frame conversion
 
 Per session and epoch: pixel scale from the median LED separation (5 cm, Olson 2017), fitted
-separately for track and arena (parallax), `y` flipped so north is up, heading converted from
-camera convention (LED2 to LED1, y down) to the convention (0 along +x, counterclockwise).
+separately for track and arena (parallax). Position is the lab's mashup light: the midpoint of
+the two LEDs, or the one good LED when the other is lost, with `n_lights` (2 or 1) per frame
+saying which. `y` flipped so north is up, heading converted from camera convention (LED2 to
+LED1, y down) to the convention (0 along +x, counterclockwise) and then rotated by the session's
+LED offset, the circular mean of heading minus motion direction over running frames (about 110
+degrees, the LEDs are not mounted along the body axis), so 0 is the direction of travel on
+average. Heading is NaN where one LED is lost.
 The track rotated so its axes align with the room axes and translated so the start site maps
 to the config's start. Scale, flip, rotation and offset go in the manifest per session.
 
@@ -56,7 +62,7 @@ to the config's start. Scale, flip, rotation and offset go in the manifest per s
 `n_runs`, `n_clean_runs`, `scale_px_per_m`, why it survived. `track/blocks/<block_id>.parquet`
 and `arena/blocks/<block_id>.parquet`, one row per 60 Hz frame, the trajectory schema
 (`docs/trajectory/spec.md`, revised here): `t`, `x`, `y` (m), `heading` (rad), `speed`,
-`turn_rate` (derived by the one versioned function: smooth, then difference), `filled_front`,
+`turn_rate` (derived by the one versioned function: smooth, then difference), `n_lights`, `filled_front`,
 `filled_back`, `phase` (outbound, dwell, return, pause, forage), `run`, `path_id`, `clean`.
 `manifest.json`: rules and constants, per-session frame parameters, the funnel counts, the
 converter manifest's timestamp.
@@ -69,7 +75,7 @@ wherever speed stays below 3 cm/s for over 1 s outside a dwell. `forage` in the 
 
 ### Checks
 
-No NaN in `x`, `y` or `heading` inside a block, `t` steps equal 1/60 s, a block lies inside its
+No NaN in `x` or `y` inside a block, `t` steps equal 1/60 s, a block lies inside its
 epoch, scale within 20 percent of the session's track-extent estimate, runs in `runs.csv` and
 `run` labels agree, and finally every selected frame is in exactly one block.
 
