@@ -41,6 +41,9 @@ Does an axis-of-travel-like representation emerge in a vanilla RNN trained only 
   reviews the diff and runs the tests before anything is committed.
 - Flag any choice that could change the scientific interpretation. Report
   exactly what changed and what was verified.
+- Every figure carries a title, a short caption saying how to read it and what
+  it shows, and which data made it (dataset or session ids, preset, seed). A
+  figure without these is not finished, in notebooks, scripts and reports alike.
 
 ## Branches, commits and pushes
 
