@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import scipy.io as sio
 
-from lab_data_transform.transform_helpers.readers import TRACKING_PROVENANCE, TRACKING_REQUIRED
+from transform_lab_data.transform_helpers.readers import TRACKING_PROVENANCE, TRACKING_REQUIRED
 
 
 def session_names(subject, rec, mmddyy, session, tag=None, tag_first=False):

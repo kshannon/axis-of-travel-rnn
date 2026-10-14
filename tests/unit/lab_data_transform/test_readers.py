@@ -2,7 +2,7 @@
 The finding half of readers: the lab's file names become sessions, with skips and selection.
 """
 
-from lab_data_transform.transform_helpers.readers import catalog, select
+from transform_lab_data.transform_helpers.readers import catalog, select
 
 from .synthetic_mat import session_names
 

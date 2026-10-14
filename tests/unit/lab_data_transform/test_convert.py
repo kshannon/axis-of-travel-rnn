@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lab_data_transform.transform_helpers import checks
-from lab_data_transform.transform_helpers.convert import build_runs, pair_events
-from lab_data_transform.transform_helpers.convert import convert as convert_record
-from lab_data_transform.transform_helpers.orchestrator import Record
-from lab_data_transform.transform_helpers.readers import (
+from transform_lab_data.transform_helpers import checks
+from transform_lab_data.transform_helpers.convert import build_runs, pair_events
+from transform_lab_data.transform_helpers.convert import convert as convert_record
+from transform_lab_data.transform_helpers.orchestrator import Record
+from transform_lab_data.transform_helpers.readers import (
     ANALYSIS_PROVENANCE, ANALYSIS_VARIABLES, DVT_COLUMNS, FLAGS, TRACKING_PROVENANCE, TRACKING_REQUIRED, Session, read,
 )
 

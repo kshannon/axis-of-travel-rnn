@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-import lab_data_transform.__main__ as entry
-from lab_data_transform.transform_helpers import convert
+import transform_lab_data.__main__ as entry
+from transform_lab_data.transform_helpers import convert
 
 from .synthetic_mat import example_session, session_names, write_session
 
