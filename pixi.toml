@@ -17,6 +17,9 @@ new-labnote = 'axis-of-travel-rnn labnote new'
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
 
+# Lab data processor (docs/process_lab_data/): the converter's tables to trajectory blocks in metres
+process-lab-data = "python -m process_lab_data"
+
 # Testing
 test     = "python -m pytest"
 test-cov = "python -m pytest --cov=src --cov-report=term-missing"

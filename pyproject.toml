@@ -32,6 +32,7 @@ packages = [
   "src/environments",
   "src/proj_helpers",
   "src/transform_lab_data",
+  "src/process_lab_data",
 ]
 
 [tool.pytest.ini_options]
