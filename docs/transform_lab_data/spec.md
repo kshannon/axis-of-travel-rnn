@@ -18,7 +18,7 @@ reads every session it can and writes, under the transformed lab data root, `ses
 converter. `session_id` is on every row, conditions are labels (the baseline set is a filter,
 not a loader branch), and the lab's segmentation and labels are copied, never invented.
 
-It is the package `src/lab_data_transform/`, run with `pixi run transform-lab`, not part of the
+It is the package `src/transform_lab_data/`, run with `pixi run transform-lab-data`, not part of the
 CLI. `LAB_DATA` and `TRANSFORMED_LAB_DATA` come from `configs/local.yaml`, never from arguments.
 Columns and the quirks of the lab's files are in `tables.md`, plain-English terms in
 `DATA_DICTIONARY.md`, the structure, checks and decisions in `plan.md`.
@@ -39,7 +39,7 @@ Columns and the quirks of the lab's files are in `tables.md`, plain-English term
 
 ### Running the converter
 
-`pixi run transform-lab`, three optional flags that combine:
+`pixi run transform-lab-data`, three optional flags that combine:
 
 - `--dry-run`: prints the sessions it would convert, the skipped names with reasons, counts per
   group and the files it would write. Opens no `.mat` file, writes nothing.
@@ -113,7 +113,7 @@ frame) is not checked; stage 2 filters on those columns. The lists are in `plan.
   in `plan.md`. No real data in the repository, ever.
 - AGENTS.md rule 3 is reworded in its own pull request: the recordings and the per-frame, per-run
   and per-event tables made from them never enter the repository, the artifact store or the CLI;
-  the code that converts them lives in `src/lab_data_transform/` and reads and writes outside the
+  the code that converts them lives in `src/transform_lab_data/` and reads and writes outside the
   repository; only aggregate statistics files reach the tool.
 
 ## Out of Scope

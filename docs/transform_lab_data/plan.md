@@ -5,7 +5,7 @@ its one-line docstring.
 
 ## Architecture
 
-    src/lab_data_transform/
+    src/transform_lab_data/
         __main__.py          command line, setup guards, dry-run text, summary, exit code
         transform_helpers/
             readers.py       file names to sessions, skips, --only, --sample; both MATLAB formats read
@@ -13,8 +13,8 @@ its one-line docstring.
             checks.py        pass, warn or fail on the read variables and on the converted rows
             orchestrator.py  Record (one session through the stages) and Orchestrator (the run, the writes)
             output.py        write_frames, write_csv, write_json
-    tests/unit/lab_data_transform/   conftest.py, synthetic_mat.py, test_readers.py, test_main.py, test_convert.py
-    pixi.toml (h5py, pyarrow, task transform-lab)      pyproject.toml (pytest pythonpath = ["src"])
+    tests/unit/transform_lab_data/   conftest.py, synthetic_mat.py, test_readers.py, test_main.py, test_convert.py
+    pixi.toml (h5py, pyarrow, task transform-lab-data)      pyproject.toml (pytest pythonpath = ["src"])
 
 Each file reads as imports, one block of named values, then functions. Imports flow one way: `readers` and
 `output` import nothing of ours, `convert` imports `readers`, `checks` both, `orchestrator` all four, `__main__`

@@ -19,10 +19,10 @@ Findings are in tables.md 1.4. Nothing was committed.
 
 ## Build (done)
 
-- [x] S1 Dependencies and config: full `pyarrow`, `h5py`, the task `transform-lab`, pytest `pythonpath`
+- [x] S1 Dependencies and config: full `pyarrow`, `h5py`, the task `transform-lab-data`, pytest `pythonpath`
   (commit 0bb0250). [Non-Functional]
 - [x] S2 to S10 The package and its tests: `readers`, `convert`, `checks`, `output`, `orchestrator`, `__main__`,
-  and the synthetic session in both MATLAB formats. Verify: `pixi run test`; `pixi run transform-lab --dry-run`.
+  and the synthetic session in both MATLAB formats. Verify: `pixi run test`; `pixi run transform-lab-data --dry-run`.
   [Inputs, Running, Behavior, Checks]
 - [x] R1 to R6 Reworked on 2026-10-11 and 2026-10-12 from a `schema.yaml` and a pipeline into one `Record` passed
   through the stages, plain definitions in the files that use them, a plain writer and a smaller test suite. The
@@ -39,5 +39,5 @@ Findings are in tables.md 1.4. Nothing was committed.
   timestamps should differ. By the author, commits nothing. [Running]
 - [ ] Rule 3 AGENTS.md reword, in its own pull request (spec Non-Functional).
 - [ ] S13 Once S12b is clean: the lab-data notebooks and `src/proj_helpers/lab_data_access.py` import `load_mat`
-  and the catalog from `lab_data_transform` instead of their own copies. Commit: "Import the lab data reader and
+  and the catalog from `transform_lab_data` instead of their own copies. Commit: "Import the lab data reader and
   catalog from the converter package in the notebooks". [Non-Functional]
