@@ -58,7 +58,7 @@ def test_session_index_lists_the_funnel_and_the_automatic_blocks(client, attache
 
 def test_a_session_is_served_as_a_header_and_arrow_arrays(client, attached):
     header = client.get(f"/api/sources/{attached[0]}/sessions/{S1}").json()
-    assert header["n_frames"] == 5400 and header["heading_filled"] == [[2800, 2919]]
+    assert header["n_frames"] == 5400 and header["heading_filled"] == [[2800, 2919]] and header["block_epochs"] == ["arena", "track"]
     assert [b["frame_start"] for b in header["blocks"]] == [301, 2101]
     assert header["occupancy"]["bins"] ** 2 == len(header["occupancy"]["counts"]["arena"])
     columns = arrays_of(client.get(f"/api/sources/{attached[0]}/sessions/{S1}/arrays"))
@@ -119,6 +119,36 @@ def test_a_preview_applies_the_edits_and_writes_nothing(client, attached, proces
     assert preview["flagged_runs"] == [2]
     assert [e["frame"] for e in preview["skipped"]] == [5] and preview["cuts"][0]["frame_start"] == 2200
     assert not (processed / "review").exists()
+
+
+def test_a_preview_says_why_each_edit_was_skipped(client, attached):
+    url = f"/api/sources/{attached[0]}/sessions/{S1}/review/preview"
+    new = [{"op": "new", "frame_start": 400, "frame_end": 410}, {"op": "new", "frame_start": 1400, "frame_end": 1600},
+           {"op": "new", "frame_start": 400, "frame_end": 1100}]
+    edits = [{"op": "drop", "frame": 1000}, {"op": "confirm", "frame": 5}, *new, {"op": "new", "frame_start": 400, "frame_end": 1100}]
+    skipped = client.post(url, json={"edits": edits}).json()["skipped"]
+    assert [e["reason"] for e in skipped] == ["no block holds frame 5", "a new block must last 10 s or more",
+                                              "a new block must lie between two cuts: no pause, gap or epoch bound inside it",
+                                              "a new block cannot overlap a block that is kept, remove that block first"]
+    assert [e["op"] for e in skipped] == ["confirm", "new", "new", "new"]
+
+
+def arena_blocks(blocks):
+    """
+    The frame range and status of the arena blocks.
+    """
+    return [(b["frame_start"], b["frame_end"], b["status"]) for b in blocks if b["epoch"] == "arena"]
+
+
+def test_an_edit_at_a_frame_a_removed_block_and_a_kept_one_share_reaches_the_kept_one(client, attached):
+    url = f"/api/sources/{attached[0]}/sessions/{S6}/review"
+    edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299},
+             {"op": "move", "frame": 449, "edge": "start", "at": 399}]
+    expected = [(301, 1500, "dropped"), (449, 1299, "edited")]
+    assert arena_blocks(client.post(f"{url}/preview", json={"edits": edits}).json()["blocks"]) == expected
+    assert arena_blocks(client.put(url, json={"edits": edits}).json()["review"]["blocks"]) == expected
+    removed = client.post(f"{url}/preview", json={"edits": [*edits[:3], {"op": "drop", "frame": 399}]}).json()["blocks"]
+    assert arena_blocks(removed) == [(301, 1500, "dropped"), (399, 1299, "dropped")]
 
 
 def test_block_verdicts_follow_the_window_settings(client, attached):

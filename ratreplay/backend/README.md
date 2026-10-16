@@ -41,7 +41,7 @@ file), then `reviewed`, `reviewed_at`, `reviewed_by`, `n_confirmed`, `confirmed_
 Dataset sessions come first, then unreviewed ones, then the oldest review first.
 
 A session is two requests. The header is json: `session_id, subject_id, date, protocol, group, rate_hz, max_gap,
-n_frames`, `epochs`, `runs`, `cuts` (`pauses` and `jumps` as frame numbers, `gaps` and `margins` as [first, last]
+n_frames`, `epochs`, `block_epochs` (the epoch kinds the processor cuts into blocks), `runs`, `cuts` (`pauses` and `jumps` as frame numbers, `gaps` and `margins` as [first, last]
 pairs), `heading_lost`, `heading_filled`, `heading_held` (lists of [first, last] lab frames), `led_offset` (`rad`, `r`),
 `occupancy` (`bins`, the `x` and `y` extent and, by epoch name, the counts row by row from the lowest y, bins squared
 values) and `blocks`, the automatic blocks. The arrays are an Arrow IPC stream (`application/vnd.apache.arrow.stream`),
@@ -58,11 +58,14 @@ one row per frame in frame order, frame number is the row index plus one: `t` s,
 An edit is `{"op", ...}`. The ops and their fields are `accept`, `confirm {frame}`, `move {frame, edge, at}`,
 `split {frame}`, `drop {frame}`, `new {frame_start, frame_end}`, `cut {frame_start, frame_end}` and `flag {run}`,
 listed in `GET /api/format`. The server replays them on the automatic blocks with the processor's rules, so an edit that
-no longer applies is skipped. PUT writes `review/<session_id>.json` whole under the processed folder and answers
+no longer applies is skipped. An edit anchored at a frame (`confirm`, `move`, `split`, `drop`) reaches the block
+holding it, a block that is not removed before one that is, so a new block over a removed one is the one reached. PUT
+writes `review/<session_id>.json` whole under the processed folder and answers
 `{"review": <the file's content>, "path", "overwrote": bool}`. It is refused with 400 while a block is still auto.
 POST answers `{"blocks", "cuts", "flagged_runs", "skipped"}` and writes nothing: the blocks the edits make (with the
-review file's block keys), the ranges cut, the runs flagged and the edits skipped. It is the way a client shows the
-result of an edit, or the skipped count of a saved review, without reimplementing the rules.
+review file's block keys), the ranges cut, the runs flagged and the edits skipped, each with a `reason` (the processor's
+refusal of a new block, else that no block holds the frame it anchors to). It is the way a client shows the result of an
+edit, or the skipped count of a saved review, without reimplementing the rules.
 
 ## Blocks, any source with a built processed dataset
 

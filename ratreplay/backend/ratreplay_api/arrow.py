@@ -3,8 +3,17 @@ Arrays to Arrow IPC stream bytes, what the browser reads for a session or a bloc
 """
 
 import pyarrow as pa
+from fastapi import Response
 
 MEDIA_TYPE = "application/vnd.apache.arrow.stream"
+
+
+class ArrowResponse(Response):
+    """
+    A response of Arrow bytes, which names its media type in the OpenAPI schema too.
+    """
+
+    media_type = MEDIA_TYPE
 
 
 def encode(arrays):

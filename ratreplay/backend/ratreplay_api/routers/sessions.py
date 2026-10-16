@@ -2,7 +2,7 @@
 The sessions of a transformed source: the index, one session's facts and its arrays.
 """
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 
 from .. import arrow
 from ..managers import sessions
@@ -27,9 +27,9 @@ def session_header(session_id: str, source=Depends(transformed_source)):
     return sessions.header(source, session_id)
 
 
-@router.get("/{session_id}/arrays")
+@router.get("/{session_id}/arrays", response_class=arrow.ArrowResponse)
 def session_arrays(session_id: str, source=Depends(transformed_source)):
     """
     A session's arrays over every frame as an Arrow IPC stream.
     """
-    return Response(arrow.encode(sessions.arrays(source, session_id)), media_type=arrow.MEDIA_TYPE)
+    return arrow.ArrowResponse(arrow.encode(sessions.arrays(source, session_id)))

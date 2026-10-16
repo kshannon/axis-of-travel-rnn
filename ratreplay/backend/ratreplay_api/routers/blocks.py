@@ -4,7 +4,7 @@ The processed dataset's blocks: the index with verdicts, one block's facts and i
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query
 
 from .. import arrow
 from ..managers import blocks
@@ -30,9 +30,9 @@ def block_header(block_id: str, settings: Annotated[WindowSettings, Query()], so
     return blocks.header(source, block_id, settings.model_dump())
 
 
-@router.get("/{block_id}/arrays")
+@router.get("/{block_id}/arrays", response_class=arrow.ArrowResponse)
 def block_arrays(block_id: str, source=Depends(attached_source)):
     """
     A block's arrays over its frames as an Arrow IPC stream.
     """
-    return Response(arrow.encode(blocks.arrays(source, block_id)), media_type=arrow.MEDIA_TYPE)
+    return arrow.ArrowResponse(arrow.encode(blocks.arrays(source, block_id)))

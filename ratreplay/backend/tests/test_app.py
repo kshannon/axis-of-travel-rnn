@@ -14,6 +14,12 @@ def test_format_route_returns_the_contract(client):
     assert {"version", "transformed", "processed"} <= response.json().keys()
 
 
+def test_openapi_names_the_arrow_media_type_of_the_arrays_routes(client):
+    paths = client.get("/api/openapi.json").json()["paths"]
+    for path in ("/api/sources/{sid}/sessions/{session_id}/arrays", "/api/sources/{sid}/blocks/{block_id}/arrays"):
+        assert list(paths[path]["get"]["responses"]["200"]["content"]) == ["application/vnd.apache.arrow.stream"]
+
+
 def test_unknown_route_returns_an_error_body(client):
     response = client.get("/api/nothing")
     assert response.status_code == 404
