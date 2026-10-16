@@ -1,8 +1,14 @@
 """
-The trajectory schema and the one versioned derivation of speed and turn rate, shared by the lab data processor and the synthetic generator.
+The trajectory schema, the one versioned derivation of speed and turn rate, and the reader of a processed dataset, shared by the lab data processor, the synthetic generator, the training pipeline and RatReplay.
 """
 
+import json
+from pathlib import Path
+
 import numpy as np
+import pyarrow as pa
+import pyarrow.csv as pacsv
+import pyarrow.parquet as pq
 from scipy.signal import savgol_filter
 
 # Speed and turn rate are the first derivative of a Savitzky-Golay fit (Savitzky and Golay 1964) of order SMOOTH_ORDER
@@ -21,6 +27,16 @@ COLUMNS = {
     "phase": "U8", "trip": "int32", "run": "int32", "path_id": "int16", "clean": "bool",
 }
 PHASES = ("outbound", "dwell", "return", "pause", "forage")
+
+# A processed dataset (docs/process_lab_data/spec.md Outputs): under its root one folder per epoch kind holding the
+# blocks csv and a blocks folder of one parquet per block, named by block id, and the manifest. A block parquet holds
+# the lab frame number first, then COLUMNS. The csv's date column is read as text, as it is written.
+KINDS = ("track", "arena")
+BLOCKS_DIR = "blocks"
+BLOCKS_CSV = "blocks.csv"
+MANIFEST = "manifest.json"
+FRAME_COLUMN = "frame"
+CSV_TEXT_COLUMNS = ("date",)
 
 
 def smooth_window(rate_hz):
@@ -55,3 +71,39 @@ def kinematics(t, x, y, heading, rate_hz):
         if stop - first >= smooth_window(rate_hz):
             turn_rate[first:stop] = derivative(np.unwrap(heading[first:stop]), rate_hz)
     return speed, turn_rate
+
+
+def block_path(root, kind, block_id):
+    """
+    The block's parquet under the processed root.
+    """
+    return Path(root) / kind / BLOCKS_DIR / f"{block_id}.parquet"
+
+
+def load_block(path):
+    """
+    A block parquet as a dict of numpy arrays, the lab frame then COLUMNS in the schema's dtypes, plus block_id from the file name.
+    """
+    table = pq.read_table(path)
+    block = {FRAME_COLUMN: table.column(FRAME_COLUMN).to_numpy()}
+    block.update({name: table.column(name).to_numpy().astype(dtype) for name, dtype in COLUMNS.items()})
+    block["block_id"] = Path(path).stem
+    return block
+
+
+def list_blocks(root):
+    """
+    The rows of every kind's blocks csv in csv order, each with its kind and the path of its parquet added.
+    """
+    rows, options = [], pacsv.ConvertOptions(column_types={name: pa.string() for name in CSV_TEXT_COLUMNS})
+    for kind in KINDS:
+        table = pacsv.read_csv(Path(root) / kind / BLOCKS_CSV, convert_options=options)
+        rows += [{**row, "kind": kind, "path": block_path(root, kind, row["block_id"])} for row in table.to_pylist()]
+    return rows
+
+
+def read_manifest(root):
+    """
+    The processed dataset's manifest as a dict.
+    """
+    return json.loads((Path(root) / MANIFEST).read_text())

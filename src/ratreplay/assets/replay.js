@@ -9,6 +9,11 @@
 // and the marks go to the server in the ui store, when they change, so it can fill the Block card and grey the actions.
 // Hints from here and notices from the server share one message area that fades after MESSAGE_MS. The occupancy comes
 // as one grid per epoch and the view chooses which are shown.
+// The Blocks tab replays one built block in metres with the same wall-clock playback: the block arrives once in the
+// block-data store, its lanes drawn by the server in block-lanes-base, and blockTick draws the frame asked for. Its
+// keys and its play button (data-block-key) go through the block-keys store, and the key handler sends a key to the
+// player of the tab on screen. Both players are plain objects holding their index, their rate and their frame count,
+// and the playback functions take the player they move.
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const OCCUPANCY_SCALE = [[0, "rgba(0,0,0,0)"], [1, "rgba(60,60,60,0.55)"]];
@@ -27,6 +32,7 @@ const ARROW_COLOUR = "#d62728";
 const RANGE_PAD = 0.05;
 const SPEED_SCALE_PERCENTILE = 0.95;
 const MINUTE_S = 60;
+const CM_PER_M = 100;
 const LANES_HZ = 10;
 const RUNS_AXIS = "yaxis2";
 const FRAMES_AXIS = "yaxis3";
@@ -44,20 +50,24 @@ const OPS = {Enter: "confirm", a: "accept", n: "new", d: "drop", ",": "move", ".
              z: "undo"};
 const CLICK_OPS = {glyph: "confirm", "right-click": "flag"};
 const KEYS = [" ", "ArrowLeft", "ArrowRight", "[", "]", "{", "}", "i", "o", "Escape", ...Object.keys(OPS)];
+const BLOCK_KEYS = [" ", "ArrowLeft", "ArrowRight", "[", "]"];
 const N_OUTPUTS = 10;
+const N_BLOCK_OUTPUTS = 10;
 
-const S = {session: null, base: null, blocks: [], index: 0, playing: false, speed: 1, view: "current", knobs: null,
-           anchorWall: 0, anchorIndex: 0, range: null, speedMax: 1, occupancy: {}, markIn: null, markOut: null,
+const S = {session: null, base: null, blocks: [], index: 0, n: 0, rate: 1, playing: false, speed: 1, view: "current",
+           knobs: null, anchorWall: 0, anchorIndex: 0, range: null, speedMax: 1, occupancy: {}, markIn: null, markOut: null,
            selectedFrame: null, pendingNew: false, ui: null, timer: null, path: {key: null, trace: null},
            drawnIndex: -1, actions: 0};
+const B = {block: null, base: null, arrays: null, index: 0, n: 0, rate: 1, playing: false, speed: 1, anchorWall: 0,
+           anchorIndex: 0, range: null, speedMax: 1, drawnIndex: -1};
 
 function triggered(id) {
   return dash_clientside.callback_context.triggered.some((t) => t.prop_id.startsWith(id + "."));
 }
 
-function anchor() {
-  S.anchorWall = performance.now();
-  S.anchorIndex = S.index;
+function anchor(P) {
+  P.anchorWall = performance.now();
+  P.anchorIndex = P.index;
 }
 
 function finite(values) {
@@ -94,12 +104,14 @@ function loadSession(session) {
   S.pendingNew = false;
   S.drawnIndex = -1;
   if (session.error) return;
+  S.n = session.n_frames;
+  S.rate = session.rate_hz;
   S.range = {x: axisRange(session.x, false), y: axisRange(session.y, true)};
   S.speedMax = percentile(session.speed, SPEED_SCALE_PERCENTILE);
   S.occupancy = Object.fromEntries(Object.entries(session.occupancy).map(([name, grid]) =>
     [name, {type: "heatmap", x: grid.x, y: grid.y, z: grid.z, zmin: 0, colorscale: OCCUPANCY_SCALE, showscale: false,
             hoverinfo: "skip"}]));
-  anchor();
+  anchor(S);
 }
 
 // The occupancy grids the view asks for: the epoch under the cursor, every epoch, or one by name.
@@ -109,33 +121,34 @@ function occupancyTraces(frame) {
   return S.occupancy[name] ? [S.occupancy[name]] : [];
 }
 
-function n() {
-  return S.session.n_frames;
-}
-
 // Lab frames are 1-based and contiguous, so the array index is the frame minus one.
 function lab(index) {
   return index + 1;
 }
 
-function seek(index) {
-  S.index = Math.min(Math.max(index, 0), n() - 1);
-  anchor();
+function seek(P, index) {
+  P.index = Math.min(Math.max(index, 0), P.n - 1);
+  anchor(P);
 }
 
-function step(frames) {
-  S.playing = false;
-  seek(S.index + frames);
+function step(P, frames) {
+  P.playing = false;
+  seek(P, P.index + frames);
 }
 
-function advance() {
-  const index = S.anchorIndex + Math.floor((performance.now() - S.anchorWall) / 1000 * S.speed * S.session.rate_hz);
-  S.index = Math.min(index, n() - 1);
-  if (S.index >= n() - 1) S.playing = false;
+function advance(P) {
+  const index = P.anchorIndex + Math.floor((performance.now() - P.anchorWall) / 1000 * P.speed * P.rate);
+  P.index = Math.min(index, P.n - 1);
+  if (P.index >= P.n - 1) P.playing = false;
 }
 
 function holding(items, frame) {
   return items.find((item) => item.frame_start <= frame && frame <= item.frame_end) || null;
+}
+
+// The span of a block, given as first and last array indices, holding the index.
+function spanAt(spans, index) {
+  return spans.find((span) => span.first <= index && index <= span.last) || null;
 }
 
 // The selected block as it stands now: the one holding the frame selected, so it survives renumbering.
@@ -143,20 +156,19 @@ function selected() {
   return S.selectedFrame === null ? null : holding(S.blocks, S.selectedFrame);
 }
 
-// The previous or next start among the items, relative to the cursor's lab frame.
-function jump(items, direction) {
-  const frame = lab(S.index);
-  const starts = items.map((item) => item.frame_start).sort((a, b) => a - b);
-  const target = direction > 0 ? starts.find((s) => s > frame) : starts.reverse().find((s) => s < frame);
-  if (target !== undefined) step(target - 1 - S.index);
+// The previous or next of the start indices, relative to the player's cursor.
+function jump(P, starts, direction) {
+  const sorted = [...starts].sort((a, b) => a - b);
+  const target = direction > 0 ? sorted.find((s) => s > P.index) : sorted.reverse().find((s) => s < P.index);
+  if (target !== undefined) step(P, target - P.index);
 }
 
 // The arrow is a segment from the current point plus an arrow marker pointing along the corrected heading, all in data
 // coordinates, so the reversed image y axis draws it where the data says.
-function arrowTrace(s, i) {
+function arrowTrace(s, i, range) {
   const angle = s.heading[i];
   if (angle === null || s.x[i] === null) return [];
-  const length = ARROW_FRACTION * (S.range.x[1] - S.range.x[0]);
+  const length = ARROW_FRACTION * Math.abs(range.x[1] - range.x[0]);
   return [{type: "scatter", mode: "lines+markers",
            x: [s.x[i], s.x[i] + length * Math.cos(angle)], y: [s.y[i], s.y[i] + length * Math.sin(angle)],
            line: {color: ARROW_COLOUR, width: 3},
@@ -164,11 +176,30 @@ function arrowTrace(s, i) {
            hoverinfo: "skip"}];
 }
 
+// The last TRAIL_S of the player's path coloured by speed in the unit, the current point and the heading arrow, from
+// arrays of x, y, speed and heading.
+function trailTraces(P, s, unit) {
+  const i = P.index, every = Math.max(1, Math.round(P.rate / TRAIL_HZ)), first = Math.max(0, i - TRAIL_S * P.rate);
+  const trail = [];
+  for (let k = i; k >= first; k -= every) trail.unshift(k);
+  return [
+    {type: "scatter", mode: "lines+markers", x: trail.map((k) => s.x[k]), y: trail.map((k) => s.y[k]),
+     line: {color: "rgba(0,0,0,0.35)", width: TRAIL_WIDTH},
+     marker: {size: TRAIL_MARKER, color: trail.map((k) => s.speed[k]), colorscale: "Viridis", cmin: 0, cmax: P.speedMax,
+              showscale: true, colorbar: {title: {text: `speed (${unit})`, side: "right"}, thickness: 18, len: 0.6,
+                                          outlinewidth: 0}},
+     hovertemplate: `%{marker.color:.1f} ${unit}<extra></extra>`},
+    {type: "scatter", mode: "markers", x: [s.x[i]], y: [s.y[i]],
+     marker: {size: POINT_SIZE, color: ARROW_COLOUR, line: {color: "white", width: 2}}, hoverinfo: "skip"},
+    ...arrowTrace(s, i, P.range),
+  ];
+}
+
 // The selected block's whole path as a thin line, built once per block and reused every frame.
 function pathTrace(block) {
   const key = `${block.frame_start}-${block.frame_end}`;
   if (S.path.key !== key) {
-    const s = S.session, every = Math.max(1, Math.round(s.rate_hz / PATH_HZ)), x = [], y = [];
+    const s = S.session, every = Math.max(1, Math.round(S.rate / PATH_HZ)), x = [], y = [];
     for (let k = block.frame_start - 1; k < block.frame_end; k += every) { x.push(s.x[k]); y.push(s.y[k]); }
     S.path = {key: key, trace: {type: "scatter", mode: "lines", x: x, y: y, line: PATH_LINE, hoverinfo: "skip"}};
   }
@@ -181,25 +212,9 @@ function epochAt(frame) {
 }
 
 function mapFigure() {
-  const s = S.session, i = S.index, rate = s.rate_hz, block = selected();
-  const every = Math.max(1, Math.round(rate / TRAIL_HZ));
-  const first = Math.max(0, i - TRAIL_S * rate);
-  const trail = [];
-  for (let k = i; k >= first; k -= every) trail.unshift(k);
+  const s = S.session, i = S.index, block = selected();
   return {
-    data: [
-      ...occupancyTraces(lab(i)),
-      ...(block ? [pathTrace(block)] : []),
-      {type: "scatter", mode: "lines+markers", x: trail.map((k) => s.x[k]), y: trail.map((k) => s.y[k]),
-       line: {color: "rgba(0,0,0,0.35)", width: TRAIL_WIDTH},
-       marker: {size: TRAIL_MARKER, color: trail.map((k) => s.speed[k]), colorscale: "Viridis", cmin: 0, cmax: S.speedMax,
-                showscale: true, colorbar: {title: {text: "speed (px/s)", side: "right"}, thickness: 18, len: 0.6,
-                                            outlinewidth: 0}},
-       hovertemplate: "%{marker.color:.1f} px/s<extra></extra>"},
-      {type: "scatter", mode: "markers", x: [s.x[i]], y: [s.y[i]],
-       marker: {size: POINT_SIZE, color: ARROW_COLOUR, line: {color: "white", width: 2}}, hoverinfo: "skip"},
-      ...arrowTrace(s, i),
-    ],
+    data: [...occupancyTraces(lab(i)), ...(block ? [pathTrace(block)] : []), ...trailTraces(S, s, "px/s")],
     layout: {
       title: {text: `RatReplay, ${s.session_id}, ${epochAt(lab(i))}` +
                     `${block ? `, ${block.name}` : ""}, camera pixels with y down`},
@@ -211,7 +226,7 @@ function mapFigure() {
 }
 
 function minutes(index) {
-  return index / S.session.rate_hz / MINUTE_S;
+  return index / S.rate / MINUTE_S;
 }
 
 function across(x0, x1, extra) {
@@ -227,7 +242,7 @@ function connector(index) {
 
 // The selected block's first windows at the knobs, as faint bars on the blocks lane, as many as fit up to GHOST_WINDOWS.
 function ghostWindows(block) {
-  const rate = S.session.rate_hz, length = S.knobs.window_s * rate, stride = S.knobs.stride_s * rate, shapes = [];
+  const rate = S.rate, length = S.knobs.window_s * rate, stride = S.knobs.stride_s * rate, shapes = [];
   for (let k = 0; k < GHOST_WINDOWS; k++) {
     const start = block.frame_start - 1 + k * stride;
     if (start + length > block.frame_end) break;
@@ -238,8 +253,8 @@ function ghostWindows(block) {
 }
 
 // The cursor's head: a small triangle sitting on the top edge of the figure at the cursor's time.
-function cursorHead() {
-  return {xref: "x", x: minutes(S.index), yref: "paper", y: 1, yanchor: "bottom", showarrow: false, ...CURSOR_HEAD};
+function cursorHead(x) {
+  return {xref: "x", x: x, yref: "paper", y: 1, yanchor: "bottom", showarrow: false, ...CURSOR_HEAD};
 }
 
 function lanesFigure() {
@@ -259,7 +274,7 @@ function lanesFigure() {
   shapes.push(across(minutes(S.index), minutes(S.index), {line: CURSOR}));
   S.drawnIndex = S.index;
   const xaxis = {...S.base.layout.xaxis, range: block ? block.zoom : S.base.layout.xaxis.range};
-  const annotations = [...S.base.layout.annotations, cursorHead()];
+  const annotations = [...S.base.layout.annotations, cursorHead(minutes(S.index))];
   return {data: S.base.data, layout: {...S.base.layout, xaxis: xaxis, shapes: shapes, annotations: annotations}};
 }
 
@@ -300,15 +315,15 @@ function operation(keys) {
 }
 
 function onKey(keys) {
-  const key = keys.key, rate = S.session.rate_hz;
-  if (key === " ") { S.playing = !S.playing; anchor(); }
-  else if (key === "ArrowLeft" || key === "ArrowRight") step((key === "ArrowLeft" ? -1 : 1) * (keys.shift ? rate : 1));
-  else if (key === "[" || key === "]") jump(S.session.runs, key === "]" ? 1 : -1);
-  else if (key === "{" || key === "}") jump(S.blocks, key === "}" ? 1 : -1);
+  const key = keys.key;
+  if (key === " ") { S.playing = !S.playing; anchor(S); }
+  else if (key === "ArrowLeft" || key === "ArrowRight") step(S, (key === "ArrowLeft" ? -1 : 1) * (keys.shift ? S.rate : 1));
+  else if (key === "[" || key === "]") jump(S, S.session.runs.map((r) => r.frame_start - 1), key === "]" ? 1 : -1);
+  else if (key === "{" || key === "}") jump(S, S.blocks.map((b) => b.frame_start - 1), key === "}" ? 1 : -1);
   else if (key === "i") S.markIn = S.index;
   else if (key === "o") S.markOut = S.index;
   else if (key === "Escape") S.selectedFrame = null;
-  else if (key === "jump") seek(keys.frame - 1);
+  else if (key === "jump") seek(S, keys.frame - 1);
 }
 
 // The keys store as an operation for the action store, counted so the same operation twice still arrives, or no update
@@ -366,10 +381,73 @@ function tick(nIntervals, keys, click, speedIndex, view, knobs, session, base, b
   if (S.session.error) return [errorFigure(S.session), S.base, "", "", "", "", "", "play", true, nu];
   if (triggered("lanes") && click) select(click);
   if (triggered("keys")) onKey(keys);
-  else if (triggered("speed")) anchor();
-  else if (triggered("interval") && S.playing) advance();
-  const redraw = !triggered("interval") || Math.abs(S.index - S.drawnIndex) >= S.session.rate_hz / LANES_HZ;
+  else if (triggered("speed")) anchor(S);
+  else if (triggered("interval") && S.playing) advance(S);
+  const redraw = !triggered("interval") || Math.abs(S.index - S.drawnIndex) >= S.rate / LANES_HZ;
   return [mapFigure(), redraw ? lanesFigure() : nu, ...liveTexts(), S.playing ? "pause" : "play", !S.playing, uiState()];
+}
+
+// The block player. The block's speed arrives in m/s and is shown in cm/s, its map range is the room with the path,
+// so a path outside the room still shows.
+function loadBlock(block) {
+  B.block = block;
+  B.index = 0;
+  B.playing = false;
+  B.drawnIndex = -1;
+  B.n = block.n_frames;
+  B.rate = block.rate_hz;
+  B.arrays = {x: block.x, y: block.y, heading: block.heading, speed: block.speed.map((v) => (v === null ? null : v * CM_PER_M))};
+  B.range = {x: axisRange([...block.x, 0, block.room[0]], false), y: axisRange([...block.y, 0, block.room[1]], false)};
+  B.speedMax = percentile(B.arrays.speed, SPEED_SCALE_PERCENTILE);
+  anchor(B);
+}
+
+function blockMapFigure() {
+  const b = B.block;
+  return {
+    data: [...b.environment_traces, ...trailTraces(B, B.arrays, "cm/s")],
+    layout: {
+      title: {text: `block ${b.block_id}, ${b.kind}, room frame in metres`},
+      xaxis: {title: {text: "x (m)"}, range: B.range.x, constrain: "domain"},
+      yaxis: {title: {text: "y (m)"}, range: B.range.y, scaleanchor: "x", scaleratio: 1},
+      showlegend: false, margin: {l: 60, r: 20, t: 50, b: 50}, uirevision: b.block_id,
+    },
+  };
+}
+
+function blockLanesFigure() {
+  const x = B.index / B.rate;
+  B.drawnIndex = B.index;
+  return {data: B.base.data, layout: {...B.base.layout, shapes: [...B.base.layout.shapes, across(x, x, {line: CURSOR})],
+                                     annotations: [...B.base.layout.annotations, cursorHead(x)]}};
+}
+
+function onBlockKey(keys) {
+  const key = keys.key;
+  if (key === " ") { B.playing = !B.playing; anchor(B); }
+  else if (key === "ArrowLeft" || key === "ArrowRight") step(B, (key === "ArrowLeft" ? -1 : 1) * (keys.shift ? B.rate : 1));
+  else if (key === "[" || key === "]") jump(B, B.block.runs.map((r) => r.first), key === "]" ? 1 : -1);
+  else if (key === "jump") seek(B, keys.index);
+}
+
+// The block's live tiles: time from the block start, lab frame, speed, lights, the run and the phase under the cursor.
+function blockLiveTexts() {
+  const b = B.block, i = B.index, run = spanAt(b.runs, i), phase = spanAt(b.phases, i), speed = B.arrays.speed[i];
+  return [`${b.t[i].toFixed(2)} s`, `${b.frame_start + i}`, speed === null ? "n/a" : `${speed.toFixed(0)} cm/s`, `${b.n_lights[i]}`,
+          run ? `${run.run}, path ${run.path_id} ${run.clean ? "clean" : "dirty"}` : "none", phase ? phase.phase : ""];
+}
+
+function blockTick(nIntervals, keys, speedIndex, block, base) {
+  const nu = dash_clientside.no_update;
+  B.speed = SPEEDS[speedIndex];
+  if (triggered("block-data")) loadBlock(block);
+  if (triggered("block-lanes-base")) { B.base = base; B.drawnIndex = -1; }
+  if (!B.block || !B.base || B.base.layout.meta !== B.block.block_id) return Array(N_BLOCK_OUTPUTS).fill(nu);
+  if (triggered("block-keys")) onBlockKey(keys);
+  else if (triggered("block-speed")) anchor(B);
+  else if (triggered("block-interval") && B.playing) advance(B);
+  const redraw = !triggered("block-interval") || Math.abs(B.index - B.drawnIndex) >= B.rate / LANES_HZ;
+  return [blockMapFigure(), redraw ? blockLanesFigure() : nu, ...blockLiveTexts(), B.playing ? "pause" : "play", !B.playing];
 }
 
 let keyCount = 0;
@@ -377,31 +455,61 @@ function press(data) {
   dash_clientside.set_props("keys", {data: {...data, n: ++keyCount}});
 }
 
-// The drawn lanes under a pointer event with the pointer's position in the plot's pixels, or null off the lanes.
-function lanesUnder(event) {
-  const gd = event.target.closest("#lanes .js-plotly-plot");
-  if (!gd || !S.session || !gd._fullLayout) return null;
+function pressBlock(data) {
+  dash_clientside.set_props("block-keys", {data: {...data, n: ++keyCount}});
+}
+
+// Whether the Blocks tab is the one on screen, so its player gets the keys.
+function blocksShown() {
+  const panel = document.getElementById("blocks-panel");
+  return panel !== null && panel.style.display !== "none";
+}
+
+// The drawn plot of the graph under a pointer event with the pointer's position in the plot's pixels, or null off it.
+function plotUnder(event, graphId) {
+  const gd = event.target.closest(`#${graphId} .js-plotly-plot`);
+  if (!gd || !gd._fullLayout) return null;
   const box = gd.getBoundingClientRect();
   return {layout: gd._fullLayout, px: event.clientX - box.left, py: event.clientY - box.top};
 }
 
-// The lab frame under a pointer event on the lanes, from the pixel through the drawn x axis, or null off the plot area.
-function laneFrame(event) {
-  const under = lanesUnder(event);
-  if (!under) return null;
+// The x axis value under the pointer through the drawn axis, or null off the plot area.
+function axisValue(under) {
   const ax = under.layout.xaxis, px = under.px - ax._offset;
-  if (px < 0 || px > ax._length) return null;
-  return Math.round(ax.p2d(px) * MINUTE_S * S.session.rate_hz) + 1;
+  return px < 0 || px > ax._length ? null : ax.p2d(px);
 }
 
-// Whether a pointer event on the lanes fell within the runs lane.
+// The lab frame under a pointer event on the session lanes, or null off them.
+function laneFrame(event) {
+  const under = S.session && plotUnder(event, "lanes");
+  if (!under) return null;
+  const x = axisValue(under);
+  return x === null ? null : Math.round(x * MINUTE_S * S.rate) + 1;
+}
+
+// The array index under a pointer event on the block lanes, or null off them.
+function blockLaneIndex(event) {
+  const under = B.block && plotUnder(event, "block-lanes");
+  if (!under) return null;
+  const x = axisValue(under);
+  return x === null ? null : Math.round(x * B.rate);
+}
+
+// Whether a pointer event on the session lanes fell within the runs lane.
 function onRunsLane(event) {
-  const under = lanesUnder(event), ax = under.layout[RUNS_AXIS];
+  const under = plotUnder(event, "lanes"), ax = under.layout[RUNS_AXIS];
   return under.py >= ax._offset && under.py <= ax._offset + ax._length;
 }
 
 document.addEventListener("keydown", (event) => {
-  if (["INPUT", "TEXTAREA"].includes(event.target.tagName) || !KEYS.includes(event.key)) return;
+  if (["INPUT", "TEXTAREA"].includes(event.target.tagName)) return;
+  if (blocksShown()) {
+    if (!BLOCK_KEYS.includes(event.key)) return;
+    event.preventDefault();
+    pressBlock({key: event.key, shift: event.shiftKey});
+    return;
+  }
+  if (!KEYS.includes(event.key)) return;
   event.preventDefault();
   press({key: event.key, shift: event.shiftKey});
 });
@@ -409,10 +517,14 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   const toggle = event.target.closest("[data-toggle]");
   if (toggle) { document.getElementById(toggle.dataset.toggle).classList.toggle("hidden"); return; }
+  const blockButton = event.target.closest("[data-block-key]");
+  if (blockButton) { pressBlock({key: blockButton.dataset.blockKey, shift: false}); return; }
   const button = event.target.closest("[data-key]");
   if (button) { press({key: button.dataset.key, shift: false}); return; }
   const frame = laneFrame(event);
-  if (frame !== null) press({key: "jump", frame: frame});
+  if (frame !== null) { press({key: "jump", frame: frame}); return; }
+  const index = blockLaneIndex(event);
+  if (index !== null) pressBlock({key: "jump", index: index});
 });
 
 document.addEventListener("contextmenu", (event) => {
@@ -422,4 +534,4 @@ document.addEventListener("contextmenu", (event) => {
   press({key: "right-click", frame: frame});
 });
 
-window.dash_clientside = Object.assign({}, window.dash_clientside, {replay: {tick: tick, act: act}});
+window.dash_clientside = Object.assign({}, window.dash_clientside, {replay: {tick: tick, act: act, blockTick: blockTick}});

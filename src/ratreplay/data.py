@@ -150,18 +150,19 @@ def automatic_count(transformed, row, epochs):
 
 def list_sessions(transformed, processed):
     """
-    Every session with an arena or track epoch, unreviewed first then the oldest review first, with its epochs, count and review.
+    Every session with an arena or track epoch, the dataset's sessions first, then unreviewed, then the oldest review first.
     """
     tables = read_tables(transformed)
+    kept = {e["session_id"] for e in select.funnel(select.read_tables(transformed), None)[0]}
     sessions = []
     for row in tables["sessions"]:
         epochs = [e for e in tables["epochs"] if e["session_id"] == row["session_id"]]
         if not any(e["epoch"] in select.EPOCHS for e in epochs):
             continue
         review = read_review(processed, row["session_id"])
-        sessions.append({**row, "date": str(row["date"]), "epochs": epochs,
+        sessions.append({**row, "date": str(row["date"]), "epochs": epochs, "in_dataset": row["session_id"] in kept,
                          "n_automatic": automatic_count(transformed, row, epochs), **review_facts(review, row["rate_hz"])})
-    return sorted(sessions, key=lambda s: (s["reviewed"], s["reviewed_at"] or ""))
+    return sorted(sessions, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
 
 
 def floats(values):

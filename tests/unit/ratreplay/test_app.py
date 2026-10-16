@@ -63,14 +63,14 @@ def test_the_app_builds_with_the_unreviewed_session_selected_and_lists_it_once_s
     assert app.totals_values(sessions)[:2] == [("sessions reviewed", "1 of 1", ""), ("blocks confirmed", "3", "")]
     totals, table_card = app.sessions_list(sessions)
     cells = [td.children for td in table_card.children[1].children[1].children[0].children]
-    assert cells[:7] == ["NS14", "2015-01-01", "standard", "2", "4", "3", review["reviewed_by"]]
-    assert cells[7].startswith(review["reviewed_at"]) and cells[8] == "shaky camera"
-    assert cells[9].id == {"type": "load", "index": SESSION}
+    assert cells[:8] == ["NS14", "2015-01-01", "standard", "yes", "2", "4", "3", review["reviewed_by"]]
+    assert cells[8].startswith(review["reviewed_at"]) and cells[9] == "shaky camera"
+    assert cells[10].id == {"type": "load", "index": SESSION}
 
 
-def test_the_tab_chosen_shows_its_panel_and_hides_the_other():
-    assert app.panel_styles("replay") == (app.SHOWN, app.HIDDEN)
-    assert app.panel_styles("sessions") == (app.HIDDEN, app.SHOWN)
+def test_the_tab_chosen_shows_its_panel_and_hides_the_others():
+    assert app.panel_styles("replay") == (app.SHOWN, app.HIDDEN, app.HIDDEN)
+    assert app.panel_styles("sessions") == (app.HIDDEN, app.SHOWN, app.HIDDEN)
 
 
 def test_the_reduced_buttons_grey_the_block_actions_without_a_selection_new_block_without_marks_and_undo_without_edits():

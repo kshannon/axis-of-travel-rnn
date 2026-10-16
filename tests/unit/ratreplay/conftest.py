@@ -1,5 +1,5 @@
 """
-Fixtures for the RatReplay tests: a synthetic transformed folder of one session and an empty processed root beside it.
+Fixtures for the RatReplay tests: a synthetic transformed folder of one session and an empty processed root beside it, and a processed dataset the processor built from its own tests' synthetic sessions.
 """
 
 import json
@@ -10,8 +10,10 @@ import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 import pytest
 
+import process_lab_data.__main__ as processor
 import proj_helpers.paths
-from ratreplay import data
+from ratreplay import blocks, data
+from tests.unit.process_lab_data import conftest as lab
 
 SESSION = "NS14_rec1_20150101_001"
 RATE_HZ, MAX_GAP = 60, 30
@@ -116,12 +118,25 @@ def no_local_config(monkeypatch):
     monkeypatch.setattr(proj_helpers.paths, "local_config", refuse)
 
 
+def write_lab_transformed(root):
+    """
+    The processor tests' synthetic transformed root, as their transformed fixture writes it, into the folder.
+    """
+    (root / "frames").mkdir(parents=True)
+    (root / "manifest.json").write_text(json.dumps({"run": {"timestamp": lab.STAMP}}))
+    for name, columns in (("sessions", lab.SESSIONS), ("epochs", lab.EPOCHS), ("runs", lab.RUNS), ("annotations", lab.ANNOTATIONS)):
+        pacsv.write_csv(pa.table(columns), root / f"{name}.csv")
+    for session_id, cuts in lab.FRAMES.items():
+        pq.write_table(lab.frames_table(session_id, **cuts), root / "frames" / f"{session_id}.parquet")
+
+
 @pytest.fixture(autouse=True)
 def fresh_counts():
     """
-    Empty the automatic block count cache, so no test sees another's counts.
+    Empty the automatic block count cache and the block shares cache, so no test sees another's.
     """
     data.AUTOMATIC_COUNTS.clear()
+    blocks.CACHE.clear()
 
 
 @pytest.fixture
@@ -142,3 +157,14 @@ def processed(tmp_path):
     The processed root the review folder is created under, not existing yet.
     """
     return tmp_path / "processed"
+
+
+@pytest.fixture
+def built(tmp_path):
+    """
+    A processed dataset under tmp_path: the processor run on its tests' synthetic sessions, two track blocks and one arena block.
+    """
+    source, root = tmp_path / "lab_transformed", tmp_path / "built"
+    write_lab_transformed(source)
+    assert processor.main([], config={"TRANSFORMED_LAB_DATA": str(source), "PROCESSED_LAB_DATA": str(root)}) == 0
+    return root

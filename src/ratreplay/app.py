@@ -1,5 +1,5 @@
 """
-The Dash app: the two tabs as cards, the callbacks that load a session, apply its edits, fill the block card and save its review, and the clientside playback.
+The Dash app: the three tabs as cards, the callbacks that load a session, apply its edits, fill the block card and save its review, the Blocks tab over the processed dataset with its window settings, and the clientside playback of both.
 """
 
 import math
@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 import numpy as np
 from dash import ALL, ClientsideFunction, Dash, Input, Output, State, ctx, dcc, html, no_update
 
+from axis_of_travel_rnn import trajectory, windows
 from process_lab_data import select
 
-from . import data
+from . import blocks, data
 
 TITLE = "RatReplay"
 
@@ -53,16 +54,18 @@ HEAD_CELL = "px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide
 MAP_HEIGHT = "52vh"
 LANES_HEIGHT_PX = 560
 
-# The two tabs: both panels stay mounted, since the clientside tick needs its outputs present, and the one not chosen
-# gets display none.
-TABS = {"replay": "Replay", "sessions": "Sessions"}
+# The three tabs: every panel stays mounted, since the clientside ticks need their outputs present, and the ones not
+# chosen get display none.
+TABS = {"replay": "Replay", "sessions": "Sessions", "blocks": "Blocks"}
+FIRST_TAB = "replay"
 HIDDEN = {"display": "none"}
 SHOWN = {}
 
 # The sessions table and the dropdown's mark for a reviewed session.
 REVIEWED_MARK = "✓ "
-TABLE_COLUMNS = ("rat", "date", "protocol", "minutes", "automatic blocks", "confirmed blocks", "reviewed by",
+TABLE_COLUMNS = ("rat", "date", "protocol", "in dataset", "minutes", "automatic blocks", "confirmed blocks", "reviewed by",
                  "reviewed at", "notes", "")
+NOT_IN_DATASET = " (not in the dataset)"
 NOTES_EXCERPT = 60
 
 # The state line in the Session card: the automatic blocks, a saved review (with how many of its edits no longer
@@ -167,6 +170,43 @@ HEADING_FILLED_COLOUR = "#fdba74"
 HEADING_Y = 0.05
 HEADING_HEIGHT = 0.1
 
+# The Blocks tab (spec, The Blocks tab) over the processed dataset. The window settings are the keys of windows.DEFAULTS,
+# each an input with its label and the smallest value allowed, an empty or smaller input falling back to the default.
+# The table has one row per built block in csv order, the verdict coloured. Without the processor's manifest the tab
+# says so and offers nothing else, since the app checks once at start.
+SETTING_INPUTS = (("window_s", "window s", 1), ("stride_s", "stride s", 0.5), ("burn_in_s", "burn-in s", 0), ("horizon_s", "horizon s", 0),
+                  ("train_rate_hz", "training rate Hz", 1), ("min_heading_measured", "min measured heading", 0),
+                  ("min_complete_trips", "min complete trips", 0))
+SETTING_STEP = {"min_heading_measured": 0.05, "min_complete_trips": 1}
+BLOCKS_TABLE_COLUMNS = ("session", "kind", "status", "minutes", "runs", "complete trips", "partial trips", "heading measured", "filled",
+                        "held", "windows", "verdict", "")
+OK = "ok"
+TROUBLE = "trouble"
+VERDICT_CLASSES = {OK: "text-green-700", TROUBLE: "text-red-700"}
+NO_DATASET_LINE = ("no processed dataset under {root}: it has no {manifest}. Run pixi run process-lab-data, then start RatReplay "
+                   "again.")
+NO_BLOCK_LINE = "no block loaded, press load on a row of the Blocks table"
+BLOCK_LIVE_TILES = (("time in block", "block-time"), ("lab frame", "block-frame"), ("speed", "block-speed-now"),
+                    ("lights", "block-lights"), ("run", "block-run-now"), ("phase", "block-phase"))
+CM_PER_M = 100
+
+# The block lanes, four bands of one figure over the block's seconds: the runs, the frames (speed in cm/s, the heading
+# filled and held bands, a thin band where one LED alone gave the position), the trips (hatched when partial) and the
+# windows at the settings as staggered bars over as many rows as windows overlap, up to WINDOW_ROWS_MAX, each window's
+# burn-in lighter and its horizon a thinner dark bar after it.
+BLOCK_LANES = {"runs": (0.80, 1.0), "frames": (0.46, 0.74), "trips": (0.28, 0.40), "windows": (0.0, 0.22)}
+BLOCK_AXES = {"runs": "y", "frames": "y2", "trips": "y3", "windows": "y4"}
+ONE_LIGHT_COLOUR = "#9ca3af"
+ONE_LIGHT_Y = 0.18
+TRIP_COLOUR = "#8c6bb1"
+PARTIAL_PATTERN = "/"
+WINDOW_COLOUR = "#4b5563"
+BURN_IN_COLOUR = "#d1d5db"
+HORIZON_COLOUR = "#111827"
+WINDOW_ROWS_MAX = 6
+WINDOW_HEIGHT = 0.8
+HORIZON_HEIGHT = 0.4
+
 
 def make_app(transformed, processed):
     """
@@ -175,7 +215,9 @@ def make_app(transformed, processed):
     sessions = data.list_sessions(transformed, processed)
     stamp = data.manifest_timestamp(transformed)
     app = Dash(__name__, title=TITLE, external_scripts=[TAILWIND])
-    app.layout = layout(sessions)
+    app.layout = layout(sessions, processed)
+    if blocks.built(processed):
+        blocks_callbacks(app, processed)
 
     @app.callback(
         Output("session-data", "data"), Output("edits", "data"), Output("session-line", "children"),
@@ -246,10 +288,10 @@ def make_app(transformed, processed):
         return (session_options(sessions), first_unreviewed(sessions, session["session_id"]), notice, no_update,
                 sessions_list(sessions))
 
-    @app.callback(Output("replay-panel", "style"), Output("sessions-panel", "style"), Input("tabs", "value"))
+    @app.callback(*[Output(f"{tab}-panel", "style") for tab in TABS], Input("tabs", "value"))
     def show_tab(tab):
         """
-        Show the panel of the tab chosen and hide the other.
+        Show the panel of the tab chosen and hide the others.
         """
         return panel_styles(tab)
 
@@ -269,11 +311,76 @@ def make_app(transformed, processed):
     return app
 
 
+def blocks_callbacks(app, processed):
+    """
+    The Blocks tab's callbacks over the processed root: the settings store, the test over every block, the save, the load of one block, its lanes and header, and the clientside playback.
+    """
+    @app.callback(Output("settings", "data"), *[Input(f"setting-{name}", "value") for name, _, _ in SETTING_INPUTS])
+    def settings_store(*values):
+        """
+        The settings from the inputs, an empty or too small one falling back to its default.
+        """
+        return settings_of(values)
+
+    @app.callback(Output("blocks-totals", "children"), Output("blocks-table", "children"), Output("tested-line", "children"),
+                  Input("test", "n_clicks"), State("settings", "data"))
+    def test_blocks(n_test, settings):
+        """
+        Every block's verdict and the totals per kind at the settings, on the first page load and at each press of test on all blocks.
+        """
+        rows, shares = blocks.load_all(processed)
+        return (tiles(block_totals_values(windows.summarize(rows, shares, settings), settings)), blocks_table(rows, shares, settings),
+                tested_line(settings))
+
+    @app.callback(Output("saved-line", "children"), Input("save-settings", "n_clicks"), State("settings", "data"),
+                  prevent_initial_call=True)
+    def save_settings(n_save, settings):
+        """
+        Write the settings file and say where and when.
+        """
+        return saved_settings(processed, settings)
+
+    @app.callback(Output("block-data", "data"), Input({"type": "load-block", "index": ALL}, "n_clicks"), prevent_initial_call=True)
+    def load_block(n_loads):
+        """
+        The block whose load button was pressed, for the browser.
+        """
+        if not isinstance(ctx.triggered_id, dict) or not any(n_loads):
+            return no_update
+        return blocks.payload_of(processed, ctx.triggered_id["index"])
+
+    @app.callback(Output("block-lanes-base", "data"), Output("block-header", "children"), Output("block-map-caption", "children"),
+                  Output("block-lanes-caption", "children"), Input("block-data", "data"), Input("settings", "data"))
+    def redraw_block(block, settings):
+        """
+        The block's lanes at the settings, its header line with the verdict, and the captions, after a load or a settings change.
+        """
+        if block is None:
+            return no_update, NO_BLOCK_LINE, "", ""
+        ok, reason = windows.verdict(block, blocks.shares_for(processed, block), settings)
+        return (block_lanes_figure(block, settings), block_header(block, ok, reason), block_map_caption(block, processed),
+                block_lanes_caption(block))
+
+    app.clientside_callback(
+        ClientsideFunction("replay", "blockTick"),
+        Output("block-map", "figure"), Output("block-lanes", "figure"), *[Output(value_id, "children") for _, value_id in BLOCK_LIVE_TILES],
+        Output("block-play-label", "children"), Output("block-interval", "disabled"),
+        Input("block-interval", "n_intervals"), Input("block-keys", "data"), Input("block-speed", "value"),
+        Input("block-data", "data"), Input("block-lanes-base", "data"))
+
+
 def panel_styles(tab):
     """
-    The styles of the replay and sessions panels: the tab chosen shown, the other display none.
+    The styles of the panels in TABS order: the tab chosen shown, the others display none.
     """
-    return SHOWN if tab == "replay" else HIDDEN, SHOWN if tab == "sessions" else HIDDEN
+    return tuple(SHOWN if tab == name else HIDDEN for name in TABS)
+
+
+def settings_of(values):
+    """
+    The settings dict from the inputs' values in SETTING_INPUTS order, an empty or too small value replaced by its default.
+    """
+    return {name: value if value is not None and value >= low else windows.DEFAULTS[name] for (name, _, low), value in zip(SETTING_INPUTS, values)}
 
 
 def disabled_actions(selected, marked, n_edits):
@@ -348,8 +455,9 @@ def session_options(sessions):
     The dropdown's options in the list's order, each with its protocol and, when reviewed, the mark and the time since the save.
     """
     now = datetime.now(timezone.utc)
-    return [{"label": f"{REVIEWED_MARK}{s['session_id']} ({s['protocol']}), saved {data.time_since(s['reviewed_at'], now)}"
-             if s["reviewed"] else f"{s['session_id']} ({s['protocol']})", "value": s["session_id"]} for s in sessions]
+    return [{"label": (f"{REVIEWED_MARK}{s['session_id']} ({s['protocol']}), saved {data.time_since(s['reviewed_at'], now)}"
+                       if s["reviewed"] else f"{s['session_id']} ({s['protocol']})") + ("" if s["in_dataset"] else NOT_IN_DATASET),
+             "value": s["session_id"]} for s in sessions]
 
 
 def card(title, children, className=""):
@@ -413,7 +521,8 @@ def session_row(s, now):
     One row of the sessions table with its load button.
     """
     reviewed_at = f"{s['reviewed_at']} ({data.time_since(s['reviewed_at'], now)})" if s["reviewed"] else ""
-    cells = [s["subject_id"], s["date"], s["protocol"], f"{s['n_frames'] / s['rate_hz'] / MINUTE_S:.0f}", s["n_automatic"],
+    cells = [s["subject_id"], s["date"], s["protocol"], "yes" if s["in_dataset"] else "no",
+             f"{s['n_frames'] / s['rate_hz'] / MINUTE_S:.0f}", s["n_automatic"],
              s["n_confirmed"] if s["reviewed"] else "", s["reviewed_by"] or "", reviewed_at, s["notes"][:NOTES_EXCERPT]]
     button = html.Button("load", id={"type": "load", "index": s["session_id"]}, n_clicks=0, className=NEUTRAL)
     return html.Tr([html.Td(str(cell), className=CELL) for cell in cells] + [html.Td(button, className=CELL)],
@@ -629,21 +738,27 @@ def for_browser(blocks, session, knobs):
              **data.heading_in(session, b["frame_start"], b["frame_end"])} for i, b in enumerate(blocks, 1)]
 
 
+def hbar(x0, width, axis, marker, **extra):
+    """
+    One horizontal bar of a lane from x0 over width along the time axis, at the lane's middle unless extra says otherwise.
+    """
+    return {"type": "bar", "orientation": "h", "y": [0.5], "base": [x0], "x": [width], "width": BAR_HEIGHT, "marker": marker,
+            "yaxis": axis, "hovertemplate": "%{hovertext}<extra></extra>", "showlegend": False, **extra}
+
+
 def bar(frame_start, frame_end, lane, rate_hz, marker, **extra):
     """
-    One horizontal bar of a lane from one lab frame to another.
+    One horizontal bar of a session lane from one lab frame to another, in minutes.
     """
-    return {"type": "bar", "orientation": "h", "y": [0.5], "base": [minutes(frame_start, rate_hz)],
-            "x": [(frame_end - frame_start + 1) / rate_hz / MINUTE_S], "width": BAR_HEIGHT, "marker": marker,
-            "yaxis": AXES[lane], "hovertemplate": "%{hovertext}<extra></extra>", "showlegend": False, **extra}
+    return hbar(minutes(frame_start, rate_hz), (frame_end - frame_start + 1) / rate_hz / MINUTE_S, AXES[lane], marker, **extra)
 
 
-def speed_trace(session):
+def speed_bins(speed, rate_hz):
     """
-    The frames lane's speed trace: the mean speed over bins of SPEED_TRACE_HZ, with no value where no frame was tracked.
+    The mean speed over bins of SPEED_TRACE_HZ as (seconds of each bin's centre from the first frame, means), NaN where no frame was tracked.
     """
-    rate, size = session["rate_hz"], session["rate_hz"] // SPEED_TRACE_HZ
-    speed = np.array(session["speed"], dtype=float)
+    size = int(rate_hz // SPEED_TRACE_HZ)
+    speed = np.array(speed, dtype=float)
     n_bins = math.ceil(len(speed) / size)
     padded = np.full(n_bins * size, np.nan)
     padded[:len(speed)] = speed
@@ -651,10 +766,23 @@ def speed_trace(session):
     counts = valid.sum(axis=1)
     sums = np.where(valid, padded.reshape(n_bins, size), 0).sum(axis=1)
     means = np.where(counts > 0, sums / np.maximum(counts, 1), np.nan)
-    centres = [minutes(i * size + 1 + size / 2, rate) for i in range(n_bins)]
-    return {"type": "scatter", "mode": "lines", "x": centres, "y": data.floats(means), "line": SPEED_LINE,
-            "yaxis": AXES["frames"], "connectgaps": False, "showlegend": False,
-            "hovertemplate": "%{y:.0f} px/s<extra></extra>"}
+    return [(i * size + size / 2) / rate_hz for i in range(n_bins)], means
+
+
+def line_trace(x, y, axis, unit):
+    """
+    A thin grey trace over a frames lane, parted where the values are NaN, its hover in the unit.
+    """
+    return {"type": "scatter", "mode": "lines", "x": x, "y": data.floats(y), "line": SPEED_LINE, "yaxis": axis,
+            "connectgaps": False, "showlegend": False, "hovertemplate": f"%{{y:.0f}} {unit}<extra></extra>"}
+
+
+def speed_trace(session):
+    """
+    The frames lane's speed trace in px/s over the session's minutes.
+    """
+    centres, means = speed_bins(session["speed"], session["rate_hz"])
+    return line_trace([c / MINUTE_S for c in centres], means, AXES["frames"], "px/s")
 
 
 def markers(frames, y, marker, hovertext, rate_hz):
@@ -676,15 +804,20 @@ def verticals(frames, top, line, hovertext, rate_hz):
             "connectgaps": False, "showlegend": False}
 
 
+def bars(x0s, widths, ys, height, axis, marker, hovertext):
+    """
+    Many bars of one trace along the time axis, one per (x0, width, y), all of one height, each with its hover text.
+    """
+    return {"type": "bar", "orientation": "h", "y": list(ys), "width": height, "base": list(x0s), "x": list(widths), "marker": marker,
+            "yaxis": axis, "hovertext": hovertext, "hovertemplate": "%{hovertext}<extra></extra>", "showlegend": False}
+
+
 def bands(ranges, y, height, colour, hovertext, rate_hz):
     """
-    One bar per frame range at a height of the frames lane, each with its hover text.
+    One bar per lab frame range at a height of the session's frames lane, each with its hover text.
     """
-    return {"type": "bar", "orientation": "h", "y": [y] * len(ranges), "width": height,
-            "base": [minutes(first, rate_hz) for first, last in ranges],
-            "x": [(last - first + 1) / rate_hz / MINUTE_S for first, last in ranges], "marker": {"color": colour},
-            "yaxis": AXES["frames"], "hovertext": hovertext, "hovertemplate": "%{hovertext}<extra></extra>",
-            "showlegend": False}
+    return bars([minutes(first, rate_hz) for first, last in ranges], [(last - first + 1) / rate_hz / MINUTE_S for first, last in ranges],
+                [y] * len(ranges), height, AXES["frames"], {"color": colour}, hovertext)
 
 
 def layer_traces(session, top):
@@ -712,28 +845,28 @@ def layer_traces(session, top):
     }
 
 
-def lane_axis(lane, **extra):
+def lane_axis(domain, **extra):
     """
     A lane's y axis over its share of the height, its label an annotation rather than a title.
     """
-    return {"domain": LANES[lane], "range": [0, 1], "anchor": "x", "showticklabels": False, "showgrid": False,
+    return {"domain": domain, "range": [0, 1], "anchor": "x", "showticklabels": False, "showgrid": False,
             "zeroline": False, "fixedrange": True, **extra}
 
 
-def lane_label(lane, text):
+def lane_label(axis, text):
     """
     A lane's name at the left of its axis, angled.
     """
-    return {"xref": "paper", "x": 0, "xanchor": "right", "xshift": LABEL_SHIFT_PX, "yref": f"{AXES[lane]} domain",
+    return {"xref": "paper", "x": 0, "xanchor": "right", "xshift": LABEL_SHIFT_PX, "yref": f"{axis} domain",
             "y": 0.5, "yanchor": "middle", "text": text, "textangle": LABEL_ANGLE, "showarrow": False,
             "font": {"size": FONT_SIZE}}
 
 
-def separators():
+def separators(lanes):
     """
-    A thin line across the figure in each gap between two lanes.
+    A thin line across the figure in each gap between two of the lanes.
     """
-    bounds = sorted(LANES.values())
+    bounds = sorted(lanes.values())
     return [{"type": "line", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": (below[1] + above[0]) / 2,
              "y1": (below[1] + above[0]) / 2, "line": SEPARATOR} for below, above in zip(bounds, bounds[1:])]
 
@@ -815,12 +948,12 @@ def lanes_figure(session, blocks, flagged, knobs, layers):
               "meta": session["session_id"], "font": {"size": FONT_SIZE},
               "xaxis": {"domain": [0, 1], "anchor": AXES["blocks"], "range": [0, minutes(session["n_frames"] + 1, rate)],
                         "title": {"text": "time in session (min of recording, a pause is a mark)"}},
-              "yaxis": lane_axis("session"), "yaxis2": lane_axis("runs"),
-              "yaxis3": lane_axis("frames", range=[0, top], showticklabels=True),
-              "yaxis4": lane_axis("blocks"),
-              "annotations": [lane_label("session", "session"), lane_label("runs", "runs"),
-                              lane_label("frames", "frames (px/s)"), lane_label("blocks", "blocks")],
-              "barmode": "overlay", "dragmode": False, "hovermode": "closest", "shapes": separators(),
+              "yaxis": lane_axis(LANES["session"]), "yaxis2": lane_axis(LANES["runs"]),
+              "yaxis3": lane_axis(LANES["frames"], range=[0, top], showticklabels=True),
+              "yaxis4": lane_axis(LANES["blocks"]),
+              "annotations": [lane_label(AXES["session"], "session"), lane_label(AXES["runs"], "runs"),
+                              lane_label(AXES["frames"], "frames (px/s)"), lane_label(AXES["blocks"], "blocks")],
+              "barmode": "overlay", "dragmode": False, "hovermode": "closest", "shapes": separators(LANES),
               "margin": {"l": 156, "r": 20, "t": 40, "b": 50}}
     return {"data": traces, "layout": layout}
 
@@ -831,6 +964,236 @@ def error_figure(session):
     """
     return {"data": [], "layout": {"title": {"text": f"{session['session_id']} failed to load: {session['error']}"},
                                    "meta": session["session_id"]}}
+
+
+def placeholder_figure(text):
+    """
+    An empty figure whose title says what will be drawn once a block is loaded.
+    """
+    return {"data": [], "layout": {"title": {"text": text, "font": {"size": FONT_SIZE + 2}, "x": 0}, "xaxis": {"visible": False},
+                                   "yaxis": {"visible": False}}}
+
+
+def block_totals_values(summary, settings):
+    """
+    The tiles above the blocks table as (label, value, note): per kind the blocks ok and trouble, the windows the ok ones yield and their hours.
+    """
+    return [value for kind in windows.KINDS for value in (
+        (f"{kind} blocks", f"{summary[kind]['blocks_ok']} {OK}", f"{summary[kind]['blocks_trouble']} {TROUBLE}"),
+        (f"{kind} windows", str(summary[kind]["windows"]), f"{settings['window_s']:g} s at a {settings['stride_s']:g} s stride"),
+        (f"{kind} hours", f"{summary[kind]['hours_ok']:.2f} h", f"of the {OK} blocks"))]
+
+
+def tested_line(settings):
+    """
+    The line over the blocks table saying which settings its verdicts were tested at.
+    """
+    return (f"verdicts at a {settings['window_s']:g} s window plus a {settings['horizon_s']:g} s horizon every {settings['stride_s']:g} s, "
+            f"measured heading at least {settings['min_heading_measured']:.0%}, a track block with at least {settings['min_complete_trips']:g} complete trips")
+
+
+def verdict_text(ok, reason):
+    """
+    A verdict as the table and the header show it: ok, or trouble with its reason.
+    """
+    return OK if ok else f"{TROUBLE}, {reason}"
+
+
+def block_row(row, shares, settings):
+    """
+    One row of the blocks table with its load button: the csv facts, the heading shares as percents, the windows and the verdict at the settings.
+    """
+    heading, (ok, reason) = windows.heading_shares(shares), windows.verdict(row, shares, settings)
+    cells = [row["session_id"], row["kind"], row["status"], f"{row['duration_s'] / MINUTE_S:.1f}", row["n_runs"], row["n_complete_trips"],
+             row["n_trips"] - row["n_complete_trips"], f"{heading['measured']:.0%}", f"{heading['filled']:.0%}", f"{heading['held']:.0%}",
+             windows.window_count(row["n_frames"], blocks.rate_of(row), settings)]
+    verdict = html.Td(verdict_text(ok, reason), className=f"{CELL} {VERDICT_CLASSES[OK if ok else TROUBLE]}")
+    button = html.Button("load", id={"type": "load-block", "index": row["block_id"]}, n_clicks=0, className=NEUTRAL)
+    return html.Tr([html.Td(str(cell), className=CELL) for cell in cells] + [verdict, html.Td(button, className=CELL)],
+                   title=row["block_id"], className="border-t hover:bg-gray-50")
+
+
+def blocks_table(rows, shares, settings):
+    """
+    The blocks table, one row per built block in csv order, the shares by block id.
+    """
+    head = html.Thead(html.Tr([html.Th(name, className=HEAD_CELL) for name in BLOCKS_TABLE_COLUMNS]))
+    return html.Table([head, html.Tbody([block_row(row, shares[row["block_id"]], settings) for row in rows])], className=TABLE)
+
+
+def saved_settings(processed, settings):
+    """
+    Write the settings file and return the line saying where and when.
+    """
+    path = blocks.save(processed, settings)
+    return f"saved {path} at {windows.read_settings(path)['written_at']}"
+
+
+def block_header(block, ok, reason):
+    """
+    The line over the block map: the block id, its session, kind, status, minutes and the verdict with its reason.
+    """
+    return (f"{block['block_id']}: session {block['session_id']}, {block['kind']}, {block['status']}, "
+            f"{block['duration_s'] / MINUTE_S:.1f} min, {verdict_text(ok, reason)}")
+
+
+def block_map_caption(block, processed):
+    """
+    The ? popover beside the block map: what is drawn and that the positions are the processed dataset's, in the room frame in metres.
+    """
+    return [html.P(f"Block {block['block_id']} of session {block['session_id']}, {block['kind']}: the positions are the processed "
+                   f"dataset's ({processed}, {block['kind']}/blocks/{block['block_id']}.parquet), in the room frame in metres, y up, "
+                   "equal axes."),
+            html.P(f"Under them the environment config {block['environment']}: the walls as grey lines, the centerline dotted, the "
+                   "start and the goal sites as circles named on hover, or the arena boundary as a circle. The path lying on the "
+                   "drawn geometry is the check of the registration."),
+            html.P("The dots are the last 2 s of the path at 20 Hz coloured by speed in cm/s, the red dot the current position, "
+                   "the red arrow the heading after the processor's fill and the LED offset.")]
+
+
+def block_lanes_caption(block):
+    """
+    The line under the block lanes: how to read them.
+    """
+    return (f"Block {block['block_id']}: the runs (dark blue outbound, paths 1 to 4, light blue return, paths 9 and 10, grey any "
+            "other path, hatched when dirty), the frames (speed in cm/s as the grey trace, the orange bands heading filled and "
+            "held, the grey band at the bottom one LED alone giving the position), the trips (purple, hatched when partial) "
+            "and the training windows at the settings as staggered bars, each window's burn-in lighter and its horizon the "
+            "thin dark bar after it. Click a lane to move the cursor.")
+
+
+def seconds_bars(spans, ys, height, axis, marker, hovertext, rate_hz):
+    """
+    One bar per [first, last] index span of a block lane, in seconds, at the heights given.
+    """
+    return bars([first / rate_hz for first, last in spans], [(last - first + 1) / rate_hz for first, last in spans], ys, height, axis,
+                marker, hovertext)
+
+
+def window_rows(settings):
+    """
+    How many rows the windows lane staggers its bars over: as many as windows overlap, at least one, at most WINDOW_ROWS_MAX.
+    """
+    return min(WINDOW_ROWS_MAX, max(1, math.ceil((settings["window_s"] + settings["horizon_s"]) / settings["stride_s"])))
+
+
+def window_traces(block, settings):
+    """
+    The windows lane: the body of every window at the settings, its burn-in lighter and its horizon a thinner dark bar, staggered over window_rows.
+    """
+    starts = windows.window_starts(block["n_frames"], block["rate_hz"], settings).tolist()
+    rows = window_rows(settings)
+    ys = [1 - (k % rows + 0.5) / rows for k in range(len(starts))]
+    burn_in, length, horizon = settings["burn_in_s"], settings["window_s"], settings["horizon_s"]
+    axis, n = BLOCK_AXES["windows"], len(starts)
+    return [bars([s + burn_in for s in starts], [length - burn_in] * n, ys, WINDOW_HEIGHT / rows, axis, {"color": WINDOW_COLOUR},
+                 [f"window {k + 1} at {s:g} s, {length:g} s" for k, s in enumerate(starts)]),
+            bars(starts, [burn_in] * n, ys, WINDOW_HEIGHT / rows, axis, {"color": BURN_IN_COLOUR},
+                 [f"window {k + 1} burn-in, {burn_in:g} s" for k in range(n)]),
+            bars([s + length for s in starts], [horizon] * n, ys, HORIZON_HEIGHT / rows, axis, {"color": HORIZON_COLOUR},
+                 [f"window {k + 1} horizon, {horizon:g} s" for k in range(n)])]
+
+
+def block_lanes_figure(block, settings):
+    """
+    The four lanes of a built block over its seconds: runs, frames, trips and the windows at the settings.
+    """
+    rate = block["rate_hz"]
+    traces = []
+    for r in block["runs"]:
+        shade = run_shade(r["path_id"])
+        marker = {"color": RUN_SHADES[shade], "pattern": {"shape": "" if r["clean"] else DIRTY_PATTERN, "fgcolor": "white", "solidity": 0.4}}
+        traces.append(hbar(r["first"] / rate, (r["last"] - r["first"] + 1) / rate, BLOCK_AXES["runs"], marker,
+                           hovertext=[f"run {r['run']}, path {r['path_id']} {shade}, {'clean' if r['clean'] else 'dirty'}, "
+                                      f"{(r['last'] - r['first'] + 1) / rate:.1f} s from {r['first'] / rate:.1f} s"]))
+    speed = np.array(block["speed"], dtype=float) * CM_PER_M
+    top = float(np.nanpercentile(speed, SPEED_SCALE_PERCENTILE))
+    frames = BLOCK_AXES["frames"]
+    traces.append(seconds_bars(block["one_light"], [ONE_LIGHT_Y * top] * len(block["one_light"]), HEADING_HEIGHT * top, frames,
+                               {"color": ONE_LIGHT_COLOUR}, [f"one LED, {(l - f + 1) / rate:.1f} s" for f, l in block["one_light"]], rate))
+    for name, colour in (("heading_filled", HEADING_FILLED_COLOUR), ("heading_held", HEADING_HELD_COLOUR)):
+        traces.append(seconds_bars(block[name], [HEADING_Y * top] * len(block[name]), HEADING_HEIGHT * top, frames, {"color": colour},
+                                   [f"{name.replace('_', ' ')}, {(l - f + 1) / rate:.1f} s" for f, l in block[name]], rate))
+    centres, means = speed_bins(speed, rate)
+    traces.append(line_trace(centres, means, frames, "cm/s"))
+    for trip in block["trips"]:
+        marker = {"color": TRIP_COLOUR, "pattern": {"shape": PARTIAL_PATTERN if trip["partial"] else "", "fgcolor": "white", "solidity": 0.4}}
+        traces.append(hbar(trip["first"] / rate, (trip["last"] - trip["first"] + 1) / rate, BLOCK_AXES["trips"], marker,
+                           hovertext=[f"trip {trip['trip']}, {'partial' if trip['partial'] else 'complete'}, "
+                                      f"{(trip['last'] - trip['first'] + 1) / rate:.1f} s"]))
+    traces += window_traces(block, settings)
+    layout = {"title": {"text": f"the lanes of {block['block_id']}: runs, frames, trips and windows", "font": {"size": FONT_SIZE + 2}, "x": 0},
+              "meta": block["block_id"], "font": {"size": FONT_SIZE},
+              "xaxis": {"domain": [0, 1], "anchor": BLOCK_AXES["windows"], "range": [0, block["n_frames"] / rate],
+                        "title": {"text": "time in block (s)"}},
+              "yaxis": lane_axis(BLOCK_LANES["runs"]), "yaxis2": lane_axis(BLOCK_LANES["frames"], range=[0, top], showticklabels=True),
+              "yaxis3": lane_axis(BLOCK_LANES["trips"]), "yaxis4": lane_axis(BLOCK_LANES["windows"]),
+              "annotations": [lane_label(BLOCK_AXES["runs"], "runs"), lane_label(BLOCK_AXES["frames"], "frames (cm/s)"),
+                              lane_label(BLOCK_AXES["trips"], "trips"), lane_label(BLOCK_AXES["windows"], "windows")],
+              "barmode": "overlay", "dragmode": False, "hovermode": "closest", "shapes": separators(BLOCK_LANES),
+              "margin": {"l": 156, "r": 20, "t": 40, "b": 50}}
+    return {"data": traces, "layout": layout}
+
+
+def setting_input(name, label, low):
+    """
+    One window setting: its label over a number input at its default, no smaller than low.
+    """
+    return html.Div([html.Label(label, className=TILE_LABEL),
+                     dcc.Input(id=f"setting-{name}", type="number", min=low, step=SETTING_STEP.get(name, "any"),
+                               value=windows.DEFAULTS[name], className=NUMBER_INPUT)], className=GROUP)
+
+
+def settings_card():
+    """
+    The Window settings card: the inputs, test on all blocks, save settings, and the lines saying what was tested and saved.
+    """
+    return card("Window settings", [
+        html.Div([setting_input(*setting) for setting in SETTING_INPUTS], className=BUTTONS),
+        html.Div([html.Button("test on all blocks", id="test", n_clicks=0, className=PRIMARY),
+                  html.Button("save settings", id="save-settings", n_clicks=0, className=NEUTRAL),
+                  html.Span(f"the training pipeline reads {windows.CONFIG} and nothing else", className=MUTED)],
+                 className=BUTTONS),
+        html.Div(id="tested-line", className=MUTED),
+        html.Div(id="saved-line", className=MUTED),
+    ], "flex-[2] min-w-[30rem]")
+
+
+def block_playback_card():
+    """
+    The block's Playback card: play and pause, the live tiles and the speed slider.
+    """
+    return card("Playback", [
+        html.Button([html.Span("play", id="block-play-label"), html.Kbd(KEY_LABELS[" "], className=BADGE)], id="block-play", n_clicks=0,
+                    className=PRIMARY, **{"data-block-key": " "}),
+        html.Div([live_tile(label, value_id) for label, value_id in BLOCK_LIVE_TILES], className=TILES),
+        html.Div([html.Div("speed", className=TILE_LABEL),
+                  dcc.Slider(id="block-speed", min=0, max=len(SPEEDS) - 1, step=None, value=SPEEDS.index(1),
+                             marks={i: f"{speed:g}x" for i, speed in enumerate(SPEEDS)})]),
+    ], "w-80")
+
+
+def blocks_panel(processed):
+    """
+    The Blocks tab: the settings and totals, the blocks table, the block map with its playback, and the block lanes, or the line saying the processor has not run.
+    """
+    if not blocks.built(processed):
+        return html.Div(card("Blocks", [html.Div(NO_DATASET_LINE.format(root=processed, manifest=trajectory.MANIFEST), className=MUTED)]),
+                        id="blocks-panel", className=PANEL, style=HIDDEN)
+    return html.Div([
+        html.Div([settings_card(), card("Totals", [html.Div(id="blocks-totals")], "flex-1 min-w-[24rem]")], className=ROW),
+        card("Blocks", [html.Div(id="blocks-table")]),
+        html.Div([card("Block", [html.Div([html.Div(NO_BLOCK_LINE, id="block-header", className=TEXT),
+                                           help_popover("block-map-caption", [])], className=BUTTONS),
+                                 dcc.Graph(id="block-map", figure=placeholder_figure(NO_BLOCK_LINE), config={"displayModeBar": False},
+                                           style={"height": MAP_HEIGHT})], "flex-1 min-w-[30rem]"),
+                  block_playback_card()], className=ROW),
+        card("Block lanes", [dcc.Graph(id="block-lanes", figure=placeholder_figure(NO_BLOCK_LINE), config={"displayModeBar": False},
+                                       style={"height": f"{LANES_HEIGHT_PX}px"}),
+                             html.Div(id="block-lanes-caption", className=CAPTION)]),
+        dcc.Store(id="settings", data=dict(windows.DEFAULTS)), dcc.Store(id="block-data"), dcc.Store(id="block-lanes-base"),
+        dcc.Store(id="block-keys"), dcc.Interval(id="block-interval", interval=INTERVAL_MS, disabled=True),
+    ], id="blocks-panel", className=PANEL, style=HIDDEN)
 
 
 def session_card(sessions):
@@ -928,18 +1291,19 @@ def replay_panel(sessions):
     ], id="replay-panel", className=PANEL, style=SHOWN)
 
 
-def layout(sessions):
+def layout(sessions, processed):
     """
-    The page: the title and the tab strip, the two panels, and the hidden stores.
+    The page: the title and the tab strip, the three panels, and the hidden stores.
     """
     return html.Div([
         html.Div([html.H1(TITLE, className="text-xl font-semibold"),
-                  dcc.Tabs(id="tabs", value="replay", className="w-64 text-sm",
+                  dcc.Tabs(id="tabs", value=FIRST_TAB, className="w-96 text-sm",
                            children=[dcc.Tab(label=label, value=value) for value, label in TABS.items()])],
                  className=HEADER),
         replay_panel(sessions),
         html.Div(html.Div(sessions_list(sessions), id="sessions-list", className=PANEL),
                  id="sessions-panel", className=PANEL, style=HIDDEN),
+        blocks_panel(processed),
         dcc.Store(id="session-data"), dcc.Store(id="edits", data=[]), dcc.Store(id="blocks", data=[]),
         dcc.Store(id="lanes-base"), dcc.Store(id="keys"), dcc.Store(id="action"), dcc.Store(id="knobs"),
         dcc.Store(id="notice"), dcc.Store(id="ui", data={"selected": None, "marks": [None, None]}),

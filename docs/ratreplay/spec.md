@@ -28,10 +28,10 @@ built. Dependencies `dash` and `plotly`.
 
 ### Layout
 
-Two tabs. The Sessions tab is one row per session: rat, date, protocol, duration, automatic
-and confirmed block counts, reviewed by, reviewed at and the time since, a notes excerpt, and
-a load button that opens the session on the Replay tab. Unreviewed rows first, then the oldest
-review first, so the list is the to-do list. A totals line above it: sessions reviewed of all,
+Three tabs. The Sessions tab is one row per session: rat, date, protocol, whether the session is
+in the dataset (the processor's funnel), duration, automatic and confirmed block counts, reviewed by, reviewed at and the time since, a notes excerpt, and
+a load button that opens the session on the Replay tab. The dataset's sessions first, then unreviewed
+rows, then the oldest review first, so the list is the to-do list. A totals line above it: sessions reviewed of all,
 blocks confirmed, hours of confirmed block time per epoch kind.
 
 The Replay tab. Top: a session dropdown (unreviewed first, a reviewed mark and the time since
@@ -65,6 +65,23 @@ faint ghost of its first windows. Clicking a block zooms every lane and the map'
 session" button clears the selection. Clicking anywhere on a lane moves the cursor. Under the
 lanes, one line says how the automatic blocks were cut (pauses, both LEDs lost over 0.5 s,
 pieces under 10 s dropped) with a `?` popover for the details.
+
+### The Blocks tab
+
+A third tab over the processed dataset, read through the core package's loader
+(`axis_of_travel_rnn.trajectory.load_block`, the same reader the training pipeline uses). A table
+of every built block: session, kind, status, minutes, runs, complete and partial trips, the share
+of frames with a measured, filled and held heading, the windows at the current settings, and a
+verdict ok or trouble with its reason. Clicking a block replays it in metres in the room frame
+with the environment config drawn under it (the triple-T corridors, start and goals, the arena
+circle), which is also the visual check of the registration. A window settings card: window
+length, stride, burn-in and horizon in seconds, the training rate, the minimum share of
+measured heading for an HD arm, and the minimum number of complete trips in a track block. "Test on all blocks" recomputes every verdict with totals per
+kind (blocks ok, windows, hours). Trouble means: no window fits, or the measured heading share
+is under the minimum, or a track block holds fewer complete trips than the minimum (one). "Save settings" writes
+`configs/datasets/lab_blocks.yaml` in the repository: the settings, the processed manifest's
+timestamp and rules, and the totals. The training pipeline reads that file and nothing else for
+its windows. No real data enters it.
 
 ### Actions, the whole range of cleaning allowed
 
