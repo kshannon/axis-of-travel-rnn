@@ -1,0 +1,37 @@
+"""
+Serve the API on the backend tests' synthetic folders for the Playwright flows, everything rebuilt under --root.
+"""
+
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+import uvicorn
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend" / "tests"))
+
+from fixtures import write_processed, write_transformed  # noqa: E402
+from ratreplay_api.app import create_app  # noqa: E402
+
+HOST = "127.0.0.1"
+
+
+def main(argv=None):
+    """
+    Rebuild the synthetic transformed and processed folders under --root, then serve the app with its registry and window settings there too, so nothing outside --root is touched.
+    """
+    parser = argparse.ArgumentParser(description="Serve RatReplay on synthetic data.")
+    parser.add_argument("--root", type=Path, required=True, help="the folder rebuilt on every start")
+    parser.add_argument("--port", type=int, required=True)
+    args = parser.parse_args(argv)
+    shutil.rmtree(args.root, ignore_errors=True)
+    transformed, processed = args.root / "transformed", args.root / "processed"
+    write_transformed(transformed)
+    write_processed(transformed, processed)
+    app = create_app(registry_path=args.root / "sources.json", settings_path=args.root / "lab_blocks.yaml")
+    uvicorn.run(app, host=HOST, port=args.port)
+
+
+if __name__ == "__main__":
+    main()

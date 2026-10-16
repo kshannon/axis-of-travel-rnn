@@ -11,6 +11,9 @@
   --ink: #111827;
   --muted: #6b7280;
   --accent: #0369a1;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
 }
 
 :root.dark {
@@ -21,6 +24,9 @@
   --ink: #e5e7eb;
   --muted: #8b95a7;
   --accent: #38bdf8;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
 }
 
 @theme inline {
@@ -30,6 +36,9 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
 }
 
 [x-cloak] {
