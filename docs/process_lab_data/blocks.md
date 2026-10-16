@@ -30,7 +30,7 @@ The count after every box is printed by the dry run and written to the manifest.
 
 ## 2. One epoch into blocks
 
-Three things cut, one thing drops. A cut ends the current block and starts a new one on the
+Four things cut (a pause, a both-lights gap, a jump, an epoch bound), margins trim, one thing drops. A cut ends the current block and starts a new one on the
 next kept frame. The cut points are found over the whole session first, then the epoch's
 frame range is applied.
 
@@ -40,7 +40,10 @@ flowchart TD
     A --> C[gap mask: the lights unfilled for more than max_gap frames, the session's own value, 30. GAP_LIGHTS says either light or both lights]
     B --> D[kept = inside the epoch's frame_start..frame_end and not in a gap]
     C --> D
-    D --> E[a block starts where kept turns on, or on a pause frame]
+    A --> J[jump flags: a displacement over JUMP_PX 40 px in one frame]
+    J --> D
+    D --> M[margins: PAUSE_MARGIN_SEC 5 s trimmed around every pause and jump and at both epoch ends]
+    M --> E[a block starts where kept turns on, or on a pause frame]
     E --> F[a block ends where kept turns off, or just before a pause frame]
     F --> G{block length >= MIN_BLOCK_S 10 s, 600 frames?}
     G -- no --> X[dropped, counted]
@@ -67,6 +70,18 @@ JL1HPCData, 124 epochs, 9,980 runs of which 7,084 clean, 6,897 stretches cut, 3,
 least 10 s (264 arena, 6.0 h, and 2,994 track, 19.1 h, mean track block 23 s). Pauses exist in
 only 32 sessions, so almost every cut is one lost light for over half a second. The "both"
 rule, position from the lab's mashup light, is the alternative under test.
+
+Decision 2026-10-14, four classes of quality issue (Kyle): pauses cut (as before). Handling around
+pauses and at the epoch edges: a 5 s margin trimmed. Both LEDs lost: position is never
+interpolated, the gap cuts as before. One LED lost: heading only, a label, never cuts, filled by
+circular linear interpolation up to 3 s and flagged, NaN beyond. Transportation (a jump over 40
+px in one frame): cuts with the same margin. RatReplay draws every rule's effect with display
+toggles, the constants live in the processor.
+
+Dry run with all four rules (2026-10-14): 1,772 stretches, 594 after the margins, 498 blocks of
+at least 10 s, 405 on the track (24.4 h, median 78 s) and 93 in the arena (6.2 h). 1,173 jump
+frames, 1,486 s trimmed by margins. Against the gap rule alone the rules cost about 1 percent of
+the time and change the block picture not at all.
 
 What stays inside a block on purpose: an unfilled stretch of max_gap frames or shorter (the lab
 filled every gap up to max_gap, so these should not occur in the real files, and the dry run
