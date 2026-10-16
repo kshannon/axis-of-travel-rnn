@@ -20,8 +20,8 @@ transform-lab-data = "python -m transform_lab_data"
 # Lab data processor (docs/process_lab_data/): the converter's tables to trajectory blocks in metres
 process-lab-data = "python -m process_lab_data"
 
-# Lab data viewer (docs/view_lab_data/): play blocks and runs in the browser, save a verdict per run
-view-lab-data = "python -m view_lab_data"
+# RatReplay (docs/ratreplay/): replay a session in the browser and confirm its blocks
+ratreplay = "python -m ratreplay"
 
 # Testing
 test     = "python -m pytest"
@@ -52,7 +52,7 @@ xarray   = ">=2023.6"
 # Visualization
 matplotlib = ">=3.8"
 seaborn    = ">=0.13"
-plotly     = ">=5.20"   # the lab data viewer (docs/view_lab_data/)
+plotly     = ">=5.20"   # RatReplay (docs/ratreplay/)
 dash       = ">=2.17"   # same
 
 # Validation and Stats
