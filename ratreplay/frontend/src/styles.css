@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* The dark class on <html> picks the theme, not the system setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Colours are named by role so the pages never write a light and a dark pair. */
+:root {
+  --page: #f3f4f6;
+  --card: #ffffff;
+  --line: #e5e7eb;
+  --ink: #111827;
+  --muted: #6b7280;
+  --accent: #0369a1;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --page: #0b0f17;
+  --card: #121826;
+  --line: #222b3a;
+  --ink: #e5e7eb;
+  --muted: #8b95a7;
+  --accent: #38bdf8;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+}
+
+[x-cloak] {
+  display: none !important;
+}
