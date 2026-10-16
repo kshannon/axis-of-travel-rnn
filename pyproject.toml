@@ -34,9 +34,10 @@ packages = [
   "src/transform_lab_data",
   "src/process_lab_data",
   "src/ratreplay",
+  "ratreplay/backend/ratreplay_api",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-pythonpath = ["src"]  # tests import the packages from src/ without an install
+pythonpath = ["src", "ratreplay/backend"]  # tests import the packages from src/ and ratreplay/backend/ without an install
