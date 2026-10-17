@@ -1,5 +1,5 @@
 """
-The training window settings over the processed blocks: how many windows a block yields, its heading and trip shares, the verdict on each block, the totals, and the settings file the training pipeline reads.
+The training window settings over the processed blocks: how many windows a block yields and the checks of each, its heading and trip shares, the verdict on each block, the totals, and the settings file the training pipeline reads.
 """
 
 import math
@@ -9,6 +9,8 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from process_lab_data.labels import RETURN_PATHS
+from process_lab_data.select import runs_of
 from proj_helpers.paths import repo_root
 
 from .trajectory import KINDS
@@ -34,10 +36,20 @@ CONFIG = repo_root() / "configs" / "datasets" / "lab_blocks.yaml"
 # through float rounding, within this tolerance.
 TOLERANCE_S = 1e-9
 
+# The block columns a window's checks read over its range.
+CHECK_COLUMNS = ("x", "y", "heading", "heading_filled", "heading_held")
+
 # The verdict reasons, in the order the rules are checked.
 NO_WINDOW = "no window fits"
 HEADING_UNDER = "measured heading {:.0%} under {:.0%}"
 TRIPS_UNDER = "{} complete trips under {}"
+
+
+def rate_of(row):
+    """
+    The block's whole frame rate in Hz from its csv row, rounded because duration_s is n_frames over an integer rate and the division does not always come back exact.
+    """
+    return round(row["n_frames"] / row["duration_s"])
 
 
 def window_count(n_frames, rate_hz, settings):
@@ -82,6 +94,50 @@ def complete_trips(block):
     The number of complete trips in the block, the distinct positive trip numbers.
     """
     return int(len(np.unique(block["trip"][block["trip"] > 0])))
+
+
+def trip_extents(block):
+    """
+    The trips of the block as (complete, first, last) frame indices: a complete trip from its outbound start to the end of its return run, any other trip over all of its frames.
+    """
+    extents = []
+    for number in np.unique(block["trip"][block["trip"] != 0]):
+        frames = np.flatnonzero(block["trip"] == number)
+        first, last = int(frames[0]), int(frames[-1])
+        if number > 0:
+            returning = np.isin(block["path_id"][first:last + 1], RETURN_PATHS)
+            last = first + runs_of(returning)[0][1] - 1
+        extents.append((bool(number > 0), first, last))
+    return extents
+
+
+def trips_in(extents, first, stop):
+    """
+    The trips touching the frames from first to stop (exclusive) as (complete, partial) counts. A trip is complete when its outbound start and its return end both lie inside, partial when the range cuts it or the block did.
+    """
+    inside = [complete and start >= first and end < stop for complete, start, end in extents if start < stop and end >= first]
+    return sum(inside), len(inside) - sum(inside)
+
+
+def window_rows(block, row, settings):
+    """
+    Every window the settings give in the block: its frame ranges (indices into the block, stops exclusive) for the whole, the burn-in and the window without its horizon, and its checks over the window plus its horizon. A window is ok when its position is finite throughout and its measured heading share reaches the settings' minimum.
+    """
+    rate_hz = rate_of(row)
+    span = round((settings["window_s"] + settings["horizon_s"]) * rate_hz)
+    extents = trip_extents(block)
+    rows = []
+    for index, start_s in enumerate(window_starts(row["n_frames"], rate_hz, settings)):
+        first = round(start_s * rate_hz)
+        part = {name: block[name][first:first + span] for name in CHECK_COLUMNS}
+        finite = float(np.mean(np.isfinite(part["x"]) & np.isfinite(part["y"])))
+        measured = heading_shares(part)["measured"]
+        complete, partial = trips_in(extents, first, first + span)
+        rows.append({"index": index, "first": first, "burn_in_stop": first + round(settings["burn_in_s"] * rate_hz),
+                     "window_stop": first + round(settings["window_s"] * rate_hz), "stop": first + span,
+                     "position_finite": finite, "heading_measured": measured, "trips_complete": complete, "trips_partial": partial,
+                     "ok": bool(finite == 1.0 and measured >= settings["min_heading_measured"])})
+    return rows
 
 
 def verdict(row, block, settings):

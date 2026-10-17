@@ -1,5 +1,5 @@
 """
-The window logic on scripted blocks: the window count at its boundaries, the heading and trip shares, each verdict rule alone, the totals and the settings file round trip.
+The window logic on scripted blocks: the window count at its boundaries, the heading and trip shares, the checks of each window, each verdict rule alone, the totals and the settings file round trip.
 """
 
 import numpy as np
@@ -8,6 +8,7 @@ from axis_of_travel_rnn import windows
 
 RATE_HZ = 60
 SETTINGS = windows.DEFAULTS
+WINDOW_SETTINGS = {**SETTINGS, "window_s": 20.0, "stride_s": 10.0, "horizon_s": 0.0, "burn_in_s": 1.0, "min_heading_measured": 0.9}
 ONE_WINDOW_FRAMES = int((windows.WINDOW_S + windows.HORIZON_S) * RATE_HZ)
 STRIDE_FRAMES = int(windows.STRIDE_S * RATE_HZ)
 MANIFEST = {"run": {"timestamp": "2026-10-16T10:00:00+00:00", "rules": {"select": {"JUMP_PX": 40.0, "MIN_BLOCK_S": 10.0}}}}
@@ -15,14 +16,15 @@ MANIFEST = {"run": {"timestamp": "2026-10-16T10:00:00+00:00", "rules": {"select"
 
 def scripted_block(n_frames, lost=0, filled=0, held=0, trips=(1,)):
     """
-    A block of n_frames whose first frames lose, then fill, then hold the heading in that order, with the trip numbers spread evenly over the frames.
+    A block of n_frames at a still, finite position whose first frames lose, then fill, then hold the heading in that order, with the trip numbers spread evenly over the frames and no return path.
     """
     heading = np.zeros(n_frames)
     heading[:lost] = np.nan
     heading_filled, heading_held = np.zeros(n_frames, bool), np.zeros(n_frames, bool)
     heading_filled[lost:lost + filled] = True
     heading_held[lost + filled:lost + filled + held] = True
-    return {"heading": heading, "heading_filled": heading_filled, "heading_held": heading_held,
+    return {"x": np.zeros(n_frames), "y": np.zeros(n_frames), "heading": heading, "heading_filled": heading_filled,
+            "heading_held": heading_held, "path_id": np.zeros(n_frames, np.int16),
             "trip": np.array(trips, np.int32)[np.arange(n_frames) * len(trips) // n_frames]}
 
 
@@ -31,6 +33,14 @@ def row(block_id, kind, n_frames):
     The csv row fields the window logic reads.
     """
     return {"block_id": block_id, "kind": kind, "n_frames": n_frames, "duration_s": n_frames / RATE_HZ}
+
+
+def rows_of(seconds, settings=WINDOW_SETTINGS, **columns):
+    """
+    The window rows of a scripted block of this many seconds without trips, the columns given replacing the scripted ones.
+    """
+    n_frames = seconds * RATE_HZ
+    return windows.window_rows({**scripted_block(n_frames, trips=(0,)), **columns}, row("b", "track", n_frames), settings)
 
 
 def test_window_count_at_the_boundaries_and_in_seconds_so_the_rate_does_not_matter():
@@ -47,6 +57,40 @@ def test_heading_shares_count_a_measured_heading_as_finite_and_neither_filled_no
     assert windows.heading_shares(block) == {"measured": 0.6, "filled": 0.2, "held": 0.1}
     assert windows.trip_shares(block) == {"complete": 2 / 3, "partial": 1 / 3}
     assert windows.trip_shares(scripted_block(100, trips=(0,))) == {"complete": 0.0, "partial": 0.0}
+
+
+def test_windows_are_checked_one_by_one():
+    heading, x = np.zeros(50 * RATE_HZ), np.zeros(50 * RATE_HZ)
+    heading[1100:1300] = np.nan
+    x[2500] = np.nan
+    rows = rows_of(50, heading=heading, x=x)
+    assert len(rows) == windows.window_count(50 * RATE_HZ, RATE_HZ, WINDOW_SETTINGS) == 4
+    assert (rows[1]["first"], rows[1]["burn_in_stop"], rows[1]["window_stop"], rows[1]["stop"]) == (600, 660, 1800, 1800)
+    assert [row["ok"] for row in rows] == [True, False, True, False]
+    assert rows[1]["heading_measured"] == 1000 / 1200 and rows[3]["position_finite"] == 1199 / 1200
+
+
+def test_a_window_is_ok_at_exactly_the_minimum_heading_share():
+    heading = np.zeros(20 * RATE_HZ)
+    heading[:120] = np.nan  # 1080 of 1200 frames measured, 0.9
+    assert rows_of(20, heading=heading)[0]["ok"]
+
+
+def test_the_horizon_extends_each_window_past_its_training_part_up_to_the_block_end():
+    rows = rows_of(50, {**WINDOW_SETTINGS, "horizon_s": 5.0})
+    assert [(row["window_stop"], row["stop"]) for row in rows] == [(1200, 1500), (1800, 2100), (2400, 2700)]
+    (only,) = rows_of(25, {**WINDOW_SETTINGS, "horizon_s": 5.0})
+    assert (only["window_stop"], only["stop"]) == (1200, 25 * RATE_HZ)
+
+
+def test_a_trip_is_inside_a_window_when_its_outbound_start_and_return_end_both_are():
+    trip, path_id = np.zeros(50 * RATE_HZ, np.int32), np.zeros(50 * RATE_HZ, np.int16)
+    trip[0:600], trip[600:1500], trip[1500:] = 1, 2, -3  # trip 3 is partial, the block ends before it returns
+    path_id[200:300], path_id[1100:1300] = 9, 10  # the return runs of trips 1 and 2
+    rows = rows_of(50, trip=trip, path_id=path_id)
+    assert [(row["first"], row["stop"]) for row in rows] == [(0, 1200), (600, 1800), (1200, 2400), (1800, 3000)]
+    # Trip 2 starts inside the first window and returns past its end, so only the second window holds it whole.
+    assert [(row["trips_complete"], row["trips_partial"]) for row in rows] == [(1, 1), (1, 1), (0, 2), (0, 1)]
 
 
 def test_each_verdict_rule_fires_alone_and_a_fit_block_is_ok():
