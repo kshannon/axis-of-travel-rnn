@@ -16,47 +16,47 @@ SHARE_COLUMNS = ("heading", "heading_filled", "heading_held", "trip")
 SHARES = {}
 
 
-def is_built(root):
+def is_built(sources):
     """
     Whether the processor has written its manifest under the folder.
     """
-    return (Path(root) / trajectory.MANIFEST).is_file()
+    return (sources.processed_root() / trajectory.MANIFEST).is_file()
 
 
-def require_built(root):
+def require_built(sources):
     """
     NotFound unless the processor has written its manifest under the folder.
     """
-    if not is_built(root):
-        raise NotFound(f"no processed dataset under {root}: it has no {trajectory.MANIFEST}. Run pixi run process-lab-data")
+    if not is_built(sources):
+        raise NotFound(f"no processed dataset under {sources.processed_root()}: it has no {trajectory.MANIFEST}. Run pixi run process-lab-data")
 
 
-def csv_columns(root, kind):
+def csv_columns(sources, kind):
     """
     The column names of a kind's blocks csv, read from its header.
     """
-    return pacsv.open_csv(Path(root) / kind / trajectory.BLOCKS_CSV).schema.names
+    return pacsv.open_csv(sources.processed_root() / kind / trajectory.BLOCKS_CSV).schema.names
 
 
-def has_blocks_csv(root, kind):
+def has_blocks_csv(sources, kind):
     """
     Whether the kind's blocks csv exists.
     """
-    return (Path(root) / kind / trajectory.BLOCKS_CSV).is_file()
+    return (sources.processed_root() / kind / trajectory.BLOCKS_CSV).is_file()
 
 
-def list_blocks(root):
+def list_blocks(sources):
     """
     The rows of every kind's blocks csv with the kind and the path of each block's parquet added.
     """
-    return trajectory.list_blocks(root)
+    return trajectory.list_blocks(sources.processed_root())
 
 
-def read_manifest(root):
+def read_manifest(sources):
     """
     The processor's manifest as a dict.
     """
-    return trajectory.read_manifest(root)
+    return trajectory.read_manifest(sources.processed_root())
 
 
 def load_block(path):
@@ -77,10 +77,10 @@ def block_shares(path):
     return SHARES[path][1]
 
 
-def blocks_with_shares(root):
+def blocks_with_shares(sources):
     """
     The rows of every block and, by block id, the columns its verdict is computed from.
     """
-    require_built(root)
-    rows = list_blocks(root)
+    require_built(sources)
+    rows = list_blocks(sources)
     return rows, {row["block_id"]: block_shares(row["path"]) for row in rows}

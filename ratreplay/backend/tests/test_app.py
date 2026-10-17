@@ -39,4 +39,4 @@ def test_built_frontend_is_served_at_root_and_the_routes_still_win(tmp_path, mon
 def test_the_config_file_is_the_repositorys_local_yaml_unless_one_is_given(monkeypatch):
     monkeypatch.setattr(paths, "local_config", lambda file: {})
     app = create_app()
-    assert app.state.config_path == (paths.repo_root() / paths.LOCAL_CONFIG).resolve()
+    assert app.state.sources.config_path == (paths.repo_root() / paths.LOCAL_CONFIG).resolve()

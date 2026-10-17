@@ -9,20 +9,93 @@ This document is the design the code is reviewed against. Decisions, not options
 
 ## Layering (volatility based, after Löwy)
 
-    clients          the pages: data, sessions, replay, blocks, windows, api, about
-    managers         one per use case: sources, sessions, review, blocks, windows
-    engines          the algorithms: cuts (from process_lab_data.select), edits (the review rules),
-                     environment, heading (offset, fills), occupancy, spans, windows (from
-                     axis_of_travel_rnn.windows, with the checks of each window)
-    resource access  stores: transformed (tables and frames), processed (blocks and manifest),
-                     review (one json per session), settings (lab_blocks.yaml)
-    utilities        arrow encoding, ids, time formatting
+```mermaid
+flowchart TB
+    subgraph Clients
+        D[Data page]
+        S[Sessions page]
+        R[Replay page]
+        B[Blocks page]
+        W[Windows page]
+    end
+    subgraph Managers["Managers, one per use case, never call each other"]
+        MS[SourcesManager: status of the two folders]
+        MSe[SessionsManager: index, session payload]
+        MR[ReviewManager: preview, save, reload]
+        MB[BlocksManager: index, block payload, verdicts]
+        MW[WindowsManager: window rows, settings]
+    end
+    subgraph Engines["Engines, pure, the science imported from the project packages"]
+        EC[Cuts: process_lab_data.select]
+        EH[Heading: offset, fills, frame parameters]
+        EE[Edits: apply_edits, refusals, review_of]
+        EW[Windows: axis_of_travel_rnn.windows]
+        EG[Geometry: environments]
+        EO[Occupancy, spans]
+    end
+    subgraph ResourceAccess["ResourceAccess, the only layer that knows where data lives"]
+        DS[DataSources: where the two folders and the settings file are]
+        TS[TransformedStore]
+        PS[ProcessedStore]
+        RS[ReviewStore]
+        SS[SettingsStore]
+    end
+    subgraph Resources
+        LY[(configs/local.yaml)]
+        TF[(transformed folder)]
+        PF[(processed folder, review/)]
+        CF[(configs/datasets/lab_blocks.yaml)]
+    end
+    D --> MS
+    S --> MSe
+    R --> MSe
+    R --> MR
+    B --> MB
+    B --> MW
+    W --> MW
+    MS --> DS
+    MS --> TS
+    MS --> PS
+    MS --> RS
+    MSe --> TS
+    MSe --> RS
+    MSe --> EC
+    MSe --> EH
+    MSe --> EO
+    MR --> RS
+    MR --> TS
+    MR --> EE
+    MB --> PS
+    MB --> EW
+    MB --> EG
+    MW --> PS
+    MW --> SS
+    MW --> EW
+    TS --> DS
+    PS --> DS
+    RS --> DS
+    SS --> DS
+    DS --> LY
+    TS --> TF
+    PS --> PF
+    RS --> PF
+    SS --> CF
+```
 
-Rules: a client talks to managers over HTTP only. A manager calls engines and stores, never another
-manager. Engines are pure functions over arrays. Stores do file I/O and nothing else. Science never
-lives in the tool: cuts, fills, offsets and windows are imported from the project packages. The one
-exception is the review's edit rules, which live in `engines/edits.py` (copied from the old tool) and
-read the processor's constants. Nothing is reimplemented in TypeScript except drawing and interaction.
+Rules: a client talks to managers over HTTP only and never carries the identity of a data folder.
+A manager calls engines and stores, never another manager, and hands the `DataSources` it is given
+on to the stores. Engines are pure functions over arrays. Stores do file I/O and nothing else, and
+ask `DataSources` where their folder or file is. `DataSources` is the one component that knows how
+the folders are chosen (today `configs/local.yaml`, read the way the processor reads it, tomorrow a
+flag or a picker), so that choice changes in one place. It imports no store. The Sources manager
+checks the folders against the data format through the stores and is the one manager that asks
+`DataSources` for the paths it shows. Science never lives in the tool: cuts, fills, offsets and windows
+are imported from the project packages. Nothing is reimplemented in TypeScript except drawing
+and interaction. Utilities (Arrow encoding, the clock, ids, formatting) sit beside every layer.
+
+Where it bends on purpose: a page may use two managers, the Replay page previews edits through
+the Review manager while editing (chatty, right for a localhost tool), and the frontend's draw
+modules hold real geometry, which in a server system would be an engine.
 
 ## Backend, `ratreplay/backend/ratreplay_api/`
 
@@ -30,6 +103,7 @@ FastAPI on 127.0.0.1, one process, no database. Files are the state.
 
     app.py                 create_app(config_path), routes mounted, static frontend served at /
     routers/               the HTTP face of the managers, one module per use case, no logic
+    stores/data_sources.py where the two folders and the settings file are: the config file, read at start and on reload
     stores/transformed.py  sessions, epochs, runs csv, frames parquet per session, manifest
     stores/processed.py    blocks csv, block parquet, manifest
     stores/review.py       read, write (overwrite whole), list, per session

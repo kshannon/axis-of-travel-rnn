@@ -1,53 +1,21 @@
 """
-What the routes share: the settings path of the app and the data folders its config names.
+What the routes share: the DataSources of the app.
 """
 
 from fastapi import Depends, Request
 
-from proj_helpers import paths
 
-from ..managers import sources
-
-
-def settings_path(request: Request):
+def data_sources(request: Request):
     """
-    The window settings file of the app.
+    The DataSources of the app, which the managers hand on to the stores to ask where the data is.
     """
-    return request.app.state.settings_path
+    return request.app.state.sources
 
 
-def config_path(request: Request):
+def reread_sources(reload: bool = False, sources=Depends(data_sources)):
     """
-    The config file the data folders come from.
-    """
-    return str(request.app.state.config_path)
-
-
-def current_config(request: Request):
-    """
-    The config the data folders come from.
-    """
-    return request.app.state.config
-
-
-def reread_config(request: Request, reload: bool = False):
-    """
-    The config, read from its file again first when the query says reload=true.
+    The DataSources, with the config file read again first when the query says reload=true.
     """
     if reload:
-        request.app.state.config = paths.local_config(request.app.state.config_path)
-    return request.app.state.config
-
-
-def transformed_root(config=Depends(current_config), file=Depends(config_path)):
-    """
-    The transformed folder, which every session route reads.
-    """
-    return sources.transformed_root(config, file)
-
-
-def processed_root(config=Depends(current_config), file=Depends(config_path)):
-    """
-    The processed folder, which holds the reviews and the blocks.
-    """
-    return sources.required_root(config, file, "processed")
+        sources.reload()
+    return sources

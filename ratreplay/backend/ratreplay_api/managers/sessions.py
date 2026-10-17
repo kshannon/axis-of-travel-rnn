@@ -21,16 +21,15 @@ def picked(row, keys):
     return {key: row[key] for key in keys}
 
 
-def automatic_count(root, session, epochs):
+def automatic_count(sources, session, epochs):
     """
     The number of automatic blocks of the session, none when the converter wrote no frames file for it.
     """
-    path = transformed.frames_path(root, session["session_id"])
-    if not path.is_file():
+    key = transformed.frames_stamp(sources, session["session_id"])
+    if key is None:
         return None
-    key = (path, path.stat().st_mtime_ns)
     if key not in AUTOMATIC_COUNTS:
-        AUTOMATIC_COUNTS[key] = len(cuts.automatic_blocks(transformed.read_frames(root, session["session_id"]), session, epochs))
+        AUTOMATIC_COUNTS[key] = len(cuts.automatic_blocks(transformed.read_frames(sources, session["session_id"]), session, epochs))
     return AUTOMATIC_COUNTS[key]
 
 
@@ -46,11 +45,11 @@ def review_facts(saved, rate_hz):
                             for kind in cuts.EPOCH_KINDS}}
 
 
-def index(root, processed_root):
+def index(sources):
     """
     Every session with an arena or track epoch, the dataset's sessions first, then unreviewed, then the oldest review first.
     """
-    tables = transformed.read_tables(root)
+    tables = transformed.read_tables(sources)
     dataset = cuts.in_dataset(tables)
     rows = []
     for session in tables["sessions"]:
@@ -61,16 +60,16 @@ def index(root, processed_root):
         runs = [r for r in tables["runs"] if r["session_id"] == session_id]
         rows.append({**session, "date": str(session["date"]), "epochs": [picked(e, EPOCH_KEYS) for e in epochs],
                      "n_runs": len(runs), "n_clean_runs": sum(1 for r in runs if r["clean"]), "in_dataset": session_id in dataset,
-                     "n_automatic": automatic_count(root, session, epochs),
-                     **review_facts(review.read(processed_root, session_id), session["rate_hz"])})
+                     "n_automatic": automatic_count(sources, session, epochs),
+                     **review_facts(review.read(sources, session_id), session["rate_hz"])})
     return sorted(rows, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
 
 
-def header(root, session_id):
+def header(sources, session_id):
     """
     One session's facts: its epochs and runs, the epochs that are cut into blocks, what cut it, the heading fills, the LED offset, the occupancy per epoch and the automatic blocks.
     """
-    found = transformed.read_session(root, session_id)
+    found = transformed.read_session(sources, session_id)
     session, epochs, frames = found["session"], found["epochs"], found["frames"]
     rate_hz, max_gap = session["rate_hz"], session["max_gap"]
     track = heading.track(frames, epochs, rate_hz)
@@ -83,11 +82,11 @@ def header(root, session_id):
             "blocks": cuts.automatic_blocks(frames, session, epochs)}
 
 
-def arrays(root, session_id):
+def arrays(sources, session_id):
     """
     One session's arrays over every frame: time, the mashup light's position in pixels, the corrected and filled heading, the speed in px/s, the direction of motion and the number of lights.
     """
-    found = transformed.read_session(root, session_id)
+    found = transformed.read_session(sources, session_id)
     frames = found["frames"]
     track = heading.track(frames, found["epochs"], found["session"]["rate_hz"])
     return {"t": frames["t"], "x": frames["mashup_x"], "y": frames["mashup_y"], "heading": track["heading"], "speed": track["speed"],

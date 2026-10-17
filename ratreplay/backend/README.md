@@ -14,9 +14,11 @@ or query that fails its schema, the text naming the field.
 ## Sources
 
 The two data folders are the ones the processor reads, `TRANSFORMED_LAB_DATA` and `PROCESSED_LAB_DATA` in
-`configs/local.yaml` (read through `proj_helpers.paths.local_config`), each resolved with `expanduser().resolve()`. The
-app reads that file when it starts. `create_app(config_path)` takes another file instead, which is how the tests and the
-Playwright server name their synthetic folders and never touch the real one. No route takes an id for a folder:
+`configs/local.yaml` (read through `proj_helpers.paths.local_config`), each resolved with `expanduser().resolve()`. Only
+`DataSources` (`stores/data_sources.py`) knows the two keys and the file. The app builds one at start, it reads the file
+then and again on reload, the managers hand it to the stores, which ask it for their folder. It refuses with the 400 and
+404 below. `create_app(config_path, settings_path)` takes other files instead, which is how the tests
+and the Playwright server name their synthetic folders and never touch the real ones. No route takes an id for a folder:
 the session routes read the transformed folder, the block and settings routes the processed folder, and the reviews live
 under its `review/`.
 

@@ -13,35 +13,35 @@ from ..stores import transformed
 STILL_AUTO = "some blocks are still auto: confirm, edit or remove them before saving"
 
 
-def get(processed_root, session_id):
+def get(sources, session_id):
     """
     The session's review file, or None when it was not reviewed.
     """
-    return review_files.read(processed_root, session_id)
+    return review_files.read(sources, session_id)
 
 
-def context(root, session_id):
+def context(sources, session_id):
     """
     The session as the edits read it.
     """
-    found = transformed.read_session(root, session_id)
+    found = transformed.read_session(sources, session_id)
     return edits.context(found["frames"], found["session"], found["epochs"], found["runs"])
 
 
-def preview(root, session_id, edit_list):
+def preview(sources, session_id, edit_list):
     """
     The blocks, cuts and flagged runs the edits make and the edits skipped as no longer applying, nothing written.
     """
-    return edits.preview(context(root, session_id), edit_list)
+    return edits.preview(context(sources, session_id), edit_list)
 
 
-def save(root, processed_root, session_id, edit_list, notes):
+def save(sources, session_id, edit_list, notes):
     """
     Apply the edits to the automatic blocks and write the review whole, replacing the earlier one. Refused while a block is still auto. Returns the saved review, the file and whether it replaced one.
     """
-    stamp = transformed.manifest(root)["run"]["timestamp"]
-    saved = edits.review_of(context(root, session_id), edit_list, notes, stamp, getpass.getuser(), clock.iso_now())
+    stamp = transformed.manifest(sources)["run"]["timestamp"]
+    saved = edits.review_of(context(sources, session_id), edit_list, notes, stamp, getpass.getuser(), clock.iso_now())
     if any(block["status"] == "auto" for block in saved["blocks"]):
         raise Invalid(STILL_AUTO)
-    path, replaced = review_files.write(processed_root, saved)
+    path, replaced = review_files.write(sources, saved)
     return {"review": saved, "path": str(path), "overwrote": replaced}

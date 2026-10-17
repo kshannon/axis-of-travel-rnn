@@ -10,11 +10,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from axis_of_travel_rnn.windows import CONFIG
-from proj_helpers import paths
-
 from .errors import Invalid, NotFound
 from .routers import blocks, data_format, review, sessions, sources, windows
+from .stores.data_sources import DataSources
 
 # The frontend is served once it has been built.
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -28,9 +26,7 @@ def create_app(config_path=None, settings_path=None):
     The app with its routers mounted and the built frontend at /, the data folders from the config file at config_path (configs/local.yaml when none is given, read at start and on reload) and the window settings file at settings_path.
     """
     app = FastAPI(title="RatReplay", openapi_url="/api/openapi.json", docs_url=None, redoc_url=None)
-    app.state.config_path = Path(config_path or paths.repo_root() / paths.LOCAL_CONFIG).resolve()
-    app.state.config = paths.local_config(app.state.config_path)
-    app.state.settings_path = Path(settings_path) if settings_path else CONFIG
+    app.state.sources = DataSources(config_path, settings_path)
 
     @app.exception_handler(HTTPException)
     def http_error(request, error):

@@ -47,3 +47,11 @@ def client(client_on, transformed, processed):
     A test client on an app whose config names the synthetic folders.
     """
     return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)})
+
+
+@pytest.fixture
+def data_sources(client):
+    """
+    The DataSources of that app, naming the synthetic folders.
+    """
+    return client.app.state.sources

@@ -2,21 +2,19 @@
 Facts about a data folder as a whole.
 """
 
-from pathlib import Path
-
 from ..clock import iso_of
 
 
-def exists(root):
+def exists(sources, kind):
     """
-    Whether the folder exists.
+    Whether the folder the config names for the kind exists.
     """
-    return Path(root).is_dir()
+    return sources.root(kind).is_dir()
 
 
-def modified(root):
+def modified(sources, kind):
     """
-    When the newest file under the folder was last written, none for a folder without files.
+    When the newest file under the kind's folder was last written, none for a folder without files.
     """
-    times = [path.stat().st_mtime for path in Path(root).rglob("*") if path.is_file()]
+    times = [path.stat().st_mtime for path in sources.root(kind).rglob("*") if path.is_file()]
     return iso_of(max(times)) if times else None

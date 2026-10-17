@@ -22,9 +22,9 @@ Node comes from pixi through the `ratreplay` environment, `pixi run` finds it fo
 keys the processor reads, so the tool and the processor never disagree about where the data is. The transformed folder is
 the converter's output. The processed folder is where the reviews are written and the processor builds its blocks, it
 need not exist yet. The Data page shows the path the data takes, each folder with its resolved path, whether it follows
-the data format (the API page lists it), every problem if not, its counts and times, and the config file. To change a
-folder edit that file and press Reload. A page that needs a folder shows its problem and a link to the Data page until
-the folder is ok.
+the data format (the API page lists it), every problem if not, its counts and times, and the config file. The API reads
+that file when it starts, so to change a folder edit it and press Reload. A page that needs a folder shows its problem
+and a link to the Data page until the folder is ok.
 
 **Review a session.** The Sessions page lists one row per session, the sessions of the dataset first. A click on a
 header sorts, a click on a row opens its details, and Open in replay loads it. The Replay page plays the session
@@ -90,7 +90,7 @@ The backend imports the project packages, so after pulling a change to the `pack
 ## Layout
 
     backend/ratreplay_api/   FastAPI: routers, managers, engines, stores
-    backend/tests/           pytest on synthetic folders, the API through the test client
+    backend/tests/           pytest on synthetic folders, the API through the test client, the layering of the imports
     frontend/                Vite, TypeScript, Alpine, D3 and Tailwind: pages, drawing, the typed API client
     docs/architecture.md     the design the code is reviewed against
 
