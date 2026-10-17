@@ -22,15 +22,16 @@ const windowBody = `
     </div>
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" @click="step(-1)" :disabled="!count || index === 0" class="${BUTTON}">Previous <kbd class="${KBD}">left</kbd></button>
-      <label class="flex items-center gap-2 text-sm">window
-        <input type="number" min="1" :max="count" x-model.number="jump" @change="goTo(jump)" :disabled="!count" aria-label="Window number" class="${INPUT} w-20" />
+      <label x-show="count" class="flex items-center gap-2 text-sm">window
+        <input type="number" min="1" :max="count" x-model.number="jump" @change="goTo(jump)" aria-label="Window number" class="${INPUT} w-20" />
         of <span data-testid="window-count" x-text="count"></span>
       </label>
+      <span x-show="!count" data-testid="no-window" class="${CHIP_BAD}">no window fits</span>
       <button type="button" @click="step(1)" :disabled="!count || index === count - 1" class="${BUTTON}">Next <kbd class="${KBD}">right</kbd></button>
       <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="windowOk ? 'window ok' : 'window trouble'"></span>
     </div>
     <p x-show="count" data-testid="window-span" class="text-xs text-muted" x-text="span"></p>
-    <p x-show="!count" class="text-sm text-warn">No window fits in this block at these settings, so there is nothing to step through. Change the settings on the Blocks page.</p>
+    <p x-show="!count" class="text-sm text-muted">Nothing to step through at these settings. Change them on the Blocks page.</p>
   </div>`;
 
 const totalsBody = `
@@ -38,7 +39,7 @@ const totalsBody = `
     <div class="grid grid-cols-3 gap-2">
       <div class="${TILE}"><p class="${TILE_LABEL}">windows ok</p><p data-testid="windows-ok" class="${TILE_VALUE}" x-text="okCount + ' of ' + count"></p></div>
       <div class="${TILE}"><p class="${TILE_LABEL}">in trouble</p><p class="${TILE_VALUE}" x-text="count - okCount"></p></div>
-      <div class="${TILE}"><p class="${TILE_LABEL}">block</p><p class="truncate ${TILE_VALUE}" :title="line.verdict" x-text="line.verdict"></p></div>
+      <div class="${TILE}"><p class="${TILE_LABEL}">block</p><p data-testid="block-verdict" class="break-words ${TILE_VALUE}" x-text="line.verdict"></p></div>
     </div>
     <p class="text-xs text-muted" x-text="settingsLine"></p>
   </div>`;

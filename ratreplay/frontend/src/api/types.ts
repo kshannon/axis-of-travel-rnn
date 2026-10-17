@@ -95,7 +95,7 @@ export interface SessionHeader {
   max_gap: number;
   n_frames: number;
   epochs: Epoch[];
-  /** The epoch kinds the processor cuts into blocks. */
+  /** The epochs the processor cuts into blocks. */
   block_epochs: string[];
   runs: Run[];
   cuts: { pauses: number[]; jumps: number[]; gaps: Span[]; margins: Span[] };

@@ -147,7 +147,7 @@ function registerBlocks(): void {
         try {
           const saved = await putWindowSettings({ ...this.draft }, sid());
           await this.retest();
-          toast.success(`Saved ${saved.path}, ${saved.overwrote ? "replacing the earlier file" : "a new file"}`);
+          toast.success(`Saved, ${saved.overwrote ? "replacing the earlier file" : "a new file"}`, saved.path);
         } catch (error) {
           toast.error(errorText(error));
         } finally {

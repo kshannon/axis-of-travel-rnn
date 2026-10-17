@@ -3,7 +3,7 @@
 A standalone review tool for rat trajectory data: attach data folders in a known format, replay
 sessions, confirm the blocks a processor will build, inspect built blocks and training windows.
 Localhost only. It lives here with its own backend and frontend so it can become its own
-repository. The old Dash tool in `src/ratreplay/` stays until this one reaches parity.
+repository. The old Dash tool in `src/ratreplay/` is no longer imported here and stays until the authors delete it.
 
 The design, layering, API, pages and testing plan are in [docs/architecture.md](docs/architecture.md).
 The API as built is in [backend/README.md](backend/README.md).
@@ -94,19 +94,17 @@ The backend imports the project packages, so after pulling a change to the `pack
 
 ## Status
 
-Every page of the design is built. `backend/tests/test_parity.py` runs the same edits through this API and through
-the old tool and finds the same review files, except that an edit anchored at a frame where a new block lies over a
-removed one reaches the new block here and the removed one in the old tool. The session facts and arrays equal the
-old tool's. Two things are still the old tool's. The edit rules: `backend/ratreplay_api/engines/edits.py` imports them
-from `src/ratreplay/data.py`, so that module and `test_parity.py` stay until the rules move into the backend and the old
-tool is removed. And a drop that takes a removed block back over a kept one is saved, so the processor then fails both
-blocks on its `one_block` check. Whether the server should refuse it is for the authors to decide. What `src/ratreplay`
-still does and this does not:
+Every page of the design is built, and nothing under `backend/ratreplay_api` imports the old Dash tool in `src/ratreplay`
+any more: the edit rules live in `engines/edits.py` and the checks of each window in `axis_of_travel_rnn.windows`. The old
+tool is only imported by `backend/tests/test_parity.py`, on purpose, since it is the oracle. It runs the same edits through
+this API and through the old tool and finds the same review files, session facts and arrays, apart from the two differences
+in [backend/README.md](backend/README.md#differences-from-the-old-tool). Both tools read and write the same review files and
+settings file, so either can be used meanwhile, and the old tool and `test_parity.py` are deleted together.
 
-- Keys for every action, the others being buttons here: `a`, `n`, `i`, `o`, `,`, `.`, `s`, `d`, `f` and `{`, `}` to
-  jump between blocks.
+What `src/ratreplay` still does and this does not:
+
+- Keys for every action: `a`, `n`, `i`, `o`, `,`, `.`, `s`, `d`, `f` and `{`, `}` to jump between blocks. They were
+  dropped on purpose, the actions are buttons here.
 - A click on a block's glyph accepts it and a right click on a run flags it.
-- It opens on the first session to review of the folders in `configs/local.yaml`, where here a source is attached
-  and a session chosen on the Sessions page.
-
-Both tools read and write the same review files and settings file, so either can be used meanwhile.
+- It opens on the first session to review of the folders in `configs/local.yaml`, where here a source is attached and a
+  session chosen on the Sessions page.

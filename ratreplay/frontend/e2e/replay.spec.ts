@@ -12,7 +12,7 @@ test.afterEach(() => {
 });
 
 test("play and pause, zoom with the buttons, select a block by its bar and accept it with enter", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+  await openReplay(page, request, S1);
   const frame = page.getByTestId("tile-frame");
   await expect(frame).toHaveText("1");
   expect(await pageScrolls(page)).toBe(false);
@@ -50,7 +50,7 @@ test("play and pause, zoom with the buttons, select a block by its bar and accep
 });
 
 test("a range over a block is refused, over a removed block it makes a new block, undo takes it back", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+  await openReplay(page, request, S1);
   const cards = page.getByRole("article");
   await expect(cards).toHaveCount(2);
 
@@ -79,7 +79,7 @@ test("a range over a block is refused, over a removed block it makes a new block
 });
 
 test("the edges of a new block over a removed block move the new block and the removed one is saved as it was", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+  await openReplay(page, request, S1);
   const cards = page.getByRole("article");
   await page.getByRole("button", { name: "Reject block 1" }).click();
 
@@ -107,8 +107,8 @@ test("the edges of a new block over a removed block move the new block and the r
 
   await page.getByRole("button", { name: "Accept all" }).click();
   await page.getByRole("button", { name: "Save session" }).click();
-  await expect(page.getByRole("status").filter({ hasText: `review/${S6}.json, a new file` })).toBeVisible();
-  const saved = JSON.parse(readFileSync(join(PROCESSED, "review", `${S6}.json`), "utf8"));
+  await expect(page.getByRole("status").filter({ hasText: "Saved, a new file" }).filter({ hasText: `review/${S1}.json` })).toBeVisible();
+  const saved = JSON.parse(readFileSync(join(PROCESSED, "review", `${S1}.json`), "utf8"));
   const arena = saved.blocks.filter((b: { epoch: string }) => b.epoch === "arena");
   expect(arena.map((b: { frame_start: number; frame_end: number; status: string }) => [b.frame_start, b.frame_end, b.status])).toEqual([
     [301, 1500, "dropped"], [markOut - 11 * seconds, markOut - seconds, "edited"],
@@ -117,7 +117,7 @@ test("the edges of a new block over a removed block move the new block and the r
 });
 
 test("a new block that starts on the frame of a removed block has its own card, and each card reaches its own block", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+  await openReplay(page, request, S1);
   const cards = page.getByRole("article");
   await page.getByRole("button", { name: "Reject block 1" }).click();
 
@@ -177,7 +177,7 @@ test("a save is refused while a block is auto, names its file, advances to the n
   await page.getByRole("button", { name: "Accept all" }).click();
   await page.getByLabel("Notes on the session").fill("shaky tracking");
   await page.getByRole("button", { name: "Save session" }).click();
-  await expect(page.getByRole("status").filter({ hasText: `review/${S1}.json, a new file` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Saved, a new file" }).filter({ hasText: `review/${S1}.json` })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: `Opened the next session to review, ${S6}` })).toBeVisible();
   await expect(page.getByTestId("session-id")).toHaveText(S6);
 

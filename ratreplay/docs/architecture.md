@@ -11,16 +11,18 @@ This document is the design the code is reviewed against. Decisions, not options
 
     clients          the pages: data, sessions, replay, blocks, windows, api, about
     managers         one per use case: sources, sessions, review, blocks, windows
-    engines          the algorithms: cuts (from process_lab_data.select), heading (offset, fills),
-                     windows (from axis_of_travel_rnn.windows), kinematics (trajectory)
+    engines          the algorithms: cuts (from process_lab_data.select), edits (the review rules),
+                     environment, heading (offset, fills), occupancy, spans, windows (from
+                     axis_of_travel_rnn.windows, with the checks of each window)
     resource access  stores: transformed (tables and frames), processed (blocks and manifest),
                      review (one json per session), settings (lab_blocks.yaml), registry (sources.json)
     utilities        arrow encoding, ids, time formatting
 
 Rules: a client talks to managers over HTTP only. A manager calls engines and stores, never another
 manager. Engines are pure functions over arrays. Stores do file I/O and nothing else. Science never
-lives in the tool: cuts, fills, offsets and windows are imported from the project packages. Nothing
-is reimplemented in TypeScript except drawing and interaction.
+lives in the tool: cuts, fills, offsets and windows are imported from the project packages. The one
+exception is the review's edit rules, which live in `engines/edits.py` (copied from the old tool) and
+read the processor's constants. Nothing is reimplemented in TypeScript except drawing and interaction.
 
 ## Backend, `ratreplay/backend/ratreplay_api/`
 
@@ -33,10 +35,11 @@ FastAPI on 127.0.0.1, one process, no database. Files are the state.
     stores/processed.py    blocks csv, block parquet, manifest
     stores/review.py       read, write (overwrite whole), list, per session
     stores/settings.py     lab_blocks.yaml read and write
-    engines/               thin wrappers naming the project functions used, nothing else
+    engines/               cuts, heading, windows: thin wrappers naming the project functions used.
+                           edits: the review rules. environment, occupancy, spans: the tool's own, small
     managers/sources.py    attach validates the format contract, counts, mtimes, status
     managers/sessions.py   the session payload: arrays, epochs, runs, cut points, fills, auto blocks
-    managers/review.py     apply edits (process_lab_data logic), save, reload
+    managers/review.py     apply edits (engines/edits), preview, save, reload
     managers/blocks.py     block index, block payload in metres with the environment, verdicts
     managers/windows.py    window counts, verdicts, settings save
     arrow.py               numpy dict to Arrow IPC bytes
@@ -53,6 +56,9 @@ FastAPI on 127.0.0.1, one process, no database. Files are the state.
     GET  /api/sources/{id}/sessions/{sid}/review      the review file or null
     PUT  /api/sources/{id}/sessions/{sid}/review      body is the edits and notes, server applies and
                                                       writes the file whole, returns the saved review
+    POST /api/sources/{id}/sessions/{sid}/review/preview   body is the edits, server applies them and
+                                                      writes nothing, returns the blocks, cuts, flagged
+                                                      runs and the edits skipped with their reasons
     GET  /api/sources/{id}/blocks                     block index with verdicts at given settings
     GET  /api/sources/{id}/blocks/{bid}               block payload (Arrow) plus header (environment
                                                       geometry, runs, trips, windows at settings)
@@ -119,5 +125,6 @@ block, step windows. No tests of styling.
 ## Working rules
 
 Small commits, one purpose each. Plain code: named values at the top, one-line docstrings, no
-semicolons or dashes in prose. The old `src/ratreplay` is not touched and stays until parity.
+semicolons or dashes in prose. The old `src/ratreplay` is not touched and nothing here imports it, only
+`backend/tests/test_parity.py` does, as the oracle, so that file and the old tool are deleted together.
 Builders are Sonnet, every pass is reviewed by Opus against this document.

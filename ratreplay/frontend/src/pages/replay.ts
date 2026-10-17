@@ -293,7 +293,7 @@ function registerReplay(): void {
         this.busy = true;
         try {
           const saved = await ws.save(this.notes);
-          toast.success(`Saved ${saved.path}, ${saved.overwrote ? "replacing the earlier review" : "a new file"}`);
+          toast.success(`Saved, ${saved.overwrote ? "replacing the earlier review" : "a new file"}`, saved.path);
           this.sync();
           await this.openNext();
         } catch (error) {

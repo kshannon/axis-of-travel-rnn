@@ -22,6 +22,12 @@ test("the form says what is wrong, then a source is attached, selected, kept ove
   await expect(source.locator("dl > div").filter({ hasText: "sessions" }).first()).toContainText("6");
   await expect(source.getByText("converter run")).toBeVisible();
 
+  await page.getByLabel("Folder path", { exact: true }).fill(TRANSFORMED);
+  await page.getByLabel("Processed folder path").fill(`${PROCESSED}-elsewhere`);
+  await page.getByRole("button", { name: "Attach" }).click();
+  await expect(page.getByRole("alert")).toContainText("is already attached as transformed with its reviews and blocks in");
+  await expect(page.getByRole("article")).toHaveCount(1);
+
   await source.getByRole("button", { name: "Select", exact: true }).click();
   await expect(source.getByRole("button", { name: "Selected" })).toBeDisabled();
   await page.reload();

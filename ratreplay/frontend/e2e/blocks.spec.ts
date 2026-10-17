@@ -44,9 +44,9 @@ test("a changed window setting changes the verdicts once tested, and the setting
   await expect(row(page, S6_TRACK)).not.toContainText("trouble");
 
   await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByRole("status").filter({ hasText: `Saved ${SETTINGS_FILE}, a new file` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Saved, a new file" })).toContainText(SETTINGS_FILE);
   await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByRole("status").filter({ hasText: `Saved ${SETTINGS_FILE}, replacing the earlier file` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Saved, replacing the earlier file" })).toContainText(SETTINGS_FILE);
   expect(readFileSync(SETTINGS_FILE, "utf8")).toContain("window_s: 5.0");
 
   await page.getByLabel("window (s)").fill("0");

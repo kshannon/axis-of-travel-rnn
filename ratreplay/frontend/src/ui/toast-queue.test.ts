@@ -14,6 +14,13 @@ test("a toast fades near the end of its life and is then removed", () => {
   expect(queue.items).toEqual([]);
 });
 
+test("a toast can carry the path of the file a save wrote apart from its text", () => {
+  const queue = new ToastQueue();
+  queue.push("success", "Saved, a new file", "/a/review/S1.json");
+  queue.push("warning", "Careful");
+  expect(queue.items.map((t) => [t.text, t.path])).toEqual([["Saved, a new file", "/a/review/S1.json"], ["Careful", ""]]);
+});
+
 test("only the newest few stay and a toast can be dismissed by hand", () => {
   const queue = new ToastQueue();
   for (const n of [1, 2, 3, 4, 5]) queue.push("warning", `toast ${n}`);

@@ -4,6 +4,8 @@ export interface Toast {
   id: number;
   kind: ToastKind;
   text: string;
+  /** The file a save wrote, shown apart from the text so it can wrap anywhere. */
+  path: string;
   leaving: boolean;
 }
 
@@ -16,9 +18,9 @@ export class ToastQueue {
   items: Toast[] = [];
   nextId = 1;
 
-  push(kind: ToastKind, text: string): void {
+  push(kind: ToastKind, text: string, path = ""): void {
     const id = this.nextId++;
-    this.items = [...this.items, { id, kind, text, leaving: false }].slice(-MAX_TOASTS);
+    this.items = [...this.items, { id, kind, text, path, leaving: false }].slice(-MAX_TOASTS);
     setTimeout(() => this.fade(id), LIFETIME_MS - FADE_MS);
   }
 
