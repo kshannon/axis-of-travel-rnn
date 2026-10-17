@@ -3,12 +3,7 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { baseScale, laneBands } from "../src/draw/lanes";
 import { SESSION_LANES } from "../src/draw/session-scene";
-import { detachAll, openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings } from "./synthetic";
-
-// S6 has two automatic blocks, an arena block over frames 301 to 1500 and a track block over 3001 to 4200, in 90 s at 60 Hz.
-const S1 = "NS14_rec1_20150101_001";
-const S6 = "NS16_rec6_20150106_001";
-const SESSION_S = 90;
+import { detachAll, openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings, S1, S6, SESSION_S } from "./synthetic";
 
 test.beforeEach(({ request }) => detachAll(request));
 test.afterEach(() => {
@@ -119,6 +114,29 @@ test("the edges of a new block over a removed block move the new block and the r
     [301, 1500, "dropped"], [markOut - 11 * seconds, markOut - seconds, "edited"],
   ]);
   expect(markIn).toBeLessThan(markOut);
+});
+
+test("a new block that starts on the frame of a removed block has its own card, and each card reaches its own block", async ({ page, request }) => {
+  await openReplay(page, request, S6);
+  const cards = page.getByRole("article");
+  await page.getByRole("button", { name: "Reject block 1" }).click();
+
+  for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
+  await expect(page.getByTestId("tile-frame")).toHaveText("301");
+  await page.getByRole("button", { name: "Mark in" }).click();
+  for (let i = 0; i < 15; i++) await page.keyboard.press("Shift+ArrowRight");
+  await page.getByRole("button", { name: "Mark out" }).click();
+  await page.getByRole("button", { name: "New block from marks" }).click();
+  await expect(cards).toHaveCount(3);
+  await expect(cards.first()).toContainText("dropped");
+  await expect(cards.nth(1)).toContainText("edited");
+  await expect(cards.nth(1)).toHaveAttribute("aria-current", "true");
+
+  await page.getByRole("button", { name: "Reject block 2" }).click();
+  await expect(cards.nth(1)).toContainText("dropped");
+  await page.getByRole("button", { name: "Reject block 1" }).click();
+  await expect(cards.first()).toContainText("edited");
+  await expect(cards.nth(1)).toContainText("dropped");
 });
 
 test("the keys step, jump and clear, and a letter typed in the notes stays a letter", async ({ page, request }) => {

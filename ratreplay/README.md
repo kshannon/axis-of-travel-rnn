@@ -6,6 +6,7 @@ Localhost only. It lives here with its own backend and frontend so it can become
 repository. The old Dash tool in `src/ratreplay/` stays until this one reaches parity.
 
 The design, layering, API, pages and testing plan are in [docs/architecture.md](docs/architecture.md).
+The API as built is in [backend/README.md](backend/README.md).
 
 ## Run
 
@@ -14,13 +15,72 @@ Node comes from pixi through the `ratreplay` environment, `pixi run` finds it fo
     pixi run ratreplay-install    # once: the frontend's npm packages
     pixi run ratreplay-build      # the frontend into ratreplay/frontend/dist
     pixi run ratreplay-api        # http://127.0.0.1:8060, the API and the built frontend (--port N)
-    pixi run ratreplay-ui         # while developing: Vite with hot reload, /api proxied to port 8060
+
+## Using
+
+**Attach.** On the Data page choose the kind of folder and its path. A `transformed` folder is the converter's
+output, and it is paired with the `processed` folder where its reviews and blocks live, which need not exist yet.
+A `processed` folder is the processor's output. Attaching checks the folder against the data format (the API page
+lists it) and names every problem, and detaching forgets the entry and never touches the data. Select the source
+to work on, the choice is kept in the browser.
+
+**Review a session.** The Sessions page lists one row per session, the sessions of the dataset first. A click on a
+header sorts, a click on a row opens its details, and Open in replay loads it. The Replay page plays the session
+and draws it on a timeline with the cuts the processor makes. Select a block by its card or its bar, accept it,
+reject it (a second click takes it back), move its start or end to the cursor, or split it at the cursor. Mark a
+range with Mark in and Mark out and make a block of it, flag a run, undo, reset to the automatic blocks and write
+notes. The server applies every edit with the processor's rules and says why it skipped one. Save session writes
+the review whole and opens the next session to review. It is refused while a block is still automatic.
+
+**Build blocks with the processor.** `pixi run process-lab-data` reads the reviews under the processed folder and
+builds the kept blocks of the sessions reviewed, and the automatic blocks of the others (`--confirmed-only` leaves
+those out).
+
+**Inspect blocks and windows.** The Blocks page lists the built blocks with their verdicts at the window settings
+and the totals. Open a block to play it in metres over its environment with the lanes of its runs, trips and
+windows. Step through its windows opens the Windows page, which shows one window at a time with its checks and a
+verdict for it.
+
+**Save settings.** The inputs on the Blocks page are the window settings. Test on all blocks shows the verdicts at
+them without writing anything, and Save settings writes the file the training pipeline reads, with the totals at
+those settings. The block cards of the Replay page count windows at the saved settings.
+
+**Where every file is written.** Nothing else is written and the data folders are only read.
+
+| What | Where |
+| --- | --- |
+| a session's review | `review/<session_id>.json` under the processed folder, overwritten whole on each save, the toast names it |
+| the window settings | `configs/datasets/lab_blocks.yaml` in the repository, overwritten whole on each save |
+| the attached sources | `~/.ratreplay/sources.json`, the folders' paths and never their contents |
+| the theme and the selection | the browser's local storage |
+
+**Keys.** Everything else is a button or a chip.
+
+| Key | Action |
+| --- | --- |
+| space | play and pause |
+| left, right | one frame back or forward, on the Windows page the previous or next window |
+| shift with left, right | one second back or forward |
+| `[` and `]` | previous and next run |
+| enter | confirm the selected block |
+| escape | clear the selection and the marks |
+| z | undo the last edit |
+
+## Development
+
+    pixi run ratreplay-ui         # Vite with hot reload, /api proxied to port 8060
     pixi run ratreplay-test       # pytest on the backend, then vitest on the frontend
 
-The Playwright flows run against the built frontend served by the API:
+`ratreplay-build` runs the strict TypeScript check before it builds. The Playwright flows run against the built
+frontend, so build first:
 
     pixi run -e ratreplay npm --prefix ratreplay/frontend exec -- playwright install chromium   # once
     pixi run -e ratreplay npm --prefix ratreplay/frontend run e2e
+
+The flows use `frontend/e2e/serve_synthetic.py`, which rebuilds the backend tests' synthetic folders under
+`$TMPDIR/ratreplay-e2e` on each start and serves the API there with its sources list, window settings and reviews in
+the same folder. Nothing outside it is touched, no real data and no `~/.ratreplay`. The server shares one port, so the
+flows run one at a time and each starts by detaching every source.
 
 The backend imports the project packages, so after pulling a change to the `packages` list in
 `pyproject.toml` run `pixi reinstall axis-of-travel-rnn` once.
@@ -31,3 +91,22 @@ The backend imports the project packages, so after pulling a change to the `pack
     backend/tests/           pytest on synthetic folders, the API through the test client
     frontend/                Vite, TypeScript, Alpine, D3 and Tailwind: pages, drawing, the typed API client
     docs/architecture.md     the design the code is reviewed against
+
+## Status
+
+Every page of the design is built. `backend/tests/test_parity.py` runs the same edits through this API and through
+the old tool and finds the same review files, except that an edit anchored at a frame where a new block lies over a
+removed one reaches the new block here and the removed one in the old tool. The session facts and arrays equal the
+old tool's. Two things are still the old tool's. The edit rules: `backend/ratreplay_api/engines/edits.py` imports them
+from `src/ratreplay/data.py`, so that module and `test_parity.py` stay until the rules move into the backend and the old
+tool is removed. And a drop that takes a removed block back over a kept one is saved, so the processor then fails both
+blocks on its `one_block` check. Whether the server should refuse it is for the authors to decide. What `src/ratreplay`
+still does and this does not:
+
+- Keys for every action, the others being buttons here: `a`, `n`, `i`, `o`, `,`, `.`, `s`, `d`, `f` and `{`, `}` to
+  jump between blocks.
+- A click on a block's glyph accepts it and a right click on a run flags it.
+- It opens on the first session to review of the folders in `configs/local.yaml`, where here a source is attached
+  and a session chosen on the Sessions page.
+
+Both tools read and write the same review files and settings file, so either can be used meanwhile.

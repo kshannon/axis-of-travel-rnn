@@ -40,10 +40,10 @@ function registerReplay(): void {
     let selected: ReviewBlock | null = null;
     let alive = true;
     let stopPlayback = () => {};
-    const targetOf = (first?: number) => {
+    const targetOf = (position?: number) => {
       const frame = ws.clock.index + 1;
-      const block = first === undefined ? selected : (ws.preview.blocks.find((b) => b.frame_start === first) ?? null);
-      return { cursor: frame, block, range: ws.editor.range, run: runAt(ws.header.runs, frame) };
+      const block = position === undefined ? selected : (ws.preview.blocks[position] ?? null);
+      return { cursor: frame, block, blocks: ws.preview.blocks, range: ws.editor.range, run: runAt(ws.header.runs, frame) };
     };
 
     return {
@@ -90,7 +90,7 @@ function registerReplay(): void {
         if (!alive) return;
         const handlers = {
           seek: (index: number) => this.seek(index),
-          select: (first: number) => this.select(first),
+          select: (position: number) => this.select(position),
           view: (from: number, to: number) => (this.shown = `${timeLabel(from)} to ${timeLabel(to)}`),
         };
         timeline = new Timeline(this.$refs.timeline, handlers);
@@ -229,8 +229,8 @@ function registerReplay(): void {
         selected = block;
         this.sync();
       },
-      select(first: number) {
-        this.selectBlock(ws.preview.blocks.find((b) => b.frame_start === first) ?? null);
+      select(position: number) {
+        this.selectBlock(ws.preview.blocks[position] ?? null);
       },
       /** Escape: no selection and no marks, the zoom stays. */
       clear() {
@@ -248,9 +248,9 @@ function registerReplay(): void {
       },
 
       /** Make an action's edit, which the server applies or refuses with its reason. */
-      async act(action: Action, first?: number) {
+      async act(action: Action, position?: number) {
         try {
-          const result = await ws.edit(() => editFor(action, targetOf(first)));
+          const result = await ws.edit(() => editFor(action, targetOf(position)));
           if (typeof result === "string") {
             toast.warning(result);
             return;

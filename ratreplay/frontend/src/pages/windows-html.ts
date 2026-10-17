@@ -1,6 +1,7 @@
 import { card, pageGrid } from "../ui/card";
 import { helpPopover } from "../ui/help";
 import { BUTTON, BUTTON_PRIMARY, CHIP_BAD, CHIP_MUTED, CHIP_OK, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { blockLanesBody } from "./block-lanes-html";
 
 const MAP_HELP = `
   <p>The window on the block's map in metres, y up, over the environment. The thin line is the whole path of the block. The burn-in is the lighter blue, the first seconds that only warm the network up. The darker blue is the rest of the window the network is shown, and the orange line after it is the horizon, the future position it has to predict.</p>`;
@@ -67,19 +68,13 @@ const timelineActions = `
   <button type="button" @click="zoomAll()" class="${BUTTON}">Whole block</button>
   ${helpPopover("About the block lanes", TIMELINE_HELP)}`;
 
-const timelineBody = `
-  <div class="flex h-full min-h-0 flex-col gap-2">
-    <p class="text-xs text-muted">showing <span data-testid="shown" class="tabular-nums text-ink" x-text="viewing"></span></p>
-    <div x-ref="timeline" data-testid="timeline" class="relative min-h-0 flex-1 overflow-hidden"></div>
-  </div>`;
-
 const windowsGrid = `
   <div class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,4fr)_minmax(0,3fr)] gap-4">
     ${card("Window", windowBody, "col-span-7")}
     ${card("Block totals", totalsBody, "col-span-5")}
     ${card("Map", `<div x-ref="map" data-testid="map" class="relative h-full min-h-0"></div>`, "col-span-7", mapActions)}
     ${card("Checks", checksBody, "col-span-5")}
-    ${card("Timeline", timelineBody, "col-span-12", timelineActions)}
+    ${card("Timeline", blockLanesBody, "col-span-12", timelineActions)}
   </div>`;
 
 const noBlock = `

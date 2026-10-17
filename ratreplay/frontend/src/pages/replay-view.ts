@@ -2,12 +2,12 @@ import type { ReviewBlock, Review, ReviewPreview, SessionArrays, SessionHeader, 
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { windowCount } from "../session/windows";
+import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
 import { counted } from "../ui/text";
 import { stampWithSince } from "../ui/time";
 
 const SECONDS_PER_MINUTE = 60;
-const PERCENT = 100;
 const STATUS_GLYPHS: Record<ReviewBlock["status"], string> = { auto: "☐", confirmed: "☑", edited: "✎", dropped: "✕" };
 const STATUS_CHIPS: Record<ReviewBlock["status"], string> = { auto: CHIP_ACCENT, confirmed: CHIP_OK, edited: CHIP_WARN, dropped: CHIP_MUTED };
 
@@ -22,7 +22,8 @@ export interface Tile {
 }
 
 export interface BlockCard {
-  first: number;
+  /** The place of the block in the preview's time order, which tells two blocks apart that start on the same frame. */
+  position: number;
   name: string;
   epoch: string;
   minutes: string;
@@ -50,12 +51,12 @@ function windowsOf(nFrames: number, rateHz: number, settings: WindowSettings) {
 /** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first. */
 export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selected: ReviewBlock | null, settings: WindowSettings): BlockCard[] {
   return blocks.map((block, position) => ({
-    first: block.frame_start, name: blockName(position), epoch: block.epoch,
+    position, name: blockName(position), epoch: block.epoch,
     minutes: (framesOf(block) / header.rate_hz / SECONDS_PER_MINUTE).toFixed(2),
     runs: header.runs.filter((r) => block.frame_start <= r.frame_start && r.frame_start <= block.frame_end).length,
     ...windowsOf(framesOf(block), header.rate_hz, settings),
     status: block.status, glyph: STATUS_GLYPHS[block.status], chip: STATUS_CHIPS[block.status],
-    selected: block.frame_start === selected?.frame_start,
+    selected: block === selected,
     accepted: block.status === "confirmed" || block.status === "edited", removed: block.status === "dropped",
     acceptable: block.status === "auto" || block.status === "confirmed",
   }));
@@ -71,7 +72,7 @@ export function summaryTiles(preview: ReviewPreview, header: SessionHeader, sett
   const windows = kept.reduce((total, b) => total + windowCount(framesOf(b), header.rate_hz, settings), 0);
   const { pauses, jumps, gaps } = header.cuts;
   const byStatus = (label: string, key: ReviewBlock["status"]): Tile => ({ label, value: count(key), note: "", title: "" });
-  const keptNote = epochS ? `${Math.round((PERCENT * keptS) / epochS)}%` : "0%";
+  const keptNote = percent(epochS ? keptS / epochS : 0);
   return [
     byStatus("automatic", "auto"), byStatus("confirmed", "confirmed"), byStatus("edited", "edited"), byStatus("removed", "dropped"),
     { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.block_epochs.join(" and ")}` },

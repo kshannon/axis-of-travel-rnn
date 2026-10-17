@@ -32,9 +32,9 @@ test("a dirty run is hatched, a flagged run outlined and said so", () => {
   expect(runs[1].tip).toContain("dirty, flagged,");
 });
 
-test("blocks are named by their place in time order, can be picked by their first frame and a removed one is faint", () => {
+test("blocks are named by their place in time order, can be picked by it and a removed one is faint", () => {
   const blocks = scene([block(1, 100, "confirmed"), block(200, 300, "dropped")]).bars.filter((bar) => bar.lane === "blocks");
-  expect(blocks.map((bar) => [bar.text, bar.pick, bar.fill])).toEqual([["block 1", 1, "ok"], ["block 2", 200, "muted"]]);
+  expect(blocks.map((bar) => [bar.text, bar.pick, bar.fill])).toEqual([["block 1", 0, "ok"], ["block 2", 1, "muted"]]);
   expect(blocks[1].alpha).toBeLessThan(blocks[0].alpha!);
   expect(blockName(2)).toBe("block 3");
 });

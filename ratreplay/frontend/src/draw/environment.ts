@@ -10,6 +10,22 @@ const CENTERLINE_DASH = [2, 4];
 const CENTERLINE_ALPHA = 0.6;
 const SITE_RADIUS_PX = 5;
 const SITE_LABEL_GAP_PX = 9;
+const SITE_LABEL_DROP_PX = 15;
+const SITE_LABEL_CLEARANCE_PX = 4;
+const SAME_ROW_PX = 8;
+
+interface LabelledSite {
+  px: number;
+  py: number;
+  width: number;
+}
+
+/** Which sites put their label below the circle: those whose label, to the right of the circle, would reach the next site on their row. */
+export function labelsBelow(sites: LabelledSite[]): boolean[] {
+  return sites.map((site) =>
+    sites.some(({ px, py }) => px > site.px && Math.abs(py - site.py) < SAME_ROW_PX
+      && site.px + SITE_LABEL_GAP_PX + site.width + SITE_LABEL_CLEARANCE_PX > px - SITE_RADIUS_PX));
+}
 
 /** The extent in metres of the environment and of the path over it, so a path that strays off the drawn geometry shows. */
 export function extentOf(geometry: Geometry, x: Float64Array, y: Float64Array): Extent {
@@ -66,18 +82,20 @@ export class EnvironmentBackdrop implements Backdrop {
     ctx.setLineDash([]);
 
     ctx.font = FONT;
-    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    for (const [name, [sx, sy]] of Object.entries(sites)) {
+    const placed = Object.entries(sites).map(([name, [sx, sy]]) => ({ name, px: x(sx), py: y(sy), width: ctx.measureText(name).width }));
+    const below = labelsBelow(placed);
+    placed.forEach(({ name, px, py }, i) => {
       ctx.fillStyle = colours.card;
       ctx.strokeStyle = colours.ink;
       ctx.lineWidth = WALL_PX;
       ctx.beginPath();
-      ctx.arc(x(sx), y(sy), SITE_RADIUS_PX, 0, 2 * Math.PI);
+      ctx.arc(px, py, SITE_RADIUS_PX, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = colours.muted;
-      ctx.fillText(name, x(sx) + SITE_LABEL_GAP_PX, y(sy));
-    }
+      ctx.textAlign = below[i] ? "center" : "left";
+      ctx.fillText(name, below[i] ? px : px + SITE_LABEL_GAP_PX, below[i] ? py + SITE_LABEL_DROP_PX : py);
+    });
   }
 }

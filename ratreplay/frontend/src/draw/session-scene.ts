@@ -43,7 +43,7 @@ function runBars(header: SessionHeader, flagged: Set<number>): Bar[] {
 function blockBars(blocks: ReviewBlock[], rateHz: number): Bar[] {
   return blocks.map((b, position) => ({
     lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: b.status === "dropped" ? GAP_ALPHA : BAR_ALPHA,
-    text: blockName(position), pick: b.frame_start,
+    text: blockName(position), pick: position,
     tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s`,
   }));
 }

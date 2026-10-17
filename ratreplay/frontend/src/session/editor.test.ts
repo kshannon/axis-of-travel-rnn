@@ -8,7 +8,7 @@ function block(frame_start: number, frame_end: number, status: ReviewBlock["stat
 }
 
 const RUN: Run = { run: 3, epoch: "track", path_id: 2, clean: true, frame_start: 100, frame_end: 200 };
-const NOTHING: Target = { cursor: 150, block: null, range: null, run: null };
+const NOTHING: Target = { cursor: 150, block: null, blocks: [], range: null, run: null };
 
 test("the edit list grows with each edit and undo takes the last one back", () => {
   const editor = new Editor();
@@ -61,6 +61,14 @@ test("block actions need a selected block and use the cursor as the lab frame", 
   for (const action of ["accept", "reject", "start-to-cursor", "end-to-cursor", "split"] as const) {
     expect(editFor(action, NOTHING)).toBe("Select a block first.");
   }
+});
+
+test("a removed block is reached on a frame no kept block holds, since the server reaches the kept blocks first", () => {
+  const removed = block(301, 1500, "dropped");
+  const made = block(301, 1299, "edited");
+  expect(editFor("reject", { ...NOTHING, block: made, blocks: [removed, made] })).toEqual({ op: "drop", frame: 301 });
+  expect(editFor("reject", { ...NOTHING, block: removed, blocks: [removed, made] })).toEqual({ op: "drop", frame: 1300 });
+  expect(editFor("reject", { ...NOTHING, block: removed, blocks: [removed, block(301, 1500, "edited")] })).toMatch(/no edit can reach/);
 });
 
 test("a split needs the cursor inside the block after its first frame", () => {

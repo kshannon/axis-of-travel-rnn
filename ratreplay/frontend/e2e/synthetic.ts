@@ -43,6 +43,11 @@ export async function openReplay(page: Page, request: APIRequestContext, session
   await expect(page.getByTestId("tile-frame")).toHaveText("1"); // the session has loaded
 }
 
+// The synthetic sessions with frames, 90 s at 60 Hz each. Both have an arena block over lab frames 301 to 1500. S1 has a track block over 2101 to 3300 and S6 one over 3001 to 4200.
+export const S1 = "NS14_rec1_20150101_001";
+export const S6 = "NS16_rec6_20150106_001";
+export const SESSION_S = 90;
+
 // The synthetic processed dataset has three blocks of 20 s at 60 Hz: the arena and the track block of S1 and the track block of S6.
 // At the default 40 s window none yields a window. At a 5 s window the first two are ok and S6's track block has no complete trip.
 export const S1_TRACK = "NS14_rec1_20150101_001_track_01";

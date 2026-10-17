@@ -2,27 +2,42 @@ import type { Edit, ReviewBlock, Run } from "../api/types";
 
 export type Action = "accept-all" | "accept" | "reject" | "new-block" | "start-to-cursor" | "end-to-cursor" | "split" | "flag";
 
-/** What an action reads of the screen: the cursor as a lab frame, the block it targets, the marked range and the run under the cursor. */
+const BURIED = "Every frame of this removed block lies under another block, so no edit can reach it.";
+
+/** What an action reads of the screen: the cursor as a lab frame, the block it targets among the blocks in time order, the marked range and the run under the cursor. */
 export interface Target {
   cursor: number;
   block: ReviewBlock | null;
+  blocks: ReviewBlock[];
   range: { frame_start: number; frame_end: number } | null;
   run: Run | null;
 }
 
+/** The frame that reaches a block. The server reaches a block that is not removed before a removed one, so a removed block is reached on its first frame that no block still standing holds, none when they cover it all. */
+function anchorOf(block: ReviewBlock, blocks: ReviewBlock[]): number | null {
+  let frame = block.frame_start;
+  if (block.status === "dropped") {
+    for (const other of blocks) {
+      if (other.status !== "dropped" && other.frame_start <= frame && frame <= other.frame_end) frame = other.frame_end + 1;
+    }
+  }
+  return frame <= block.frame_end ? frame : null;
+}
+
 /** The edit an action makes of what is on screen, or the text saying what the action still needs. */
 export function editFor(action: Action, target: Target): Edit | string {
-  const { cursor, block, range, run } = target;
+  const { cursor, block, blocks, range, run } = target;
   if (action === "accept-all") return { op: "accept" };
   if (action === "new-block") return range ? { op: "new", ...range } : "Mark both ends of the range first.";
   if (action === "flag") return run ? { op: "flag", run: run.run } : "There is no run under the cursor.";
   if (!block) return "Select a block first.";
-  const at = block.frame_start;
+  const at = anchorOf(block, blocks);
+  if (at === null) return BURIED;
   if (action === "accept") return { op: "confirm", frame: at };
   if (action === "reject") return { op: "drop", frame: at };
   if (action === "start-to-cursor") return { op: "move", frame: cursor, edge: "start", at };
   if (action === "end-to-cursor") return { op: "move", frame: cursor, edge: "end", at };
-  return cursor > at && cursor <= block.frame_end ? { op: "split", frame: cursor } : "Move the cursor inside the block, after its first frame, to split it there.";
+  return cursor > block.frame_start && cursor <= block.frame_end ? { op: "split", frame: cursor } : "Move the cursor inside the block, after its first frame, to split it there.";
 }
 
 /** An edit in words, for the toasts. */

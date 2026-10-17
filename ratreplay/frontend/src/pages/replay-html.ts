@@ -42,7 +42,7 @@ const summaryBody = `
   </div>`;
 
 const blockCard = `
-  <article @click="select(block.first)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
+  <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
     :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed || !block.windows ? 'opacity-60' : '']">
     <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-medium" x-text="block.name"></h3>
@@ -51,9 +51,9 @@ const blockCard = `
     <p class="mt-0.5 text-muted" x-text="block.epoch + ', ' + block.minutes + ' min, ' + block.runs + ' runs'"></p>
     <p class="text-muted" x-text="block.windowsText"></p>
     <div class="mt-1.5 flex gap-1.5">
-      <button type="button" @click.stop="act('accept', block.first)" :disabled="!block.acceptable" :aria-pressed="block.accepted"
+      <button type="button" @click.stop="act('accept', block.position)" :disabled="!block.acceptable" :aria-pressed="block.accepted"
         :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
-      <button type="button" @click.stop="act('reject', block.first)" :aria-pressed="block.removed"
+      <button type="button" @click.stop="act('reject', block.position)" :aria-pressed="block.removed"
         :aria-label="'Reject ' + block.name" ${toggle("block.removed", CHIP_ON, CHIP_OFF)}>Reject</button>
     </div>
   </article>`;
@@ -61,7 +61,7 @@ const blockCard = `
 const blocksBody = `
   <p x-show="!loading && !blocks.length" class="text-sm text-muted">The processor builds no block from this session.</p>
   <div class="flex flex-col gap-2">
-    <template x-for="block in blocks" :key="block.first">${blockCard}</template>
+    <template x-for="block in blocks" :key="block.position">${blockCard}</template>
   </div>`;
 
 const mapBody = `<div x-ref="map" class="relative h-full min-h-0"></div>`;

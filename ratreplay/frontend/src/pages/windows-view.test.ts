@@ -40,8 +40,10 @@ test("a window with lost positions or too little heading is in trouble on that c
   expect(windowChecks(window({ heading_measured: 0.8 }), header)[1].status).toBe("ok");
 });
 
-test("a horizon cut short by the end of the block does not fit", () => {
-  expect(windowChecks(window({ stop: 920 }), header)[3].status).toBe("trouble");
+test("a horizon running past the end of the block does not fit, nor does a burn-in longer than the window", () => {
+  expect(windowChecks(window({ stop: 1200 }), header)[3].status).toBe("ok");
+  expect(windowChecks(window({ stop: 1201 }), header)[3].status).toBe("trouble");
+  expect(windowChecks(window({ burn_in_stop: 901 }), header)[3].status).toBe("trouble");
 });
 
 test("the span tells where the window lies and the totals count the windows ok", () => {

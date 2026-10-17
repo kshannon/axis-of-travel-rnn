@@ -27,6 +27,7 @@ is reimplemented in TypeScript except drawing and interaction.
 FastAPI on 127.0.0.1, one process, no database. Files are the state.
 
     app.py                 create_app(registry_path), routes mounted, static frontend served at /
+    routers/               the HTTP face of the managers, one module per use case, no logic
     registry.py            sources.json under ~/.ratreplay (attach, detach, list), idempotent
     stores/transformed.py  sessions, epochs, runs csv, frames parquet per session, manifest
     stores/processed.py    blocks csv, block parquet, manifest
@@ -58,6 +59,9 @@ FastAPI on 127.0.0.1, one process, no database. Files are the state.
     GET  /api/windows/settings  PUT /api/windows/settings   lab_blocks.yaml
     GET  /api/format                       the data format contract as JSON (files, columns, dtypes)
     GET  /api/openapi.json                 FastAPI's schema (the API page renders both)
+
+A session and a block are each two requests: the JSON header at the route above, and under it at
+`/arrays` the arrays as an Arrow IPC stream, one row per frame.
 
 Source ids are short hashes of the path. A `transformed` source needs sessions.csv, epochs.csv,
 runs.csv, frames/, manifest.json. A `processed` source needs manifest.json and the kind folders.

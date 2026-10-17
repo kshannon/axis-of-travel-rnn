@@ -1,11 +1,10 @@
 import type { BlockArrays, BlockHeader, BlockRow, Totals, WindowSettings } from "../api/types";
 import type { Fact } from "../ui/facts";
+import { degrees, percent } from "../ui/format";
 import type { Column } from "../ui/table";
 import { counted } from "../ui/text";
 
 const SECONDS_PER_MINUTE = 60;
-const PERCENT = 100;
-const DEGREES_PER_RADIAN = 180 / Math.PI;
 
 /** The window settings as inputs, each with its label and the step of its arrows. */
 export const SETTING_FIELDS: readonly { key: keyof WindowSettings; label: string; step: string }[] = [
@@ -17,11 +16,6 @@ export const SETTING_FIELDS: readonly { key: keyof WindowSettings; label: string
   { key: "min_heading_measured", label: "min measured heading", step: "0.05" },
   { key: "min_complete_trips", label: "min complete trips", step: "1" },
 ];
-
-/** A share as a whole percent. */
-const percent = (share: number): string => `${Math.round(PERCENT * share)}%`;
-// A rotation of a hair under zero rounds to -0, which is written as 0.
-const degrees = (radians: number): string => `${Number((radians * DEGREES_PER_RADIAN).toFixed(1)) || 0} deg`;
 
 export function verdictText(ok: boolean, reason: string | null): string {
   return ok ? "ok" : `trouble, ${reason}`;
@@ -49,8 +43,8 @@ export function blockFacts(row: BlockRow): Fact[] {
     { label: "rat", value: `${row.subject_id}, ${row.date}, ${row.protocol}` },
     { label: "lab frames", value: `${row.frame_start} to ${row.frame_end}` },
     { label: "frame scale", value: `${row.scale_px_per_m.toFixed(1)} px per m` },
-    { label: "rotation", value: degrees(row.rotation_rad) },
-    { label: "LED offset", value: degrees(row.led_offset_rad) },
+    { label: "rotation", value: degrees(row.rotation_rad, 1) },
+    { label: "LED offset", value: degrees(row.led_offset_rad, 1) },
     { label: "kinematics version", value: String(row.kinematics_version) },
     { label: "reviewed by", value: row.reviewed_by ?? "nobody, the block is automatic" },
   ];

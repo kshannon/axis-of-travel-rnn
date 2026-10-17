@@ -1,5 +1,6 @@
 import type { SessionHeader, SessionRow } from "../api/types";
 import type { Fact } from "../ui/facts";
+import { degrees } from "../ui/format";
 import type { Column } from "../ui/table";
 import { counted } from "../ui/text";
 import { stampWithSince } from "../ui/time";
@@ -40,8 +41,6 @@ export function filterRows(rows: SessionRow[], text: string): SessionRow[] {
 export function briefList(items: string[], limit = LISTED): string {
   return items.length <= limit ? items.join(", ") : `${items.slice(0, limit).join(", ")} and ${items.length - limit} more`;
 }
-
-const degrees = (radians: number) => `${Math.round((radians * 180) / Math.PI)} deg`;
 
 function numbered(items: string[], where: string): string {
   return items.length ? `${items.length}, ${where} ${briefList(items)}` : "none";

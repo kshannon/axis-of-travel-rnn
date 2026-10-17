@@ -26,6 +26,13 @@ test("a card per block in time order, with the runs that start inside it and wha
   expect(blockCards([block(1, 600, "edited")], header, null, SETTINGS)[0]).toMatchObject({ accepted: true, acceptable: false });
 });
 
+test("two blocks that start on the same frame are told apart by their place and only the selected one is selected", () => {
+  const removed = block(301, 1500, "dropped");
+  const made = block(301, 1299, "edited");
+  const cards = blockCards([removed, made], header, made, SETTINGS);
+  expect(cards.map((c) => [c.position, c.selected])).toEqual([[0, false], [1, true]]);
+});
+
 test("a card tells the training windows the block yields at the settings and a block shorter than one window yields none", () => {
   const cards = blockCards([block(1, 600, "auto"), block(601, 900, "auto"), block(901, 1000, "auto")], header, null, { ...SETTINGS, window_s: 8 });
   expect(cards.map((c) => [c.windows, c.windowsText])).toEqual([[1, "1 training window"], [0, "shorter than one window"], [0, "shorter than one window"]]);

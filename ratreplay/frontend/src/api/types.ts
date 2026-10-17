@@ -255,7 +255,9 @@ export interface BlockWindow {
   /** The share of the frames with a finite position. */
   position_finite: number;
   heading_measured: number;
+  /** The trips whose outbound start and return end both lie inside the window and its horizon. */
   trips_complete: number;
+  /** The other trips touching that range: cut by it or by the end of the block. */
   trips_partial: number;
   ok: boolean;
 }

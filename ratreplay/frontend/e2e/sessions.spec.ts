@@ -1,8 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { detachAll, openReplay, pageScrolls, PROCESSED, TRANSFORMED } from "./synthetic";
-
-const SESSION = "NS16_rec6_20150106_001";
-const S1 = "NS14_rec1_20150101_001";
+import { detachAll, openReplay, pageScrolls, PROCESSED, S1, S6, TRANSFORMED } from "./synthetic";
 
 test.beforeEach(({ request }) => detachAll(request));
 
@@ -34,11 +31,11 @@ test("attach, select, sort the sessions, open one in the replay", async ({ page 
 
   await page.getByRole("button", { name: "Open in replay" }).click();
   await expect(page).toHaveURL(/#\/replay$/);
-  await expect(page.getByTestId("session-id")).toHaveText(SESSION);
+  await expect(page.getByTestId("session-id")).toHaveText(S6);
 });
 
 test("opening another session while the replay has unsaved edits asks first, the session already open does not", async ({ page, request }) => {
-  await openReplay(page, request, SESSION);
+  await openReplay(page, request, S6);
   await page.getByRole("button", { name: "Accept all" }).click();
   await expect(page.getByTestId("state")).toContainText("now 1 edit not saved yet");
 
@@ -53,7 +50,7 @@ test("opening another session while the replay has unsaved edits asks first, the
   await page.getByLabel("Filter sessions").fill("ns14");
   await page.getByRole("row").nth(1).click();
   await page.getByRole("button", { name: "Open in replay" }).click();
-  await expect(page.getByText(`The edits to ${SESSION} in the replay are not saved and would be lost`)).toBeVisible();
+  await expect(page.getByText(`The edits to ${S6} in the replay are not saved and would be lost`)).toBeVisible();
   await expect(page).toHaveURL(/#\/sessions$/);
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("button", { name: "Open in replay" })).toBeVisible();

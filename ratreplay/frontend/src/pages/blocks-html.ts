@@ -3,6 +3,7 @@ import { factsList } from "../ui/facts";
 import { helpPopover } from "../ui/help";
 import { BUTTON, BUTTON_PRIMARY, CHIP_BAD, CHIP_MUTED, CHIP_OK, FIELD, INPUT, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
+import { blockLanesBody } from "./block-lanes-html";
 import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
@@ -86,12 +87,6 @@ const timelineActions = `
   <button type="button" @click="zoomOut()" class="${BUTTON}">Zoom out</button>
   ${helpPopover("About the block lanes", TIMELINE_HELP)}`;
 
-const timelineBody = `
-  <div class="flex h-full min-h-0 flex-col gap-2">
-    <p class="text-xs text-muted">showing <span data-testid="shown" class="tabular-nums text-ink" x-text="viewing"></span></p>
-    <div x-ref="timeline" data-testid="timeline" class="relative min-h-0 flex-1 overflow-hidden"></div>
-  </div>`;
-
 const indexView = `
   <div x-show="view === 'index'" class="grid h-full grid-cols-12 grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
     ${card("Window settings", settingsBody, "col-span-12")}
@@ -105,7 +100,7 @@ const blockView = `
     ${card("Map", mapBody, "col-span-5", helpPopover("About the map", MAP_HELP))}
     ${card("Playback", playbackCard, "col-span-3")}
     ${card("Block facts", factsList("openFacts"), "col-span-4")}
-    ${card("Timeline", timelineBody, "col-span-12", timelineActions)}
+    ${card("Timeline", blockLanesBody, "col-span-12", timelineActions)}
   </div>`;
 
 /** The Blocks page: the settings, the totals and the index, or the block opened from it with its map, playback and lanes. */
