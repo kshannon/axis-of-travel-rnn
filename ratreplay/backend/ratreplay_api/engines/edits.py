@@ -3,6 +3,7 @@ The review edits: applying them to a session's automatic blocks and the review f
 """
 
 import getpass
+import itertools
 from datetime import datetime, timezone
 
 from process_lab_data.__main__ import KEPT_STATUSES
@@ -30,15 +31,18 @@ def context(frames, session, epochs, runs):
 
 def replayed(blocks, edits, session):
     """
-    The old tool's replay, except that the removed blocks are listed after the others once each edit is made. An edit anchors to the first block holding its frame, so one anchored where a new block lies over a removed one reaches the new block.
+    The old tool's replay with its block order, a new block last, except that an edit sees the removed blocks after the others. It anchors to the first block holding its frame, so one anchored where a new block lies over a removed one reaches the new block.
     """
-    blocks = [{**b, "status": "auto", "note": ""} for b in blocks]
+    blocks = [{**b, "status": "auto", "note": "", "rank": i} for i, b in enumerate(blocks)]
+    ranks = itertools.count(len(blocks))
     skipped = []
     for edit in edits:
         if edit["op"] not in BLOCK_OPS:
             continue
-        if applies(blocks, edit, session):
-            blocks = sorted(EDITS[edit["op"]](blocks, edit, session), key=lambda b: b["status"] == REMOVED)
+        reached = sorted(blocks, key=lambda b: b["status"] == REMOVED)
+        if applies(reached, edit, session):
+            made = [b if "rank" in b else {**b, "rank": next(ranks)} for b in EDITS[edit["op"]](reached, edit, session)]
+            blocks = sorted(made, key=lambda b: b["rank"])
         else:
             skipped.append(edit)
     return blocks, skipped

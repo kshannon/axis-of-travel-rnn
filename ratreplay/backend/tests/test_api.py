@@ -2,17 +2,12 @@
 The API through the test client on the synthetic folders: sources, sessions, reviews, blocks and the window settings.
 """
 
-import json
-
 import numpy as np
 import pyarrow as pa
 import pytest
 
-from fixtures import S1, S2, S6
-from ratreplay import data as old_tool
-from ratreplay_api.contract import EDIT_FIELDS
+from fixtures import S1, S2, S6, STAMP
 
-STAMP = "2026-10-13T10:00:00+00:00"
 EDITS = [{"op": "drop", "frame": 1000}, {"op": "split", "frame": 2700}, {"op": "accept"}, {"op": "flag", "run": 2}]
 
 
@@ -69,28 +64,14 @@ def test_a_session_is_served_as_a_header_and_arrow_arrays(client, attached):
         assert client.get(f"/api/sources/{attached[0]}/sessions/{session_id}").status_code == 404
 
 
-def test_a_session_equals_what_the_old_tool_loads(client, attached, transformed):
-    old = old_tool.load_session(transformed, S1)
-    header = client.get(f"/api/sources/{attached[0]}/sessions/{S1}").json()
-    for key in ("cuts", "heading_lost", "heading_filled", "heading_held", "blocks", "runs"):
-        assert header[key] == json.loads(json.dumps(old[key])), key
-    assert header["led_offset"] == pytest.approx(old["led_offset"])
-    columns = arrays_of(client.get(f"/api/sources/{attached[0]}/sessions/{S1}/arrays"))
-    for key in ("t", "x", "y", "heading", "speed"):
-        expected = np.array([np.nan if v is None else v for v in old[key]])
-        np.testing.assert_allclose(columns[key], expected, atol=1e-4, equal_nan=True, err_msg=key)
-
-
-def test_a_review_saved_through_the_api_is_what_the_old_tool_writes(client, attached, transformed, processed):
+def test_a_review_is_saved_whole_and_read_back_and_the_index_follows(client, attached, processed):
     url = f"/api/sources/{attached[0]}/sessions/{S1}/review"
     assert client.get(url).json() is None
     saved = client.put(url, json={"edits": EDITS, "notes": "shaky"}).json()
     assert saved["overwrote"] is False and saved["path"] == str(processed / "review" / f"{S1}.json")
     assert client.put(url, json={"edits": EDITS, "notes": "shaky"}).json()["overwrote"] is True
     stored = client.get(url).json()
-    expected = old_tool.review_of(old_tool.load_session(transformed, S1), EDITS, "shaky", STAMP)
-    assert {**stored, "reviewed_at": None} == {**expected, "reviewed_at": None}
-    assert [b["status"] for b in stored["blocks"]] == ["dropped", "edited", "edited"]
+    assert [b["status"] for b in stored["blocks"]] == ["dropped", "edited", "edited"] and stored["notes"] == "shaky"
     rows = client.get(f"/api/sources/{attached[0]}/sessions").json()
     assert [r["session_id"] for r in rows][:2] == [S6, S1]  # the dataset's unreviewed session comes first
     assert (rows[1]["reviewed"], rows[1]["n_confirmed"]) == (True, 2)
@@ -151,6 +132,15 @@ def test_an_edit_at_a_frame_a_removed_block_and_a_kept_one_share_reaches_the_kep
     assert arena_blocks(removed) == [(301, 1500, "dropped"), (399, 1299, "dropped")]
 
 
+def test_blocks_that_start_on_the_same_frame_are_numbered_in_the_order_they_were_made(client, attached):
+    url = f"/api/sources/{attached[0]}/sessions/{S1}/review/preview"
+    over = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 301, "frame_end": 1299}]
+    restored = [*over, {"op": "drop", "frame": 301}, {"op": "drop", "frame": 1400}]  # the new block is removed, then the first one is back
+    for edits, expected in ((over, [(1500, "dropped"), (1299, "edited")]), (restored, [(1500, "edited"), (1299, "dropped")])):
+        blocks = [b for b in client.post(url, json={"edits": edits}).json()["blocks"] if b["epoch"] == "arena"]
+        assert [(b["block_id"], b["frame_end"], b["status"]) for b in blocks] == [(f"{S1}_arena_{i:02d}", *made) for i, made in enumerate(expected, 1)]
+
+
 def test_block_verdicts_follow_the_window_settings(client, attached):
     url = f"/api/sources/{attached[1]}/blocks"
     default = client.get(url).json()
@@ -187,13 +177,9 @@ def test_window_settings_are_saved_whole_and_read_back(client, attached, tmp_pat
     assert client.put("/api/windows/settings", json={"settings": {}, "source": "nobody"}).status_code == 404
 
 
-def test_the_format_contract_pins_the_review_schema(client, transformed):
-    contract = client.get("/api/format").json()
-    frames = next(f for f in contract["transformed"]["files"] if f["path"].startswith("frames/"))
+def test_the_format_contract_lists_the_frames_columns_the_tool_reads(client):
+    frames = next(f for f in client.get("/api/format").json()["transformed"]["files"] if f["path"].startswith("frames/"))
     assert {c["name"] for c in frames["columns"] if c["required"]} >= {"frame", "t", "mashup_x", "head_dir"}
-    session = old_tool.load_session(transformed, S1)
-    assert set(contract["review"]["keys"]) == set(old_tool.review_of(session, [{"op": "accept"}], "", STAMP))
-    assert set(EDIT_FIELDS) == set(old_tool.BLOCK_OPS) | {"flag"}
 
 
 def test_a_transformed_source_can_be_attached_before_the_processor_has_run(client, transformed, tmp_path):

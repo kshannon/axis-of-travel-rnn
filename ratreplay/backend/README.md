@@ -59,9 +59,11 @@ An edit is `{"op", ...}`. The ops and their fields are `accept`, `confirm {frame
 `split {frame}`, `drop {frame}`, `new {frame_start, frame_end}`, `cut {frame_start, frame_end}` and `flag {run}`,
 listed in `GET /api/format`. The server replays them on the automatic blocks with the processor's rules, so an edit that
 no longer applies is skipped. An edit anchored at a frame (`confirm`, `move`, `split`, `drop`) reaches the block
-holding it, a block that is not removed before one that is, so a new block over a removed one is the one reached. PUT
-writes `review/<session_id>.json` whole under the processed folder and answers
-`{"review": <the file's content>, "path", "overwrote": bool}`. It is refused with 400 while a block is still auto.
+holding it, a block that is not removed before one that is, so a new block over a removed one is the one reached, and
+the removed one only by a frame the new block leaves out. The blocks come in frame order, two that start on one frame in
+the order they were made, which is how the old tool numbers them. PUT writes `review/<session_id>.json` whole under the
+processed folder and answers `{"review": <the file's content>, "path", "overwrote": bool}`. It is refused with 400 while
+a block is still auto.
 POST answers `{"blocks", "cuts", "flagged_runs", "skipped"}` and writes nothing: the blocks the edits make (with the
 review file's block keys), the ranges cut, the runs flagged and the edits skipped, each with a `reason` (the processor's
 refusal of a new block, else that no block holds the frame it anchors to). It is the way a client shows the result of an
@@ -85,9 +87,11 @@ lab frame of the first row), `runs`, `trips` (spans with `partial`), `phases`, `
 `one_light` (index pairs into the block), `verdict {ok, reason}`, `settings` and `windows`. Each window is `{index,
 first, burn_in_stop, window_stop, stop, position_finite, heading_measured, trips_complete, trips_partial, ok}`: indices
 into the block's arrays with the stops exclusive, `stop` the end of the window plus its horizon, the checks taken over
-that whole range, `ok` when the position is finite throughout and the measured heading share reaches the minimum. The
-arrays are an Arrow stream, one row per frame: `frame` (lab frame number), `t` s, `x` and `y` m, `heading` rad, `speed`
-m/s, `n_lights`.
+that whole range, `ok` when the position is finite throughout and the measured heading share reaches the minimum.
+`trips_complete` counts the trips whose outbound start and return end both lie inside that range and `trips_partial` the
+other trips touching it, cut by the range or by the block. These checks are the tool's own and only for the Windows page:
+the verdicts, the totals and the settings file come from the project's window functions. The arrays are an Arrow
+stream, one row per frame: `frame` (lab frame number), `t` s, `x` and `y` m, `heading` rad, `speed` m/s, `n_lights`.
 
 ## Window settings
 

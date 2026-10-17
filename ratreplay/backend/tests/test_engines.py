@@ -16,7 +16,7 @@ def block_of(seconds, **columns):
     """
     n = seconds * RATE_HZ
     still = {"t": np.arange(n) / RATE_HZ, "x": np.zeros(n), "y": np.zeros(n), "heading": np.zeros(n), "heading_filled": np.zeros(n, bool),
-             "heading_held": np.zeros(n, bool), "trip": np.zeros(n, np.int32)}
+             "heading_held": np.zeros(n, bool), "trip": np.zeros(n, np.int32), "path_id": np.zeros(n, np.int16)}
     return {**still, **columns}
 
 
@@ -29,14 +29,11 @@ def test_value_spans_split_at_every_change_and_skip_zero_runs():
 def test_windows_are_checked_one_by_one():
     heading = np.zeros(50 * RATE_HZ)
     heading[1100:1300] = np.nan
-    trip = np.zeros(50 * RATE_HZ, np.int32)
-    trip[0:300], trip[300:600], trip[600:900], trip[900:1200] = 1, -2, 3, -4
-    rows = windows.window_rows(block_of(50, heading=heading, trip=trip), RATE_HZ, SETTINGS)
+    rows = windows.window_rows(block_of(50, heading=heading), RATE_HZ, SETTINGS)
     assert len(rows) == windows.window_count(50 * RATE_HZ, RATE_HZ, SETTINGS) == 4
     assert (rows[1]["first"], rows[1]["burn_in_stop"], rows[1]["window_stop"], rows[1]["stop"]) == (600, 660, 1800, 1800)
     assert [row["ok"] for row in rows] == [True, False, True, True]
     assert rows[1]["heading_measured"] == 1000 / 1200
-    assert (rows[0]["trips_complete"], rows[0]["trips_partial"]) == (2, 2)  # trips 1 and 3 are complete, -2 and -4 are partial
 
 
 def test_a_window_is_ok_at_exactly_the_minimum_heading_share():
@@ -48,6 +45,16 @@ def test_a_window_is_ok_at_exactly_the_minimum_heading_share():
 def test_the_horizon_extends_each_window_past_its_training_part():
     rows = windows.window_rows(block_of(50), RATE_HZ, {**SETTINGS, "horizon_s": 5.0})
     assert [(row["window_stop"], row["stop"]) for row in rows] == [(1200, 1500), (1800, 2100), (2400, 2700)]
+
+
+def test_a_trip_is_inside_a_window_when_its_outbound_start_and_return_end_both_are():
+    trip, path_id = np.zeros(50 * RATE_HZ, np.int32), np.zeros(50 * RATE_HZ, np.int16)
+    trip[0:600], trip[600:1500], trip[1500:] = 1, 2, -3  # trip 3 is partial, the block ends before it returns
+    path_id[200:300], path_id[1100:1300] = 9, 10  # the return runs of trips 1 and 2
+    rows = windows.window_rows(block_of(50, trip=trip, path_id=path_id), RATE_HZ, SETTINGS)
+    assert [(row["first"], row["stop"]) for row in rows] == [(0, 1200), (600, 1800), (1200, 2400), (1800, 3000)]
+    # Trip 2 starts inside the first window and returns past its end, so only the second window holds it whole.
+    assert [(row["trips_complete"], row["trips_partial"]) for row in rows] == [(1, 1), (1, 1), (0, 2), (0, 1)]
 
 
 def test_occupancy_counts_each_epoch_over_one_shared_grid():
