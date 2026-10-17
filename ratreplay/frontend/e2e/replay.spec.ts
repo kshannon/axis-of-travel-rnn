@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { baseScale, laneBands } from "../src/draw/lanes";
-import { detachAll, openReplay, PROCESSED, pageScrolls, removeReviews } from "./synthetic";
+import { SESSION_LANES } from "../src/draw/session-scene";
+import { detachAll, openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings } from "./synthetic";
 
 // S6 has two automatic blocks, an arena block over frames 301 to 1500 and a track block over 3001 to 4200, in 90 s at 60 Hz.
 const S1 = "NS14_rec1_20150101_001";
@@ -10,7 +11,10 @@ const S6 = "NS16_rec6_20150106_001";
 const SESSION_S = 90;
 
 test.beforeEach(({ request }) => detachAll(request));
-test.afterEach(removeReviews);
+test.afterEach(() => {
+  removeReviews();
+  removeSettings();
+});
 
 test("play and pause, zoom with the buttons, select a block by its bar and accept it with enter", async ({ page, request }) => {
   await openReplay(page, request, S6);
@@ -36,7 +40,7 @@ test("play and pause, zoom with the buttons, select a block by its bar and accep
   await expect(shown).toHaveText("0:00 to 1:30");
 
   const timeline = (await page.getByTestId("timeline").boundingBox())!;
-  const { blocks } = laneBands(timeline.height);
+  const { blocks } = laneBands(timeline.height, SESSION_LANES);
   const scale = baseScale(SESSION_S, timeline.width);
   await page.mouse.click(timeline.x + scale(15), timeline.y + (blocks.top + blocks.bottom) / 2);
   const first = page.getByRole("article").first();
@@ -56,7 +60,7 @@ test("a range over a block is refused, over a removed block it makes a new block
   await expect(cards).toHaveCount(2);
 
   const timeline = (await page.getByTestId("timeline").boundingBox())!;
-  const { runs } = laneBands(timeline.height);
+  const { runs } = laneBands(timeline.height, SESSION_LANES);
   await page.mouse.click(timeline.x + baseScale(SESSION_S, timeline.width)(10), timeline.y + (runs.top + runs.bottom) / 2);
   await page.getByRole("button", { name: "Mark in" }).click();
   for (let i = 0; i < 12; i++) await page.keyboard.press("Shift+ArrowRight");
@@ -85,7 +89,7 @@ test("the edges of a new block over a removed block move the new block and the r
   await page.getByRole("button", { name: "Reject block 1" }).click();
 
   const timeline = (await page.getByTestId("timeline").boundingBox())!;
-  const { runs } = laneBands(timeline.height);
+  const { runs } = laneBands(timeline.height, SESSION_LANES);
   await page.mouse.click(timeline.x + baseScale(SESSION_S, timeline.width)(10), timeline.y + (runs.top + runs.bottom) / 2);
   await page.getByRole("button", { name: "Mark in" }).click();
   for (let i = 0; i < 12; i++) await page.keyboard.press("Shift+ArrowRight");
@@ -160,6 +164,7 @@ test("a save is refused while a block is auto, names its file, advances to the n
   await expect(page.getByTestId("session-id")).toHaveText(S6);
 
   await page.getByRole("link", { name: "Sessions" }).click();
+  await expect(page.getByTestId("totals")).toHaveText("1 of 6 sessions reviewed, 2 blocks confirmed, confirmed hours: arena 0.01, track 0.01");
   await page.getByLabel("Filter sessions").fill("ns14");
   await page.getByRole("row").nth(1).click();
   await page.getByRole("button", { name: "Open in replay" }).click();
@@ -182,4 +187,18 @@ test("reset to automatic clears the edits in memory and says so", async ({ page,
   await expect(page.getByRole("status").filter({ hasText: "The edits are cleared" })).toBeVisible();
   await expect(page.getByRole("article").first()).toContainText("auto");
   await expect(page.getByTestId("state")).toHaveText("automatic");
+});
+
+test("the block cards tell the training windows at the saved settings and grey a block shorter than one window", async ({ page, request }) => {
+  await openReplay(page, request, S6);
+  const cards = page.getByRole("article");
+  await expect(cards.first()).toContainText("shorter than one window"); // 20 s blocks under the default 40 s window
+
+  await page.getByRole("link", { name: "Blocks", exact: true }).click();
+  await page.getByLabel("window (s)").fill("5");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await page.getByRole("link", { name: "Replay", exact: true }).click();
+  await expect(cards.first()).toContainText("2 training windows");
+  await expect(cards.first()).not.toHaveClass(/opacity-60/);
 });

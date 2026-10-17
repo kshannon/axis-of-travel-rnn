@@ -1,20 +1,36 @@
 import Alpine from "alpinejs";
 import { errorText, getSession, listSessions } from "../api/client";
 import type { SessionHeader, SessionRow } from "../api/types";
+import { Workspace } from "../session/workspace";
 import { sourceStore } from "../state/source";
 import { card, pageGrid } from "../ui/card";
+import { factsList } from "../ui/facts";
 import { sourceGate } from "../ui/gate";
-import { BUTTON, BUTTON_PRIMARY, INPUT, TABLE, TD, TH } from "../ui/style";
+import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH } from "../ui/style";
+import { clickHeader, sortableTable, sortArrow, sortRows } from "../ui/table";
+import type { Sort } from "../ui/table";
 import { toast } from "../ui/toast";
 import type { Page } from "./page";
-import { clickHeader, COLUMNS, filterRows, reviewText, sessionFacts, sortRows } from "./sessions-rows";
-import type { Sort } from "./sessions-rows";
+import { COLUMNS, filterRows, reviewText, sessionFacts, totalsLine } from "./sessions-rows";
 
 const REPLAY_HASH = "#/replay";
 const SECONDS_PER_MINUTE = 60;
 
+const openButtons = `
+  <template x-if="!confirming">
+    <button type="button" @click="openInReplay(row)" class="${BUTTON_PRIMARY} self-start">Open in replay</button>
+  </template>
+  <template x-if="confirming">
+    <div class="flex flex-col items-start gap-2">
+      <p class="text-warn">The edits to <span x-text="confirming"></span> in the replay are not saved and would be lost.</p>
+      <div class="flex gap-2">
+        <button type="button" @click="openInReplay(row, true)" class="${BUTTON_DANGER}">Open and drop them</button>
+        <button type="button" @click="confirming = ''" class="${BUTTON}">Cancel</button>
+      </div>
+    </div>
+  </template>`;
+
 const details = `
-  <td colspan="${COLUMNS.length}" class="bg-page/60 px-4 py-3">
     <div class="grid grid-cols-2 gap-6 text-xs">
       <div class="flex flex-col gap-3">
         <table class="${TABLE} text-xs">
@@ -33,11 +49,7 @@ const details = `
             </template>
           </tbody>
         </table>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          <template x-for="fact in facts(row)" :key="fact.label">
-            <div class="contents"><dt class="text-muted" x-text="fact.label"></dt><dd x-text="fact.value"></dd></div>
-          </template>
-        </dl>
+        ${factsList("facts(row)")}
         <p x-show="detailsError" x-text="detailsError" class="text-bad"></p>
       </div>
       <div class="flex flex-col gap-3">
@@ -60,10 +72,9 @@ const details = `
           <p x-text="reviewOf(row)"></p>
           <p x-show="row.notes" class="mt-1 whitespace-pre-wrap text-muted" x-text="row.notes"></p>
         </div>
-        <button type="button" @click="openInReplay(row)" class="${BUTTON_PRIMARY} self-start">Open in replay</button>
+        ${openButtons}
       </div>
-    </div>
-  </td>`;
+    </div>`;
 
 const sessionsTable = `
   <div class="flex h-full flex-col gap-3">
@@ -72,34 +83,13 @@ const sessionsTable = `
       <span class="text-sm text-muted" x-text="summary"></span>
       <button type="button" x-show="sort" @click="sort = null" class="${BUTTON}">Dataset order</button>
     </div>
+    <p data-testid="totals" x-show="rows.length" x-text="totals" class="text-sm"></p>
     <p x-show="error" x-text="error" role="alert" class="text-sm text-bad"></p>
     <p x-show="loading" class="text-sm text-muted">Loading the sessions</p>
     <p x-show="!loading && !error && !rows.length" class="text-sm text-muted">This source has no session with an arena or track epoch.</p>
-    <div x-show="rows.length" class="min-h-0 flex-1 overflow-auto">
-      <table class="${TABLE}">
-        <thead class="sticky top-0 z-10 bg-card">
-          <tr>
-            <template x-for="column in columns" :key="column.key">
-              <th class="${TH}" :class="column.numeric ? 'text-right' : ''">
-                <button type="button" @click="sortBy(column.key)" class="uppercase tracking-wide hover:text-ink">
-                  <span x-text="column.label"></span><span x-text="arrow(column.key)"></span>
-                </button>
-              </th>
-            </template>
-          </tr>
-        </thead>
-        <template x-for="row in shown" :key="row.session_id">
-          <tbody class="border-t border-line">
-            <tr @click="toggle(row)" class="cursor-pointer hover:bg-ink/5" :class="row.in_dataset ? '' : 'text-muted'" :title="row.session_id">
-              <template x-for="column in columns" :key="column.key">
-                <td class="${TD} whitespace-nowrap" :class="column.numeric ? 'text-right tabular-nums' : ''" x-text="column.text(row)"></td>
-              </template>
-            </tr>
-            <template x-if="openId === row.session_id"><tr>${details}</tr></template>
-          </tbody>
-        </template>
-      </table>
-    </div>
+    <template x-if="rows.length">
+      ${sortableTable({ rowKey: "row.session_id", rowTitle: "row.session_id", rowClass: "row.in_dataset ? '' : 'text-muted'", details })}
+    </template>
   </div>`;
 
 function registerSessions(): void {
@@ -112,14 +102,18 @@ function registerSessions(): void {
     openId: "",
     header: null as SessionHeader | null,
     detailsError: "",
+    confirming: "",
     columns: COLUMNS,
 
     get shown() {
-      return sortRows(filterRows(this.rows, this.filter), this.sort);
+      return sortRows(filterRows(this.rows, this.filter), COLUMNS, this.sort);
     },
     get summary() {
       const inDataset = this.rows.filter((row) => row.in_dataset).length;
       return `${this.shown.length} of ${this.rows.length} sessions, ${inDataset} in the dataset`;
+    },
+    get totals() {
+      return totalsLine(this.rows);
     },
 
     async init() {
@@ -134,11 +128,12 @@ function registerSessions(): void {
       this.sort = clickHeader(this.sort, key);
     },
     arrow(key: string) {
-      return this.sort?.key === key ? (this.sort.descending ? " ↓" : " ↑") : "";
+      return sortArrow(this.sort, key);
     },
     async toggle(row: SessionRow) {
       this.header = null;
       this.detailsError = "";
+      this.confirming = "";
       if (this.openId === row.session_id) {
         this.openId = "";
         return;
@@ -155,7 +150,14 @@ function registerSessions(): void {
       return sessionFacts(row, this.header);
     },
     reviewOf: reviewText,
-    openInReplay(row: SessionRow) {
+    /** Open the session in the replay, asking first when the session open there has edits that are not saved. */
+    openInReplay(row: SessionRow, drop = false) {
+      const unsaved = Workspace.unsavedWhenOpening(sourceStore().id, row.session_id);
+      if (unsaved && !drop) {
+        this.confirming = unsaved.header.session_id;
+        return;
+      }
+      this.confirming = "";
       sourceStore().openSession(row.session_id);
       toast.success(`Opened ${row.session_id} in the replay`);
       location.hash = REPLAY_HASH;

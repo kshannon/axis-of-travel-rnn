@@ -219,9 +219,13 @@ export interface BlockRow {
   heading_filled_s: number;
   heading_held_s: number;
   heading_measured: number;
+  scale_px_per_m: number;
+  rotation_rad: number;
+  led_offset_rad: number;
+  kinematics_version: number;
   n_windows: number;
   ok: boolean;
-  reason: string;
+  reason: string | null;
 }
 
 export interface BlockIndex {
@@ -241,13 +245,15 @@ export interface Geometry {
   circle: { center: [number, number]; radius: number } | null;
 }
 
+/** Indices into the block's arrays with the stops exclusive, `stop` being the window's end plus its horizon, and the checks taken over that whole range. */
 export interface BlockWindow {
   index: number;
   first: number;
   burn_in_stop: number;
   window_stop: number;
   stop: number;
-  position_finite: boolean;
+  /** The share of the frames with a finite position. */
+  position_finite: number;
   heading_measured: number;
   trips_complete: number;
   trips_partial: number;
@@ -271,7 +277,7 @@ export interface BlockHeader {
   heading_filled: Span[];
   heading_held: Span[];
   one_light: Span[];
-  verdict: { ok: boolean; reason: string };
+  verdict: { ok: boolean; reason: string | null };
   settings: WindowSettings;
   windows: BlockWindow[];
 }

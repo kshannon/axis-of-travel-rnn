@@ -1,39 +1,23 @@
 import { select, zoom, zoomIdentity } from "d3";
 import type { ZoomBehavior, ZoomTransform } from "d3";
-import type { ReviewBlock, SessionHeader, Span } from "../api/types";
-import { palette } from "../ui/palette";
+import { colourOf, palette } from "../ui/palette";
 import type { Palette } from "../ui/palette";
-import { sizeCanvas, watchSize, withAlpha } from "./canvas";
-import { colourOf } from "./layers";
-import type { LayerKey, Layers } from "./layers";
+import { lighter, sizeCanvas, watchSize, withAlpha } from "./canvas";
 import {
-  barSpan, barsOf, baseScale, describeBar, hitBar, indexAt, inPlot, keepVisible, laneBands, LANES, PLOT, runKind, timeLabel, timeTicks,
-  windowTransform, zoomLimits,
+  BAR_INSET_PX, barBox, barSpan, baseScale, FRAMES_LANE, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits,
 } from "./lanes";
-import type { Bands, Bar, Scale } from "./lanes";
+import type { Bands, Bar, FrameLayer, Scale, Scene } from "./lanes";
 
 const FONT = "12px ui-sans-serif, system-ui, sans-serif";
 const LANE_TINT = 0.05;
 const GRID_ALPHA = 0.08;
-const BAR_ALPHA = 0.8;
 const LABEL_GAP_PX = 8;
 const TICK_SPACING_PX = 90;
 const LABEL_PAD_PX = 6;
-const BAR_INSET_PX = 1;
 const HATCH_PX = 5;
 const MIN_HATCH_PX = 4;
-
-const EPOCH_COLOURS: Record<string, string> = { arena: "#38bdf8", track: "#4ade80" };
-const OTHER_EPOCH_COLOUR = "#a1a1aa";
-const RUN_COLOURS = { outbound: "#3b82f6", return: "#93c5fd", other: "#9ca3af" };
 const HATCH_COLOUR = "rgba(255, 255, 255, 0.6)";
-
-// Fractions of the frames lane: the band of the heading layers at the bottom, the pause ticks at the top. The speed
-// trace is drawn up to the speed scale, and a margin is a dark band over the cut it trims.
-const HEADING_BAND = 0.14;
-const PAUSE_TICK = 0.3;
-const GAP_ALPHA = 0.35;
-const MARGIN_ALPHA = 0.85;
+const LINE_PX = 2;
 const SPEED_ALPHA = 0.7;
 
 const CURSOR_COLOUR = "#8b5cf6";
@@ -49,10 +33,19 @@ const FIT_MARGIN = 0.05;
 const CLICK_PX = 4;
 
 export interface TimelineHandlers {
-  seek(index: number): void;
-  select(block: ReviewBlock): void;
+  /** A click on the lanes, with the frame index under it. */
+  seek?(index: number): void;
   /** The seconds the lanes show, from and to, after each zoom or pan. */
   view(from: number, to: number): void;
+  /** A click on a bar that can be picked, with the number the bar carries. */
+  select?(pick: number): void;
+}
+
+/** A stretch of lab frames outlined in its lane, the block or window the page has selected. */
+export interface LaneSelection {
+  lane: string;
+  first: number;
+  last: number;
 }
 
 interface Point {
@@ -61,9 +54,9 @@ interface Point {
 }
 
 /**
- * The four lanes of a session on canvas: session, runs, frames and blocks over one time axis. Two canvases are stacked,
- * the still one holds the lanes and is redrawn when the view or the data changes, the live one holds the cursor, the
- * marks, the selection and the hover and is redrawn on every frame of playback. The zoom is D3's, on the live canvas.
+ * The lanes of a scene on canvas over one time axis. Two canvases are stacked, the still one holds the lanes and is
+ * redrawn when the view or the data changes, the live one holds the cursor, the marks, the selection and the hover and
+ * is redrawn on every frame of playback. The zoom is D3's, on the live canvas.
  */
 export class Timeline {
   private readonly still = document.createElement("canvas");
@@ -73,31 +66,25 @@ export class Timeline {
   private readonly behaviour: ZoomBehavior<HTMLCanvasElement, unknown> = zoom<HTMLCanvasElement, unknown>().on("zoom", (event) => {
     this.transform = event.transform;
     this.paint();
-    if (this.header) this.handlers.view(...(this.scale.domain() as [number, number]));
+    if (this.scene) this.handlers.view(...(this.scale.domain() as [number, number]));
   });
   private readonly stopWatching: () => void;
 
   private width = 0;
   private height = 0;
-  private bands: Bands = laneBands(0);
+  private bands: Bands = {};
   private base: Scale = baseScale(1, 0);
   private transform: ZoomTransform = zoomIdentity;
   private colours: Palette = palette();
 
-  private header: SessionHeader | null = null;
-  private speed: Float64Array = new Float64Array(0);
-  private speedTop = 1;
-  private bars: Bar[] = [];
-  private flagged = new Set<number>();
-  private layers: Layers;
+  private scene: Scene | null = null;
   private cursor = 0;
-  private selected: ReviewBlock | null = null;
+  private selected: LaneSelection | null = null;
   private markIn: number | null = null;
   private markOut: number | null = null;
   private hover: { bar: Bar | null; at: Point } | null = null;
 
-  constructor(host: HTMLElement, private readonly handlers: TimelineHandlers, layers: Layers) {
-    this.layers = layers;
+  constructor(host: HTMLElement, private readonly handlers: TimelineHandlers) {
     for (const canvas of [this.still, this.live]) {
       canvas.className = "absolute left-0 top-0";
       host.append(canvas);
@@ -109,14 +96,15 @@ export class Timeline {
     this.live.addEventListener("pointermove", this.onMove);
     this.live.addEventListener("pointerleave", this.onLeave);
     this.stopWatching = watchSize(host, (width, height) => this.resize(width, height));
+    this.resize(host.clientWidth, host.clientHeight); // so a page can zoom the lanes before the first resize event
   }
 
   private get nFrames(): number {
-    return this.header?.n_frames ?? 0;
+    return this.scene?.nFrames ?? 0;
   }
 
   private get rate(): number {
-    return this.header?.rate_hz ?? 1;
+    return this.scene?.rateHz ?? 1;
   }
 
   private get duration(): number {
@@ -128,27 +116,21 @@ export class Timeline {
   }
 
   private get ready(): boolean {
-    return this.header !== null && this.width > 0;
+    return this.scene !== null && this.width > 0;
   }
 
-  /** The session to draw, whole in view. */
-  load(header: SessionHeader, speed: Float64Array, speedTop: number): void {
-    this.header = header;
-    this.speed = speed;
-    this.speedTop = speedTop;
+  /** A new recording to draw, whole in view. */
+  load(scene: Scene): void {
+    this.scene = scene;
+    this.bands = laneBands(this.height, scene.lanes);
     this.configure();
     this.apply(zoomIdentity);
   }
 
-  setBlocks(blocks: ReviewBlock[], flaggedRuns: number[]): void {
-    this.bars = barsOf(this.header!.epochs, this.header!.runs, blocks);
-    this.flagged = new Set(flaggedRuns);
+  /** The same recording with other bars or layers, the view stays. */
+  setScene(scene: Scene): void {
+    this.scene = scene;
     this.paint();
-  }
-
-  setLayers(layers: Layers): void {
-    this.layers = layers;
-    this.paintStill();
   }
 
   /** Move the cursor to a frame index, paging the window to it when it fell outside. */
@@ -159,8 +141,8 @@ export class Timeline {
     else this.apply(kept);
   }
 
-  setSelection(block: ReviewBlock | null): void {
-    this.selected = block;
+  setSelection(selected: LaneSelection | null): void {
+    this.selected = selected;
     this.paintLive();
   }
 
@@ -182,11 +164,11 @@ export class Timeline {
     this.zoomBy(1 / ZOOM_STEP);
   }
 
-  /** Zoom to the selected block with a margin. */
+  /** Zoom to the selection with a margin. */
   fitSelected(): void {
     if (!this.selected) return;
-    const start = (this.selected.frame_start - 1) / this.rate;
-    const end = this.selected.frame_end / this.rate;
+    const start = (this.selected.first - 1) / this.rate;
+    const end = this.selected.last / this.rate;
     this.apply(windowTransform(this.base, start - FIT_MARGIN * (end - start), end + FIT_MARGIN * (end - start)));
   }
 
@@ -211,12 +193,12 @@ export class Timeline {
   }
 
   private resize(width: number, height: number): void {
-    const visible = this.header && this.scale.domain();
+    const visible = this.scene && this.scale.domain();
     this.width = width;
     this.height = height;
     this.stillCtx = sizeCanvas(this.still, width, height);
     this.liveCtx = sizeCanvas(this.live, width, height);
-    this.bands = laneBands(height);
+    this.bands = laneBands(height, this.scene?.lanes ?? []);
     this.configure();
     this.apply(visible ? windowTransform(this.base, visible[0], visible[1]) : zoomIdentity);
   }
@@ -242,15 +224,15 @@ export class Timeline {
   }
 
   private barAt(point: Point): Bar | null {
-    return hitBar(this.bars, this.bands, this.scale, this.rate, point);
+    return hitBar(this.scene!.bars, this.bands, this.scale, this.rate, point);
   }
 
   private onClick = (event: MouseEvent): void => {
     const point = this.pointer(event);
     if (!this.ready || !inPlot(point, this.width, this.height)) return;
     const bar = this.barAt(point);
-    if (bar?.lane === "blocks") this.handlers.select(bar.block);
-    else this.handlers.seek(indexAt(this.scale, point.x, this.rate, this.nFrames));
+    if (bar?.pick !== undefined && this.handlers.select) this.handlers.select(bar.pick);
+    else this.handlers.seek?.(indexAt(this.scale, point.x, this.rate, this.nFrames));
   };
 
   private onMove = (event: MouseEvent): void => {
@@ -275,11 +257,7 @@ export class Timeline {
     ctx.beginPath();
     ctx.rect(PLOT.left, 0, this.width - PLOT.left - PLOT.right, this.height);
     ctx.clip();
-    for (const bar of this.bars) {
-      if (bar.lane === "session") this.drawEpoch(ctx, scale, bar);
-      else if (bar.lane === "runs") this.drawRun(ctx, scale, bar);
-      else this.drawBlock(ctx, scale, bar);
-    }
+    for (const bar of this.scene!.bars) this.drawBar(ctx, scale, bar);
     this.drawFrames(ctx, scale);
     ctx.restore();
   }
@@ -289,12 +267,12 @@ export class Timeline {
     const c = this.colours;
     ctx.textBaseline = "middle";
     ctx.textAlign = "right";
-    for (const lane of LANES) {
-      const { top, bottom } = this.bands[lane];
+    for (const { name } of this.scene!.lanes) {
+      const { top, bottom } = this.bands[name];
       ctx.fillStyle = withAlpha(c.ink, LANE_TINT);
       ctx.fillRect(PLOT.left, top, this.width - PLOT.left - PLOT.right, bottom - top);
       ctx.fillStyle = c.muted;
-      ctx.fillText(lane, PLOT.left - LABEL_GAP_PX, (top + bottom) / 2);
+      ctx.fillText(name, PLOT.left - LABEL_GAP_PX, (top + bottom) / 2);
     }
     const ticks = timeTicks(scale.domain() as [number, number], (this.width - PLOT.left - PLOT.right) / TICK_SPACING_PX);
     ctx.textAlign = "center";
@@ -315,39 +293,23 @@ export class Timeline {
     ctx.stroke();
   }
 
-  /** A bar's pixel box in its lane, and its name written inside when it fits. */
-  private drawBar(ctx: CanvasRenderingContext2D, scale: Scale, bar: Bar, fill: string, text = ""): [number, number, number, number] {
-    const [x0, x1] = barSpan(scale, bar, this.rate);
-    const { top, bottom } = this.bands[bar.lane];
-    const box: [number, number, number, number] = [x0, top + BAR_INSET_PX, x1 - x0, bottom - top - 2 * BAR_INSET_PX];
-    ctx.fillStyle = fill;
-    ctx.fillRect(...box);
-    if (text && ctx.measureText(text).width + LABEL_PAD_PX <= x1 - x0) {
+  /** A bar in its box with its name written inside when it fits, hatched and outlined when it asks. */
+  private drawBar(ctx: CanvasRenderingContext2D, scale: Scale, bar: Bar): void {
+    const [x, y, w, h] = barBox(scale, this.bands, bar, this.rate);
+    const fill = colourOf(this.colours, bar.fill);
+    ctx.fillStyle = withAlpha(bar.light ? lighter(fill) : fill, bar.alpha ?? 1);
+    ctx.fillRect(x, y, w, h);
+    if (bar.text && ctx.measureText(bar.text).width + LABEL_PAD_PX <= w) {
       ctx.fillStyle = this.colours.ink;
       ctx.textAlign = "center";
-      ctx.fillText(text, (x0 + x1) / 2, (top + bottom) / 2);
+      ctx.fillText(bar.text, x + w / 2, y + h / 2);
     }
-    return box;
-  }
-
-  private drawEpoch(ctx: CanvasRenderingContext2D, scale: Scale, bar: Extract<Bar, { lane: "session" }>): void {
-    this.drawBar(ctx, scale, bar, withAlpha(EPOCH_COLOURS[bar.epoch.epoch] ?? OTHER_EPOCH_COLOUR, BAR_ALPHA), bar.epoch.epoch);
-  }
-
-  private drawRun(ctx: CanvasRenderingContext2D, scale: Scale, bar: Extract<Bar, { lane: "runs" }>): void {
-    const [x, y, w, h] = this.drawBar(ctx, scale, bar, RUN_COLOURS[runKind(bar.run.path_id)]);
-    if (!bar.run.clean && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h);
-    if (this.flagged.has(bar.run.run)) {
-      ctx.strokeStyle = this.colours.bad;
-      ctx.lineWidth = 2;
+    if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h);
+    if (bar.outline) {
+      ctx.strokeStyle = colourOf(this.colours, bar.outline);
+      ctx.lineWidth = LINE_PX;
       ctx.strokeRect(x, y, w, h);
     }
-  }
-
-  private drawBlock(ctx: CanvasRenderingContext2D, scale: Scale, bar: Extract<Bar, { lane: "blocks" }>): void {
-    const c = this.colours;
-    const colour = { auto: c.accent, confirmed: c.ok, edited: c.warn, dropped: c.muted }[bar.block.status];
-    this.drawBar(ctx, scale, bar, withAlpha(colour, bar.block.status === "dropped" ? GAP_ALPHA : BAR_ALPHA), bar.name);
   }
 
   private hatch(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
@@ -366,39 +328,31 @@ export class Timeline {
     ctx.restore();
   }
 
-  /** The frames lane: the gaps and margins behind, the heading bands, the speed trace, then the jumps and pauses in front. */
+  /** The frames lane, each layer of the scene in its order. */
   private drawFrames(ctx: CanvasRenderingContext2D, scale: Scale): void {
-    const h = this.header!;
-    const { top, bottom } = this.bands.frames;
-    const heading = (bottom - top) * HEADING_BAND;
-    const band = (spans: Span[], key: LayerKey, from: number, to: number, alpha = 1) => {
-      if (!this.layers[key]) return;
-      ctx.fillStyle = withAlpha(colourOf(key), alpha);
-      for (const [first, last] of spans) {
-        const [x0, x1] = barSpan(scale, { first, last }, this.rate);
-        ctx.fillRect(x0, from, x1 - x0, to - from);
+    const { top, bottom } = this.bands[FRAMES_LANE];
+    const height = bottom - top;
+    const draw = (layer: FrameLayer) => {
+      if (layer.kind === "trace") return this.drawSpeed(ctx, scale, layer);
+      if (layer.kind === "span") {
+        ctx.fillStyle = withAlpha(layer.colour, layer.alpha);
+        for (const [first, last] of layer.spans) {
+          const [x0, x1] = barSpan(scale, { first, last }, this.rate);
+          ctx.fillRect(x0, top + layer.from * height, x1 - x0, (layer.to - layer.from) * height);
+        }
+        return;
       }
-    };
-    band(h.cuts.gaps, "gaps", top, bottom, GAP_ALPHA);
-    band(h.cuts.margins, "margins", top, bottom, MARGIN_ALPHA);
-    band(h.heading_filled, "filled", bottom - heading, bottom);
-    band(h.heading_held, "held", bottom - heading, bottom);
-    band(h.heading_lost, "lost", bottom - heading, bottom);
-    if (this.layers.speed) this.drawSpeed(ctx, scale);
-    const mark = (frames: number[], key: LayerKey, from: number, to: number) => {
-      if (!this.layers[key]) return;
-      for (const frame of frames) {
+      for (const frame of layer.frames) {
         const x = scale((frame - 1) / this.rate);
-        this.line(ctx, x, from, x, to, colourOf(key), 2);
+        this.line(ctx, x, top, x, top + layer.to * height, layer.colour, LINE_PX);
       }
     };
-    mark(h.cuts.jumps, "jumps", top, bottom);
-    mark(h.cuts.pauses, "pauses", top, top + (bottom - top) * PAUSE_TICK);
+    this.scene!.frames.forEach(draw);
   }
 
-  /** The speed as a thin trace, the mean of the frames under each pixel so a long session still draws in a few thousand points. */
-  private drawSpeed(ctx: CanvasRenderingContext2D, scale: Scale): void {
-    const { top, bottom } = this.bands.frames;
+  /** The speed as a thin trace, the mean of the frames under each pixel so a long recording still draws in a few thousand points. */
+  private drawSpeed(ctx: CanvasRenderingContext2D, scale: Scale, { values, top: speedTop }: Extract<FrameLayer, { kind: "trace" }>): void {
+    const { top, bottom } = this.bands[FRAMES_LANE];
     const [from, to] = scale.domain();
     const first = Math.max(0, Math.floor(from * this.rate));
     const last = Math.min(this.nFrames - 1, Math.ceil(to * this.rate));
@@ -411,8 +365,8 @@ export class Timeline {
       let sum = 0;
       let n = 0;
       for (let k = i; k < Math.min(i + step, last + 1); k++) {
-        if (!Number.isNaN(this.speed[k])) {
-          sum += this.speed[k];
+        if (!Number.isNaN(values[k])) {
+          sum += values[k];
           n++;
         }
       }
@@ -421,7 +375,7 @@ export class Timeline {
         continue;
       }
       const x = scale((i + step / 2) / this.rate);
-      const y = bottom - Math.min(sum / n / this.speedTop, 1) * (bottom - top);
+      const y = bottom - Math.min(sum / n / speedTop, 1) * (bottom - top);
       if (drawing) ctx.lineTo(x, y);
       else ctx.moveTo(x, y);
       drawing = true;
@@ -448,20 +402,20 @@ export class Timeline {
       ctx.fillRect(x(first), PLOT.top, scale(last / this.rate) - x(first), bottom - PLOT.top);
     }
     ctx.setLineDash(MARK_DASH);
-    for (const mark of [this.markIn, this.markOut]) if (mark !== null) this.line(ctx, x(mark), PLOT.top, x(mark), bottom, MARK_COLOUR, 2);
+    for (const mark of [this.markIn, this.markOut]) if (mark !== null) this.line(ctx, x(mark), PLOT.top, x(mark), bottom, MARK_COLOUR, LINE_PX);
     ctx.setLineDash([]);
 
     if (this.selected) {
-      const [x0, x1] = barSpan(scale, { first: this.selected.frame_start, last: this.selected.frame_end }, this.rate);
-      const { top } = this.bands.blocks;
+      const [x0, x1] = barSpan(scale, this.selected, this.rate);
+      const { top, bottom: laneBottom } = this.bands[this.selected.lane];
       ctx.strokeStyle = c.ink;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x0, top + BAR_INSET_PX, x1 - x0, this.bands.blocks.bottom - top - 2 * BAR_INSET_PX);
-      for (const edge of [x0, x1]) this.line(ctx, edge, top, edge, this.bands.frames.top, c.ink);
+      ctx.lineWidth = LINE_PX;
+      ctx.strokeRect(x0, top + BAR_INSET_PX, x1 - x0, laneBottom - top - 2 * BAR_INSET_PX);
+      for (const edge of [x0, x1]) this.line(ctx, edge, top, edge, this.bands[FRAMES_LANE].top, c.ink);
     }
 
     const cursor = scale(this.cursor / this.rate);
-    this.line(ctx, cursor, PLOT.top, cursor, bottom, CURSOR_COLOUR, 2);
+    this.line(ctx, cursor, PLOT.top, cursor, bottom, CURSOR_COLOUR, LINE_PX);
     ctx.fillStyle = CURSOR_COLOUR;
     ctx.beginPath();
     ctx.moveTo(cursor - CURSOR_HEAD_PX, 0);
@@ -470,12 +424,10 @@ export class Timeline {
     ctx.fill();
     ctx.restore();
 
-    if (this.hover?.bar) this.drawTooltip(ctx, this.hover.bar, this.hover.at);
+    if (this.hover?.bar) this.drawTooltip(ctx, this.hover.bar.tip, this.hover.at);
   }
 
-  private drawTooltip(ctx: CanvasRenderingContext2D, bar: Bar, at: Point): void {
-    const flagged = bar.lane === "runs" && this.flagged.has(bar.run.run);
-    const text = describeBar(bar, this.rate, flagged);
+  private drawTooltip(ctx: CanvasRenderingContext2D, text: string, at: Point): void {
     ctx.font = FONT;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";

@@ -2,19 +2,9 @@ import { getReview, getSession, getSessionArrays, getWindowSettings, previewRevi
 import type { Edit, Review, ReviewPreview, SavedReview, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Clock } from "./clock";
 import { Editor } from "./editor";
+import { speedTop } from "./speed";
 
-const SPEED_PERCENTILE = 0.95;
-const SAMPLE_SIZE = 20_000;
 const NO_CHANGE = "That changes nothing.";
-
-/** The speed that fills the colour scale and the speed trace: a high percentile of a sample, so a few tracking spikes do not flatten the rest. */
-export function speedTop(speed: Float64Array): number {
-  const step = Math.max(1, Math.floor(speed.length / SAMPLE_SIZE));
-  const sample: number[] = [];
-  for (let i = 0; i < speed.length; i += step) if (Number.isFinite(speed[i])) sample.push(speed[i]);
-  sample.sort((a, b) => a - b);
-  return (sample.length && sample[Math.floor(SPEED_PERCENTILE * (sample.length - 1))]) || 1;
-}
 
 const sameResult = (a: ReviewPreview, b: ReviewPreview) =>
   JSON.stringify([a.blocks, a.flagged_runs, a.cuts]) === JSON.stringify([b.blocks, b.flagged_runs, b.cuts]);
@@ -39,7 +29,7 @@ export class Workspace {
   readonly sid: string;
   readonly header: SessionHeader;
   readonly arrays: SessionArrays;
-  readonly settings: WindowSettings;
+  settings: WindowSettings;
   readonly clock: Clock;
   readonly editor: Editor;
   readonly speedTop: number;
@@ -59,15 +49,28 @@ export class Workspace {
     this.speedTop = speedTop(loaded.arrays.speed);
   }
 
-  /** The session of a source loaded with its saved review, or the one already open. */
+  /** The session of a source loaded with its saved review, or the one already open with the window settings read again. */
   static async open(sid: string, sessionId: string): Promise<Workspace> {
     const kept = Workspace.current;
-    if (kept?.sid === sid && kept.header.session_id === sessionId) return kept;
+    if (kept?.holds(sid, sessionId)) {
+      kept.settings = (await getWindowSettings()).settings; // the Blocks page may have saved new ones
+      return kept;
+    }
     const [header, arrays, saved, { settings }] = await Promise.all([
       getSession(sid, sessionId), getSessionArrays(sid, sessionId), getReview(sid, sessionId), getWindowSettings(),
     ]);
     const preview = await previewReview(sid, sessionId, saved?.edits ?? []);
     return (Workspace.current = new Workspace({ sid, header, arrays, settings, saved, preview }));
+  }
+
+  /** The open session when opening this one would throw away its unsaved edits, none when they are saved or it is the one asked for. */
+  static unsavedWhenOpening(sid: string, sessionId: string): Workspace | null {
+    const kept = Workspace.current;
+    return kept?.editor.dirty && !kept.holds(sid, sessionId) ? kept : null;
+  }
+
+  private holds(sid: string, sessionId: string): boolean {
+    return this.sid === sid && this.header.session_id === sessionId;
   }
 
   /** Run a change after the ones before it, so two previews never cross. */

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { SessionHeader, SessionRow } from "../api/types";
-import { briefList, clickHeader, filterRows, minutesOf, sessionFacts, sortRows } from "./sessions-rows";
+import { briefList, filterRows, minutesOf, sessionFacts, totalsLine } from "./sessions-rows";
 
 function row(session_id: string, extra: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -17,27 +17,6 @@ const ROWS = [
   row("NS16_c", { date: "2015-01-02", n_runs: 7, reviewed_by: "ana", reviewed_at: "2026-10-15T10:00:00+00:00" }),
 ];
 const ids = (rows: SessionRow[]) => rows.map((r) => r.session_id);
-
-test("without a sort the rows stay in the order the API gave", () => {
-  expect(ids(sortRows(ROWS, null))).toEqual(["NS14_a", "NS5_b", "NS16_c"]);
-});
-
-test("a number sorts as a number and a rat name as a name with its digits in order", () => {
-  expect(ids(sortRows(ROWS, { key: "runs", descending: false }))).toEqual(["NS14_a", "NS16_c", "NS5_b"]);
-  expect(ids(sortRows(ROWS, { key: "rat", descending: false }))).toEqual(["NS5_b", "NS14_a", "NS16_c"]);
-});
-
-test("a missing value goes last whichever way the sort runs", () => {
-  expect(ids(sortRows(ROWS, { key: "at", descending: false }))).toEqual(["NS16_c", "NS14_a", "NS5_b"]);
-  expect(ids(sortRows(ROWS, { key: "at", descending: true }))).toEqual(["NS14_a", "NS16_c", "NS5_b"]);
-});
-
-test("a header click sorts ascending first and reverses on the second click", () => {
-  const first = clickHeader(null, "date");
-  expect(first).toEqual({ key: "date", descending: false });
-  expect(clickHeader(first, "date")).toEqual({ key: "date", descending: true });
-  expect(clickHeader({ key: "date", descending: true }, "runs")).toEqual({ key: "runs", descending: false });
-});
 
 test("the filter matches the session id or the rat, in any case", () => {
   expect(ids(filterRows(ROWS, "ns5"))).toEqual(["NS5_b"]);
@@ -61,4 +40,11 @@ test("the facts grow with the session header and list a few frames of what cut t
 
 test("a long list is cut short with the number left out", () => {
   expect(briefList(["1", "2", "3", "4"], 2)).toBe("1, 2 and 2 more");
+});
+
+test("the totals count the sessions reviewed, the blocks confirmed and the hours confirmed per epoch kind", () => {
+  const reviewed = (confirmed_s: Record<string, number>, n_confirmed: number) => row("NS1_x", { reviewed: true, n_confirmed, confirmed_s });
+  const rows = [reviewed({ track: 1800, arena: 900 }, 3), reviewed({ track: 5400 }, 2), row("NS2_y")];
+  expect(totalsLine(rows)).toBe("2 of 3 sessions reviewed, 5 blocks confirmed, confirmed hours: arena 0.25, track 2.00");
+  expect(totalsLine([row("NS2_y", { confirmed_s: { arena: 0, track: 0 } })])).toBe("0 of 1 session reviewed, 0 blocks confirmed, confirmed hours: arena 0.00, track 0.00");
 });

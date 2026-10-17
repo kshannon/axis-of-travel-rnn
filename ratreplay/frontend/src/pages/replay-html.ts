@@ -1,6 +1,7 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
 import { BUTTON, BUTTON_PRIMARY, CHIP_OFF, CHIP_ON, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
   <p>The positions are the lab's mashup light in camera pixels, y down. The grey shading is where the animal spent time in the epoch chosen under occupancy, darker is more. The epochs are drawn apart because the arena, the track and a rotated track overlap in the camera frame.</p>
@@ -42,12 +43,13 @@ const summaryBody = `
 
 const blockCard = `
   <article @click="select(block.first)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
-    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed ? 'opacity-60' : '']">
+    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed || !block.windows ? 'opacity-60' : '']">
     <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-medium" x-text="block.name"></h3>
       <span :class="block.chip" x-text="block.glyph + ' ' + block.status"></span>
     </div>
     <p class="mt-0.5 text-muted" x-text="block.epoch + ', ' + block.minutes + ' min, ' + block.runs + ' runs'"></p>
+    <p class="text-muted" x-text="block.windowsText"></p>
     <div class="mt-1.5 flex gap-1.5">
       <button type="button" @click.stop="act('accept', block.first)" :disabled="!block.acceptable" :aria-pressed="block.accepted"
         :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
@@ -64,31 +66,16 @@ const blocksBody = `
 
 const mapBody = `<div x-ref="map" class="relative h-full min-h-0"></div>`;
 
-const liveTile = (label: string, value: string) => `
-  <div class="${TILE}"><p class="${TILE_LABEL}">${label}</p><p data-testid="tile-${value}" class="${TILE_VALUE}" x-text="${value}"></p></div>`;
-
-const playbackBody = `
-  <div class="flex flex-col gap-3">
-    <div class="flex items-center gap-3">
-      <button type="button" @click="toggle()" :disabled="loading" class="${BUTTON_PRIMARY} w-24" x-text="playing ? 'Pause' : 'Play'"></button>
-      <kbd class="${KBD}">space</kbd>
-    </div>
-    <label class="flex items-center gap-2 text-xs text-muted">playback
-      <input type="range" min="0" :max="speeds.length - 1" step="1" x-model.number="speedIndex" @input="setSpeed()" @change="$event.target.blur()"
-        aria-label="Playback speed" class="min-w-0 flex-1 accent-accent" />
-      <span class="w-9 text-right tabular-nums text-ink" x-text="speedLabel"></span>
-    </label>
-    <div class="grid grid-cols-2 gap-2">
-      ${liveTile("time", "time")}${liveTile("lab frame", "frame")}${liveTile("speed", "speed")}${liveTile("lights", "lights")}
-    </div>
-    <div class="flex flex-wrap items-center gap-1.5">
-      <span class="text-xs text-muted">occupancy</span>
-      <template x-for="choice in occupancyChoices" :key="choice">
-        <button type="button" @click="setOccupancy(choice)" :aria-pressed="occupancy === choice" x-text="choice"
-          ${toggle("occupancy === choice", CHIP_ON, CHIP_OFF)}></button>
-      </template>
-    </div>
+const occupancyChips = `
+  <div class="flex flex-wrap items-center gap-1.5">
+    <span class="text-xs text-muted">occupancy</span>
+    <template x-for="choice in occupancyChoices" :key="choice">
+      <button type="button" @click="setOccupancy(choice)" :aria-pressed="occupancy === choice" x-text="choice"
+        ${toggle("occupancy === choice", CHIP_ON, CHIP_OFF)}></button>
+    </template>
   </div>`;
+
+const playbackCard = playbackBody([["time", "time"], ["lab frame", "frame"], ["speed", "speed"], ["lights", "lights"]], occupancyChips);
 
 const reviewBody = `
   <div class="flex flex-col gap-2">
@@ -141,7 +128,7 @@ export const replayGrid = `
     ${card("Summary", summaryBody, "col-span-7")}
     ${card("Blocks", blocksBody, "col-span-2", `<button type="button" @click="act('accept-all')" :disabled="loading" class="${BUTTON}">Accept all</button>`)}
     ${card(mapTitle, mapBody, "col-span-4", helpPopover("About the map", MAP_HELP))}
-    ${card("Playback", playbackBody, "col-span-3")}
+    ${card("Playback", playbackCard, "col-span-3")}
     ${card("Review", reviewBody, "col-span-3")}
     ${card("Timeline", timelineBody, "col-span-12", timelineActions)}
   </div>`;

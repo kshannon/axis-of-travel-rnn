@@ -18,12 +18,18 @@ const blocks = [block(301, 900, "confirmed"), block(901, 1500, "auto"), block(15
 const preview: ReviewPreview = { blocks, cuts: [], flagged_runs: [2], skipped: [] };
 
 test("a card per block in time order, with the runs that start inside it and what its toggles may do", () => {
-  const cards = blockCards(blocks, header, blocks[1]);
+  const cards = blockCards(blocks, header, blocks[1], SETTINGS);
   expect(cards.map((c) => [c.name, c.minutes, c.runs, c.glyph, c.selected])).toEqual([
     ["block 1", "0.17", 1, "☑", false], ["block 2", "0.17", 0, "☐", true], ["block 3", "0.08", 1, "✕", false],
   ]);
   expect(cards.map((c) => [c.accepted, c.removed, c.acceptable])).toEqual([[true, false, true], [false, false, true], [false, true, false]]);
-  expect(blockCards([block(1, 600, "edited")], header, null)[0]).toMatchObject({ accepted: true, acceptable: false });
+  expect(blockCards([block(1, 600, "edited")], header, null, SETTINGS)[0]).toMatchObject({ accepted: true, acceptable: false });
+});
+
+test("a card tells the training windows the block yields at the settings and a block shorter than one window yields none", () => {
+  const cards = blockCards([block(1, 600, "auto"), block(601, 900, "auto"), block(901, 1000, "auto")], header, null, { ...SETTINGS, window_s: 8 });
+  expect(cards.map((c) => [c.windows, c.windowsText])).toEqual([[1, "1 training window"], [0, "shorter than one window"], [0, "shorter than one window"]]);
+  expect(blockCards([block(1, 1200, "auto")], header, null, SETTINGS)[0].windowsText).toBe("4 training windows");
 });
 
 test("the summary counts the blocks by status and the time kept of the epochs the processor cuts", () => {

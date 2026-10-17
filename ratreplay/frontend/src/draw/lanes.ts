@@ -1,19 +1,22 @@
 import { scaleLinear, zoomIdentity } from "d3";
 import type { ScaleLinear, ZoomTransform } from "d3";
-import type { Epoch, ReviewBlock, Run } from "../api/types";
+import type { Span } from "../api/types";
 
-export type Lane = "session" | "runs" | "frames" | "blocks";
-export const LANES: readonly Lane[] = ["session", "runs", "frames", "blocks"];
+/** A lane of the timeline, named at its left, with its share of the plot's height. */
+export interface LaneSpec {
+  name: string;
+  weight: number;
+}
 
-// The lanes share the plot's height by these weights with a gap between them. The plot leaves room at the left for the
+// The lanes share the plot's height by their weights with a gap between them. The plot leaves room at the left for the
 // lane names and under the lanes for the time axis.
-const LANE_WEIGHTS: Record<Lane, number> = { session: 1, runs: 2, frames: 3, blocks: 2 };
 const LANE_GAP_PX = 4;
 export const PLOT = { left: 72, right: 12, top: 4, bottom: 22 };
 
-// A bar is never thinner than this, and a click this close to a bar still hits it.
+// A bar is never thinner than this, and a click this close to a bar still hits it. A bar sits this far in from the edges of its lane.
 const MIN_BAR_PX = 2;
 const HIT_SLOP_PX = 1;
+export const BAR_INSET_PX = 1;
 
 // The closest zoom shows this many seconds. A cursor that leaves the window pages it so the cursor lands this fraction
 // of the window from the edge it crossed.
@@ -23,6 +26,7 @@ const PAGE_MARGIN = 0.1;
 // The paths of the lab's tasks: the outbound runs and the return runs, any other path is neither.
 const OUTBOUND_PATHS = [1, 2, 3, 4];
 const RETURN_PATHS = [9, 10];
+const RUN_COLOURS = { outbound: "#3b82f6", return: "#93c5fd", other: "#9ca3af" };
 
 const TICK_STEPS_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 const SECONDS_PER_MINUTE = 60;
@@ -33,35 +37,68 @@ interface Band {
   top: number;
   bottom: number;
 }
-export type Bands = Record<Lane, Band>;
+export type Bands = Record<string, Band>;
 
-export type Bar =
-  | { lane: "session"; first: number; last: number; epoch: Epoch }
-  | { lane: "runs"; first: number; last: number; run: Run }
-  | { lane: "blocks"; first: number; last: number; block: ReviewBlock; name: string };
+/** A bar of a lane over lab frames counted from 1, both ends included. */
+export interface Bar {
+  lane: string;
+  first: number;
+  last: number;
+  /** A palette colour name or a CSS colour. */
+  fill: string;
+  alpha?: number;
+  /** Drawn in a lighter shade of its colour. */
+  light?: boolean;
+  text?: string;
+  hatched?: boolean;
+  /** A palette colour name. */
+  outline?: string;
+  /** Bars that overlap in time sit in rows of their lane, this one in row `row` of `rows`. */
+  row?: number;
+  rows?: number;
+  /** What a hover says of the bar. */
+  tip: string;
+  /** A click selects the bar, handing this number to the page, instead of moving the cursor. */
+  pick?: number;
+}
 
-export const blockName = (position: number): string => `block ${position + 1}`;
+/** What the frames lane draws, in order. Spans and ticks are over lab frames from 1, `from` and `to` are fractions of the lane's height from its top. */
+export type FrameLayer =
+  | { kind: "span"; spans: Span[]; colour: string; alpha: number; from: number; to: number }
+  | { kind: "tick"; frames: number[]; colour: string; to: number }
+  | { kind: "trace"; values: Float64Array; top: number };
+
+/** Everything a timeline draws: its lanes, the bars and the frames lane's layers over a recording of `nFrames` at `rateHz`. */
+export interface Scene {
+  lanes: readonly LaneSpec[];
+  rateHz: number;
+  nFrames: number;
+  bars: Bar[];
+  frames: FrameLayer[];
+}
+
+/** The lane the frame layers are drawn in. */
+export const FRAMES_LANE = "frames";
 
 export function runKind(pathId: number): "outbound" | "return" | "other" {
   if (OUTBOUND_PATHS.includes(pathId)) return "outbound";
   return RETURN_PATHS.includes(pathId) ? "return" : "other";
 }
 
+/** The colour of a run's bar by its path. */
+export const runFill = (pathId: number): string => RUN_COLOURS[runKind(pathId)];
+
 /** The vertical band of each lane in a canvas of this height. */
-export function laneBands(height: number): Bands {
-  const room = height - PLOT.top - PLOT.bottom - LANE_GAP_PX * (LANES.length - 1);
-  const unit = room / LANES.reduce((total, lane) => total + LANE_WEIGHTS[lane], 0);
-  const bands = {} as Bands;
+export function laneBands(height: number, lanes: readonly LaneSpec[]): Bands {
+  const room = height - PLOT.top - PLOT.bottom - LANE_GAP_PX * (lanes.length - 1);
+  const unit = room / lanes.reduce((total, lane) => total + lane.weight, 0);
+  const bands: Bands = {};
   let top = PLOT.top;
-  for (const lane of LANES) {
-    bands[lane] = { top, bottom: top + unit * LANE_WEIGHTS[lane] };
-    top = bands[lane].bottom + LANE_GAP_PX;
+  for (const { name, weight } of lanes) {
+    bands[name] = { top, bottom: top + unit * weight };
+    top = bands[name].bottom + LANE_GAP_PX;
   }
   return bands;
-}
-
-export function laneAt(bands: Bands, y: number): Lane | null {
-  return LANES.find((lane) => y >= bands[lane].top && y <= bands[lane].bottom) ?? null;
 }
 
 /** Whether a point of the canvas is over the lanes, the gaps between them included. */
@@ -85,21 +122,19 @@ export function barSpan(scale: Scale, bar: Pick<Bar, "first" | "last">, rateHz: 
   return [x0, Math.max(scale(bar.last / rateHz), x0 + MIN_BAR_PX)];
 }
 
-/** The bars of the session, runs and blocks lanes. A block is named by its place in time order. */
-export function barsOf(epochs: Epoch[], runs: Run[], blocks: ReviewBlock[]): Bar[] {
-  return [
-    ...epochs.map((epoch): Bar => ({ lane: "session", first: epoch.frame_start, last: epoch.frame_end, epoch })),
-    ...runs.map((run): Bar => ({ lane: "runs", first: run.frame_start, last: run.frame_end, run })),
-    ...blocks.map((block, position): Bar => ({ lane: "blocks", first: block.frame_start, last: block.frame_end, block, name: blockName(position) })),
-  ];
+/** A bar's pixel box (left, top, width, height) in its lane, one row of the lane's rows. */
+export function barBox(scale: Scale, bands: Bands, bar: Bar, rateHz: number): [number, number, number, number] {
+  const [x0, x1] = barSpan(scale, bar, rateHz);
+  const { top, bottom } = bands[bar.lane];
+  const height = (bottom - top) / (bar.rows ?? 1);
+  return [x0, top + (bar.row ?? 0) * height + BAR_INSET_PX, x1 - x0, height - 2 * BAR_INSET_PX];
 }
 
-/** The bar under a point, none over a gap, the axis or empty lane. */
+/** The bar under a point, none over a gap, the axis or an empty part of a lane. */
 export function hitBar(bars: Bar[], bands: Bands, scale: Scale, rateHz: number, point: { x: number; y: number }): Bar | null {
-  const lane = laneAt(bands, point.y);
   return bars.find((bar) => {
-    const [x0, x1] = barSpan(scale, bar, rateHz);
-    return bar.lane === lane && point.x >= x0 - HIT_SLOP_PX && point.x <= x1 + HIT_SLOP_PX;
+    const [x, y, width, height] = barBox(scale, bands, bar, rateHz);
+    return point.x >= x - HIT_SLOP_PX && point.x <= x + width + HIT_SLOP_PX && point.y >= y && point.y <= y + height;
   }) ?? null;
 }
 
@@ -142,18 +177,4 @@ export function timeLabel(seconds: number): string {
   const minutes = Math.floor((whole % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
   const rest = twoDigits(whole % SECONDS_PER_MINUTE);
   return hours ? `${hours}:${twoDigits(minutes)}:${rest}` : `${minutes}:${rest}`;
-}
-
-/** What a hover tells of a bar: for a run its number, path, clean or dirty and frames. */
-export function describeBar(bar: Bar, rateHz: number, flagged = false): string {
-  const frames = bar.last - bar.first + 1;
-  const where = `frames ${bar.first} to ${bar.last}`;
-  switch (bar.lane) {
-    case "runs":
-      return `run ${bar.run.run}, path ${bar.run.path_id} ${runKind(bar.run.path_id)}, ${bar.run.clean ? "clean" : "dirty"}${flagged ? ", flagged" : ""}, ${frames} frames (${bar.first} to ${bar.last})`;
-    case "blocks":
-      return `${bar.name}, ${bar.block.status}, ${where}, ${(frames / rateHz).toFixed(1)} s`;
-    case "session":
-      return `${bar.epoch.epoch}, ${bar.epoch.environment}, ${bar.epoch.condition}, ${where}, ${(frames / rateHz / SECONDS_PER_MINUTE).toFixed(1)} min`;
-  }
 }

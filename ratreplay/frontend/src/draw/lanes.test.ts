@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { Epoch, ReviewBlock, Run } from "../api/types";
-import { barSpan, describeBar, barsOf, baseScale, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, LANES, PLOT, runKind, timeLabel, timeTicks, windowTransform, zoomLimits } from "./lanes";
+import { barBox, barSpan, baseScale, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, runFill, runKind, timeLabel, timeTicks, windowTransform, zoomLimits } from "./lanes";
+import type { Bar, LaneSpec } from "./lanes";
 
 const RATE_HZ = 60;
 const N_FRAMES = 36_000; // ten minutes
@@ -8,14 +8,17 @@ const WIDTH = 1000;
 const HEIGHT = 200;
 const base = baseScale(N_FRAMES / RATE_HZ, WIDTH);
 
-const epoch: Epoch = { epoch: "track", environment: "triple_t", condition: "baseline", frame_start: 1, frame_end: N_FRAMES, duration_s: 600 };
-const run: Run = { run: 1, epoch: "track", path_id: 1, clean: true, frame_start: 6001, frame_end: 6600 };
-const block: ReviewBlock = { block_id: "S_track_01", epoch: "track", environment: "triple_t", frame_start: 3001, frame_end: 9000, status: "auto", note: "" };
-const bars = barsOf([epoch], [run], [block]);
-const bands = laneBands(HEIGHT);
-const middle = (lane: (typeof LANES)[number]) => (bands[lane].top + bands[lane].bottom) / 2;
+const LANES: LaneSpec[] = [{ name: "session", weight: 1 }, { name: "runs", weight: 2 }, { name: "frames", weight: 3 }, { name: "blocks", weight: 2 }];
+const bands = laneBands(HEIGHT, LANES);
+const middle = (lane: string) => (bands[lane].top + bands[lane].bottom) / 2;
 
-test("the whole session spans the plot and a pixel maps back to its second", () => {
+const bar = (lane: string, first: number, last: number, extra: Partial<Bar> = {}): Bar => ({ lane, first, last, fill: "accent", tip: lane, ...extra });
+const epoch = bar("session", 1, N_FRAMES);
+const run = bar("runs", 6001, 6600);
+const block = bar("blocks", 3001, 9000, { pick: 3001 });
+const bars = [epoch, run, block];
+
+test("the whole recording spans the plot and a pixel maps back to its second", () => {
   expect(base(0)).toBe(PLOT.left);
   expect(base(600)).toBe(WIDTH - PLOT.right);
   expect(base.invert(base(123.5))).toBeCloseTo(123.5);
@@ -33,7 +36,7 @@ test("under a zoom a time and its pixel map both ways and a click lands on the f
   expect(indexAt(base, 5000, RATE_HZ, N_FRAMES)).toBe(N_FRAMES - 1);
 });
 
-test("a window is never closer than the closest zoom nor past the session", () => {
+test("a window is never closer than the closest zoom nor past the recording", () => {
   const closest = windowTransform(base, 100, 101).rescaleX(base).domain();
   expect(closest[0]).toBeCloseTo(98);
   expect(closest[1]).toBeCloseTo(103);
@@ -45,41 +48,48 @@ test("a window is never closer than the closest zoom nor past the session", () =
   expect(zoomLimits(2)).toEqual([1, 1]);
 });
 
-test("the lanes fill the plot in order and a height finds its lane", () => {
+test("the lanes fill the plot in order by their weights", () => {
   expect(bands.session.top).toBe(PLOT.top);
   expect(bands.blocks.bottom).toBeCloseTo(HEIGHT - PLOT.bottom);
-  for (let i = 1; i < LANES.length; i++) expect(bands[LANES[i]].top).toBeGreaterThan(bands[LANES[i - 1]].bottom);
+  LANES.slice(1).forEach(({ name }, i) => expect(bands[name].top).toBeGreaterThan(bands[LANES[i].name].bottom));
   expect(bands.frames.bottom - bands.frames.top).toBeCloseTo(1.5 * (bands.runs.bottom - bands.runs.top));
-  expect(LANES.map((lane) => laneAt(bands, middle(lane)))).toEqual([...LANES]);
-  expect(laneAt(bands, (bands.runs.bottom + bands.frames.top) / 2)).toBeNull();
+  expect(laneBands(HEIGHT, [{ name: "only", weight: 1 }]).only).toEqual({ top: PLOT.top, bottom: HEIGHT - PLOT.bottom });
   expect(inPlot({ x: 500, y: middle("runs") }, WIDTH, HEIGHT)).toBe(true);
   expect(inPlot({ x: 10, y: middle("runs") }, WIDTH, HEIGHT)).toBe(false);
   expect(inPlot({ x: 500, y: HEIGHT - 2 }, WIDTH, HEIGHT)).toBe(false);
 });
 
 test("a click finds the block bar or the run bar under it and nothing outside them", () => {
-  const [b0, b1] = barSpan(base, bars[2], RATE_HZ);
+  const [b0, b1] = barSpan(base, block, RATE_HZ);
   expect([b0, b1].map((x) => Math.round(base.invert(x)))).toEqual([50, 150]);
-  expect(hitBar(bars, bands, base, RATE_HZ, { x: (b0 + b1) / 2, y: middle("blocks") })?.lane).toBe("blocks");
+  expect(hitBar(bars, bands, base, RATE_HZ, { x: (b0 + b1) / 2, y: middle("blocks") })).toBe(block);
   expect(hitBar(bars, bands, base, RATE_HZ, { x: b1 + 5, y: middle("blocks") })).toBeNull();
   const x = base(105);
-  expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("runs") })).toMatchObject({ lane: "runs", run: { run: 1 } });
+  expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("runs") })).toBe(run);
   expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("frames") })).toBeNull();
-  expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("session") })).toMatchObject({ lane: "session" });
+  expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("session") })).toBe(epoch);
 });
 
 test("a bar too short to see is still two pixels wide and can be hit", () => {
-  const blink: Run = { ...run, run: 2, frame_start: 100, frame_end: 100 };
-  const tiny = barsOf([], [blink], []);
-  const [x0, x1] = barSpan(base, tiny[0], RATE_HZ);
+  const blink = bar("runs", 100, 100);
+  const [x0, x1] = barSpan(base, blink, RATE_HZ);
   expect(x1 - x0).toBe(2);
-  expect(hitBar(tiny, bands, base, RATE_HZ, { x: x0 + 1, y: middle("runs") })).not.toBeNull();
+  expect(hitBar([blink], bands, base, RATE_HZ, { x: x0 + 1, y: middle("runs") })).toBe(blink);
 });
 
-test("blocks are named by their place in time order", () => {
-  const later: ReviewBlock = { ...block, frame_start: 20_000, frame_end: 25_000 };
-  const named = barsOf([], [], [block, later]).filter((bar) => bar.lane === "blocks").map((bar) => bar.lane === "blocks" && bar.name);
-  expect(named).toEqual(["block 1", "block 2"]);
+test("bars that overlap in time share their lane in rows, each hit only in its own row", () => {
+  const early = bar("runs", 1000, 4000, { row: 0, rows: 3 });
+  const late = bar("runs", 2000, 5000, { row: 2, rows: 3 });
+  const [, top0, , height0] = barBox(base, bands, early, RATE_HZ);
+  const [, top2, , height2] = barBox(base, bands, late, RATE_HZ);
+  const rowHeight = (bands.runs.bottom - bands.runs.top) / 3;
+  expect(top2 - top0).toBeCloseTo(2 * rowHeight);
+  expect(height0).toBeCloseTo(rowHeight - 2);
+  expect(height2).toBeCloseTo(height0);
+  const x = base(50);
+  expect(hitBar([early, late], bands, base, RATE_HZ, { x, y: top0 + height0 / 2 })).toBe(early);
+  expect(hitBar([early, late], bands, base, RATE_HZ, { x, y: top2 + height2 / 2 })).toBe(late);
+  expect(hitBar([early, late], bands, base, RATE_HZ, { x, y: top0 + rowHeight + height0 / 2 })).toBeNull();
 });
 
 test("a cursor past the window pages the window to it, one inside leaves the zoom alone", () => {
@@ -94,6 +104,7 @@ test("a cursor past the window pages the window to it, one inside leaves the zoo
 
 test("the lab's paths are outbound or return", () => {
   expect([1, 4, 9, 10, 5].map(runKind)).toEqual(["outbound", "outbound", "return", "return", "other"]);
+  expect(runFill(1)).not.toBe(runFill(9));
 });
 
 test("ticks are round seconds inside the window and labels read as a clock", () => {
@@ -101,11 +112,4 @@ test("ticks are round seconds inside the window and labels read as a clock", () 
   expect(timeTicks([95, 125], 3)).toEqual([100, 110, 120]);
   expect(timeTicks([95, 125], 8)).toEqual([95, 100, 105, 110, 115, 120, 125]);
   expect([0, 65, 600, 3725].map(timeLabel)).toEqual(["0:00", "1:05", "10:00", "1:02:05"]);
-});
-
-test("a hover names the run with its path, whether it is clean and its frames", () => {
-  expect(describeBar(bars[1], RATE_HZ)).toBe("run 1, path 1 outbound, clean, 600 frames (6001 to 6600)");
-  expect(describeBar(bars[1], RATE_HZ, true)).toContain("clean, flagged,");
-  expect(describeBar(bars[2], RATE_HZ)).toBe("block 1, auto, frames 3001 to 9000, 100.0 s");
-  expect(describeBar(bars[0], RATE_HZ)).toBe("track, triple_t, baseline, frames 1 to 36000, 10.0 min");
 });

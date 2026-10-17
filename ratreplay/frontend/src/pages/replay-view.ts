@@ -1,5 +1,5 @@
 import type { ReviewBlock, Review, ReviewPreview, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
-import { blockName } from "../draw/lanes";
+import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { windowCount } from "../session/windows";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
@@ -27,6 +27,9 @@ export interface BlockCard {
   epoch: string;
   minutes: string;
   runs: number;
+  /** The training windows the block yields at the settings, none when it is shorter than one window. */
+  windows: number;
+  windowsText: string;
   status: ReviewBlock["status"];
   glyph: string;
   chip: string;
@@ -39,12 +42,18 @@ export interface BlockCard {
 const framesOf = (block: Pick<ReviewBlock, "frame_start" | "frame_end">) => block.frame_end - block.frame_start + 1;
 const minutes = (seconds: number) => (seconds / SECONDS_PER_MINUTE).toFixed(1);
 
+function windowsOf(nFrames: number, rateHz: number, settings: WindowSettings) {
+  const windows = windowCount(nFrames, rateHz, settings);
+  return { windows, windowsText: windows ? counted(windows, "training window") : "shorter than one window" };
+}
+
 /** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first. */
-export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selected: ReviewBlock | null): BlockCard[] {
+export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selected: ReviewBlock | null, settings: WindowSettings): BlockCard[] {
   return blocks.map((block, position) => ({
     first: block.frame_start, name: blockName(position), epoch: block.epoch,
     minutes: (framesOf(block) / header.rate_hz / SECONDS_PER_MINUTE).toFixed(2),
     runs: header.runs.filter((r) => block.frame_start <= r.frame_start && r.frame_start <= block.frame_end).length,
+    ...windowsOf(framesOf(block), header.rate_hz, settings),
     status: block.status, glyph: STATUS_GLYPHS[block.status], chip: STATUS_CHIPS[block.status],
     selected: block.frame_start === selected?.frame_start,
     accepted: block.status === "confirmed" || block.status === "edited", removed: block.status === "dropped",

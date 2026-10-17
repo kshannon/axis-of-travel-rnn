@@ -1,19 +1,15 @@
-import { interpolateViridis, rgb, scaleLinear, scaleSequential } from "d3";
+import { interpolateViridis, scaleLinear, scaleSequential } from "d3";
 import type { ScaleLinear } from "d3";
-import type { SessionArrays, SessionHeader } from "../api/types";
-import { epochAt } from "../session/at";
-import { palette } from "../ui/palette";
+import { colourOf, palette } from "../ui/palette";
 import type { Palette } from "../ui/palette";
-import { sizeCanvas, watchSize, withAlpha } from "./canvas";
+import { lighter, sizeCanvas, watchSize, withAlpha } from "./canvas";
 
 const FONT = "11px ui-sans-serif, system-ui, sans-serif";
 const PAD_PX = 16;
-const OCCUPANCY_ALPHA = 0.55;
 const TRAIL_S = 2;
 const TRAIL_HZ = 20;
 const TRAIL_WIDTH_PX = 3;
-const PATH_HZ = 4;
-const PATH_ALPHA = 0.35;
+const PATH_HZ = 10;
 const POINT_RADIUS_PX = 6;
 const ARROW_FRACTION = 0.08;
 const ARROW_HEAD_PX = 7;
@@ -23,10 +19,68 @@ const LEGEND = { width: 90, height: 8, steps: 18 };
 // The slowest colours of the trail are lifted off the darkest end of the scale so they stay visible on a dark card.
 const COLOUR_FLOOR = 0.15;
 
-export const CURRENT = "current";
-export const ALL = "all";
+export interface Extent {
+  x: [number, number];
+  y: [number, number];
+}
 
-/** The map of a session in camera pixels with y down: the occupancy of the epoch, the selected block's path, the last seconds as a trail coloured by speed, the current point and its heading. */
+export interface Projection {
+  x: ScaleLinear<number, number>;
+  y: ScaleLinear<number, number>;
+}
+
+/** What a map draws under the path, in the units of the positions. */
+export interface Backdrop {
+  /** The extent of the positions the map has to fit. */
+  extent: Extent;
+  /** Whether y grows up the screen, as in a room, and not down it, as in a camera image. */
+  yUp: boolean;
+  /** The words beside the speed colours for the fastest speed. */
+  speedText(top: number): string;
+  draw(ctx: CanvasRenderingContext2D, project: Projection, colours: Palette, index: number): void;
+  /** Drop what was drawn in the colours of the theme, after a toggle. */
+  refresh?(): void;
+}
+
+/** The positions of a recording, one per frame, and the heading and speed that go with them. */
+export interface Track {
+  x: Float64Array;
+  y: Float64Array;
+  heading: Float64Array;
+  speed: Float64Array;
+  rateHz: number;
+}
+
+/** A stretch of lab frames from 1, both ends included, drawn as a line of its own. */
+export interface Stretch {
+  first: number;
+  last: number;
+  /** A palette colour name or a CSS colour. */
+  colour: string;
+  alpha: number;
+  width: number;
+  /** Drawn in a lighter shade of its colour. */
+  light?: boolean;
+}
+
+/** The thin line the path of a block or a selection is drawn in behind the trail. */
+export const THIN_PATH = { colour: "ink", alpha: 0.35, width: 1 };
+
+/** Equal scales in x and y, the extent centred in the box with a margin, y running up the screen when yUp. */
+export function fitScales(extent: Extent, width: number, height: number, yUp: boolean): Projection {
+  const { x, y } = extent;
+  const room = { width: width - 2 * PAD_PX, height: height - 2 * PAD_PX };
+  const pixels = Math.max(Math.min(room.width / (x[1] - x[0] || 1), room.height / (y[1] - y[0] || 1)), 0);
+  const [spanX, spanY] = [(x[1] - x[0]) * pixels, (y[1] - y[0]) * pixels];
+  const left = (width - spanX) / 2;
+  const top = (height - spanY) / 2;
+  return {
+    x: scaleLinear().domain(x).range([left, left + spanX]),
+    y: scaleLinear().domain(y).range(yUp ? [top + spanY, top] : [top, top + spanY]),
+  };
+}
+
+/** A map of a recording: what lies behind it, stretches of its path, the last seconds as a trail coloured by speed, the current point and its heading. */
 export class MapView {
   private readonly canvas = document.createElement("canvas");
   private ctx!: CanvasRenderingContext2D;
@@ -34,15 +88,13 @@ export class MapView {
   private width = 0;
   private height = 0;
   private colours: Palette = palette();
-  private x: ScaleLinear<number, number> = scaleLinear();
-  private y: ScaleLinear<number, number> = scaleLinear();
+  private project: Projection = { x: scaleLinear(), y: scaleLinear() };
   private speedColour = scaleSequential((t: number) => interpolateViridis(COLOUR_FLOOR + (1 - COLOUR_FLOOR) * t)).clamp(true);
 
-  private header: SessionHeader | null = null;
-  private arrays: SessionArrays | null = null;
-  private occupancy = new Map<string, HTMLCanvasElement>();
-  private choice = CURRENT;
-  private path: [number, number] | null = null;
+  private track: Track | null = null;
+  private backdrop: Backdrop | null = null;
+  private stretches: Stretch[] = [];
+  private withCursor = true;
   private index = 0;
 
   constructor(host: HTMLElement) {
@@ -51,31 +103,31 @@ export class MapView {
     this.stopWatching = watchSize(host, (width, height) => this.resize(width, height));
   }
 
-  load(header: SessionHeader, arrays: SessionArrays, speedTop: number): void {
-    this.header = header;
-    this.arrays = arrays;
+  /** The recording behind its backdrop, with the trail, the point and the speed colours unless the page shows no cursor. */
+  load(track: Track, backdrop: Backdrop, speedTop: number, withCursor = true): void {
+    this.track = track;
+    this.backdrop = backdrop;
+    this.withCursor = withCursor;
     this.speedColour.domain([0, speedTop]);
-    this.occupancy.clear();
+    this.index = 0;
     this.fitScales();
-    this.draw(this.index);
+    this.draw(0);
   }
 
-  /** Which occupancy to draw behind the path: the epoch under the cursor, every epoch, or one epoch by name. */
-  setOccupancy(choice: string): void {
-    this.choice = choice;
-    this.draw(this.index);
+  /** The stretches of the path drawn as lines. */
+  setStretches(stretches: Stretch[]): void {
+    this.stretches = stretches;
+    this.redraw();
   }
 
-  /** The lab frames of the block whose whole path is drawn thin, none for no block. */
-  setPath(frames: [number, number] | null): void {
-    this.path = frames;
+  redraw(): void {
     this.draw(this.index);
   }
 
   refresh(): void {
     this.colours = palette();
-    this.occupancy.clear();
-    this.draw(this.index);
+    this.backdrop?.refresh?.();
+    this.redraw();
   }
 
   destroy(): void {
@@ -88,93 +140,55 @@ export class MapView {
     this.height = height;
     this.ctx = sizeCanvas(this.canvas, width, height);
     this.fitScales();
-    this.draw(this.index);
+    this.redraw();
   }
 
-  /** Equal scales in x and y, centred, over the extent of the positions with a margin. */
   private fitScales(): void {
-    if (!this.header) return;
-    const { x, y } = this.header.occupancy;
-    const room = { width: this.width - 2 * PAD_PX, height: this.height - 2 * PAD_PX };
-    const pixels = Math.max(Math.min(room.width / (x[1] - x[0] || 1), room.height / (y[1] - y[0] || 1)), 0);
-    const [spanX, spanY] = [(x[1] - x[0]) * pixels, (y[1] - y[0]) * pixels];
-    const left = (this.width - spanX) / 2;
-    const top = (this.height - spanY) / 2;
-    this.x = scaleLinear().domain(x).range([left, left + spanX]);
-    this.y = scaleLinear().domain(y).range([top, top + spanY]);
+    if (this.backdrop) this.project = fitScales(this.backdrop.extent, this.width, this.height, this.backdrop.yUp);
   }
 
-  /** The counts of an epoch as a small image, one pixel per bin and the row of the lowest y first, drawn in the ink of the theme. */
-  private occupancyImage(epoch: string): HTMLCanvasElement | null {
-    const grid = this.header!.occupancy;
-    const counts = grid.counts[epoch];
-    if (!counts) return null;
-    if (!this.occupancy.has(epoch)) {
-      const image = document.createElement("canvas");
-      image.width = image.height = grid.bins;
-      const ctx = image.getContext("2d")!;
-      const pixels = ctx.createImageData(grid.bins, grid.bins);
-      const top = Math.log1p(Math.max(...counts));
-      const ink = rgb(this.colours.ink);
-      counts.forEach((count, i) => {
-        pixels.data.set([ink.r, ink.g, ink.b, Math.round(255 * OCCUPANCY_ALPHA * (Math.log1p(count) / top))], 4 * i);
-      });
-      ctx.putImageData(pixels, 0, 0);
-      this.occupancy.set(epoch, image);
-    }
-    return this.occupancy.get(epoch)!;
-  }
-
-  /** Draw the session at a frame index. */
+  /** Draw the recording at a frame index. */
   draw(index: number): void {
     this.index = index;
-    if (!this.header || !this.arrays || this.width === 0) return;
-    const { ctx, colours: c } = this;
+    if (!this.track || !this.backdrop || this.width === 0) return;
+    const { ctx } = this;
     ctx.clearRect(0, 0, this.width, this.height);
-    this.drawOccupancy(ctx);
-    this.drawPath(ctx);
+    this.backdrop.draw(ctx, this.project, this.colours, index);
+    this.drawStretches(ctx);
+    if (!this.withCursor) return;
     this.drawTrail(ctx);
     this.drawPoint(ctx);
-    this.drawLegend(ctx, c);
+    this.drawLegend(ctx);
   }
 
-  private drawOccupancy(ctx: CanvasRenderingContext2D): void {
-    const header = this.header!;
-    const names = this.choice === ALL ? Object.keys(header.occupancy.counts)
-      : [this.choice === CURRENT ? epochAt(header.epochs, this.index + 1) : this.choice];
-    ctx.imageSmoothingEnabled = false;
-    for (const name of names) {
-      const image = this.occupancyImage(name);
-      if (image) ctx.drawImage(image, this.x.range()[0], this.y.range()[0], this.x.range()[1] - this.x.range()[0], this.y.range()[1] - this.y.range()[0]);
-    }
-  }
-
-  private drawPath(ctx: CanvasRenderingContext2D): void {
-    if (!this.path) return;
-    const { x, y } = this.arrays!;
-    const step = Math.max(1, Math.round(this.header!.rate_hz / PATH_HZ));
-    ctx.strokeStyle = withAlpha(this.colours.ink, PATH_ALPHA);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    let drawing = false;
-    for (let i = this.path[0] - 1; i < this.path[1]; i += step) {
-      if (Number.isNaN(x[i]) || Number.isNaN(y[i])) {
-        drawing = false;
-        continue;
+  /** Each stretch at PATH_HZ, its last frame always included so stretches that meet leave no gap. */
+  private drawStretches(ctx: CanvasRenderingContext2D): void {
+    const { x, y, rateHz } = this.track!;
+    const step = Math.max(1, Math.round(rateHz / PATH_HZ));
+    for (const stretch of this.stretches) {
+      const colour = colourOf(this.colours, stretch.colour);
+      ctx.strokeStyle = withAlpha(stretch.light ? lighter(colour) : colour, stretch.alpha);
+      ctx.lineWidth = stretch.width;
+      ctx.beginPath();
+      let drawing = false;
+      for (let i = stretch.first - 1; ; i = Math.min(i + step, stretch.last - 1)) {
+        if (Number.isNaN(x[i]) || Number.isNaN(y[i])) drawing = false;
+        else if (drawing) ctx.lineTo(this.project.x(x[i]), this.project.y(y[i]));
+        else {
+          ctx.moveTo(this.project.x(x[i]), this.project.y(y[i]));
+          drawing = true;
+        }
+        if (i >= stretch.last - 1) break;
       }
-      if (drawing) ctx.lineTo(this.x(x[i]), this.y(y[i]));
-      else ctx.moveTo(this.x(x[i]), this.y(y[i]));
-      drawing = true;
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 
   /** The last TRAIL_S seconds at TRAIL_HZ, each segment in the colour of the speed where it ends. */
   private drawTrail(ctx: CanvasRenderingContext2D): void {
-    const { x, y, speed } = this.arrays!;
-    const rate = this.header!.rate_hz;
-    const step = Math.max(1, Math.round(rate / TRAIL_HZ));
-    const first = Math.max(0, this.index - TRAIL_S * rate);
+    const { x, y, speed, rateHz } = this.track!;
+    const step = Math.max(1, Math.round(rateHz / TRAIL_HZ));
+    const first = Math.max(0, this.index - TRAIL_S * rateHz);
     ctx.lineWidth = TRAIL_WIDTH_PX;
     ctx.lineCap = "round";
     for (let i = this.index; i - step >= first; i -= step) {
@@ -182,28 +196,29 @@ export class MapView {
       if (Number.isNaN(x[i]) || Number.isNaN(x[from])) continue;
       ctx.strokeStyle = this.speedColour(Number.isNaN(speed[i]) ? 0 : speed[i]);
       ctx.beginPath();
-      ctx.moveTo(this.x(x[from]), this.y(y[from]));
-      ctx.lineTo(this.x(x[i]), this.y(y[i]));
+      ctx.moveTo(this.project.x(x[from]), this.project.y(y[from]));
+      ctx.lineTo(this.project.x(x[i]), this.project.y(y[i]));
       ctx.stroke();
     }
   }
 
-  /** The current point with an arrow along the corrected heading, as long as ARROW_FRACTION of the map's width. */
+  /** The current point with an arrow along the heading, as long as ARROW_FRACTION of the map's width. */
   private drawPoint(ctx: CanvasRenderingContext2D): void {
-    const { x, y, heading } = this.arrays!;
+    const { x, y, heading } = this.track!;
     const i = this.index;
     if (Number.isNaN(x[i])) return;
-    const [px, py] = [this.x(x[i]), this.y(y[i])];
+    const [px, py] = [this.project.x(x[i]), this.project.y(y[i])];
     if (!Number.isNaN(heading[i])) {
-      const length = ARROW_FRACTION * (this.x.range()[1] - this.x.range()[0]);
-      const [tx, ty] = [px + length * Math.cos(heading[i]), py + length * Math.sin(heading[i])];
+      const angle = this.backdrop!.yUp ? -heading[i] : heading[i];
+      const length = ARROW_FRACTION * (this.project.x.range()[1] - this.project.x.range()[0]);
+      const [tx, ty] = [px + length * Math.cos(angle), py + length * Math.sin(angle)];
       ctx.strokeStyle = ctx.fillStyle = ARROW_COLOUR;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(px, py);
       ctx.lineTo(tx, ty);
       ctx.stroke();
-      const back = heading[i] + Math.PI;
+      const back = angle + Math.PI;
       ctx.beginPath();
       ctx.moveTo(tx, ty);
       for (const side of [-0.45, 0.45]) ctx.lineTo(tx + ARROW_HEAD_PX * Math.cos(back + side), ty + ARROW_HEAD_PX * Math.sin(back + side));
@@ -219,7 +234,7 @@ export class MapView {
   }
 
   /** The speed colours as a small bar in the corner with the fastest speed written beside it. */
-  private drawLegend(ctx: CanvasRenderingContext2D, c: Palette): void {
+  private drawLegend(ctx: CanvasRenderingContext2D): void {
     const [low, high] = this.speedColour.domain();
     const top = this.height - PAD_PX / 2 - LEGEND.height;
     const cell = LEGEND.width / LEGEND.steps;
@@ -228,9 +243,9 @@ export class MapView {
       ctx.fillRect(PAD_PX / 2 + i * cell, top, cell + 0.5, LEGEND.height);
     }
     ctx.font = FONT;
-    ctx.fillStyle = c.muted;
+    ctx.fillStyle = this.colours.muted;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(`0 to ${Math.round(high)} px/s`, PAD_PX / 2 + LEGEND.width + 6, top + LEGEND.height / 2);
+    ctx.fillText(this.backdrop!.speedText(high), PAD_PX / 2 + LEGEND.width + 6, top + LEGEND.height / 2);
   }
 }

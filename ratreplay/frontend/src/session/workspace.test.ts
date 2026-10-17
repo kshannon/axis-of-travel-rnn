@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import * as client from "../api/client";
 import type { Edit, ReviewBlock, ReviewPreview, SessionArrays, SessionHeader } from "../api/types";
-import { speedTop, Workspace } from "./workspace";
+import { Workspace } from "./workspace";
 
 vi.mock("../api/client");
 
@@ -99,9 +99,25 @@ test("a save marks the edits as saved and keeps the review the server wrote", as
   expect([ws.editor.dirty, ws.saved]).toEqual([false, review]);
 });
 
-test("the speed scale is a high percentile of the finite speeds, one when there are none", () => {
-  const speeds = Float64Array.from({ length: 101 }, (_, i) => i);
-  expect(speedTop(speeds)).toBe(95);
-  expect(speedTop(new Float64Array([NaN, NaN]))).toBe(1);
-  expect(speedTop(new Float64Array(10))).toBe(1);
+test("opening the session already open keeps its edits and reads the window settings saved since", async () => {
+  vi.mocked(client.getWindowSettings).mockResolvedValue({ settings: { window_s: 5 } } as never);
+  const ws = workspace();
+  Workspace.current = ws;
+  ws.editor.push({ op: "accept" });
+  expect(await Workspace.open("a1", "S")).toBe(ws);
+  expect([ws.settings.window_s, ws.editor.edits.length]).toEqual([5, 1]);
+  Workspace.current = null;
+});
+
+test("opening another session drops the open one's edits only while they are unsaved", () => {
+  const ws = workspace();
+  Workspace.current = ws;
+  expect(Workspace.unsavedWhenOpening("a1", "T")).toBeNull();
+  ws.editor.push({ op: "accept" });
+  expect(Workspace.unsavedWhenOpening("a1", "T")).toBe(ws);
+  expect(Workspace.unsavedWhenOpening("b2", "S")).toBe(ws);
+  expect(Workspace.unsavedWhenOpening("a1", "S")).toBeNull();
+  ws.editor.markSaved();
+  expect(Workspace.unsavedWhenOpening("a1", "T")).toBeNull();
+  Workspace.current = null;
 });
