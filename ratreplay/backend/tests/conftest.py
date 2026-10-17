@@ -1,8 +1,9 @@
 """
-Fixtures for the backend tests: the synthetic folders under tmp_path and an app whose registry lives there too.
+Fixtures for the backend tests: the synthetic folders under tmp_path and an app whose local.yaml there names them, never the real configs/local.yaml.
 """
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from fixtures import write_processed, write_transformed
@@ -30,18 +31,19 @@ def processed(tmp_path, transformed):
 
 
 @pytest.fixture
-def client(tmp_path):
+def client_on(tmp_path):
     """
-    A test client on an app with its registry and its window settings file under tmp_path.
+    A function making a test client on an app whose local.yaml under tmp_path holds the given config and whose window settings file is there too.
     """
-    return TestClient(create_app(registry_path=tmp_path / "sources.json", settings_path=tmp_path / "lab_blocks.yaml"))
+    def make(config):
+        (tmp_path / "local.yaml").write_text(yaml.safe_dump(config))
+        return TestClient(create_app(config_path=tmp_path / "local.yaml", settings_path=tmp_path / "lab_blocks.yaml"))
+    return make
 
 
 @pytest.fixture
-def attached(client, transformed, processed):
+def client(client_on, transformed, processed):
     """
-    The ids of the synthetic transformed source, paired with the processed folder, and of the processed source, both attached.
+    A test client on an app whose config names the synthetic folders.
     """
-    paired = client.post("/api/sources", json={"path": str(transformed), "kind": "transformed", "processed_path": str(processed)})
-    alone = client.post("/api/sources", json={"path": str(processed), "kind": "processed"})
-    return paired.json()["id"], alone.json()["id"]
+    return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)})

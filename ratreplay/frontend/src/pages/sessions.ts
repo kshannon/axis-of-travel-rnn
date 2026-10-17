@@ -2,10 +2,10 @@ import Alpine from "alpinejs";
 import { errorText, getSession, listSessions } from "../api/client";
 import type { SessionHeader, SessionRow } from "../api/types";
 import { Workspace } from "../session/workspace";
-import { sourceStore } from "../state/source";
+import { sourcesStore } from "../state/sources";
 import { card, pageGrid } from "../ui/card";
 import { factsList } from "../ui/facts";
-import { sourceGate } from "../ui/gate";
+import { folderGate } from "../ui/gate";
 import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH } from "../ui/style";
 import { clickHeader, sortableTable, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
@@ -86,7 +86,7 @@ const sessionsTable = `
     <p data-testid="totals" x-show="rows.length" x-text="totals" class="text-sm"></p>
     <p x-show="error" x-text="error" role="alert" class="text-sm text-bad"></p>
     <p x-show="loading" class="text-sm text-muted">Loading the sessions</p>
-    <p x-show="!loading && !error && !rows.length" class="text-sm text-muted">This source has no session with an arena or track epoch.</p>
+    <p x-show="!loading && !error && !rows.length" class="text-sm text-muted">The transformed lab data has no session with an arena or track epoch.</p>
     <template x-if="rows.length">
       ${sortableTable({ rowKey: "row.session_id", rowTitle: "row.session_id", rowClass: "row.in_dataset ? '' : 'text-muted'", details })}
     </template>
@@ -118,7 +118,7 @@ function registerSessions(): void {
 
     async init() {
       try {
-        this.rows = await listSessions(sourceStore().id);
+        this.rows = await listSessions();
       } catch (error) {
         this.error = errorText(error);
       }
@@ -140,7 +140,7 @@ function registerSessions(): void {
       }
       this.openId = row.session_id;
       try {
-        const header = await getSession(sourceStore().id, row.session_id);
+        const header = await getSession(row.session_id);
         if (this.openId === row.session_id) this.header = header;
       } catch (error) {
         if (this.openId === row.session_id) this.detailsError = errorText(error);
@@ -152,13 +152,13 @@ function registerSessions(): void {
     reviewOf: reviewText,
     /** Open the session in the replay, asking first when the session open there has edits that are not saved. */
     openInReplay(row: SessionRow, drop = false) {
-      const unsaved = Workspace.unsavedWhenOpening(sourceStore().id, row.session_id);
+      const unsaved = Workspace.unsavedWhenOpening(row.session_id);
       if (unsaved && !drop) {
         this.confirming = unsaved.header.session_id;
         return;
       }
       this.confirming = "";
-      sourceStore().openSession(row.session_id);
+      sourcesStore().openSession(row.session_id);
       toast.success(`Opened ${row.session_id} in the replay`);
       location.hash = REPLAY_HASH;
     },
@@ -168,6 +168,6 @@ function registerSessions(): void {
 export const sessionsPage: Page = {
   id: "sessions",
   title: "Sessions",
-  html: pageGrid(card("Sessions", sourceGate(`<div x-data="sessionsPage" class="h-full">${sessionsTable}</div>`, "transformed"))),
+  html: pageGrid(card("Sessions", folderGate(`<div x-data="sessionsPage" class="h-full">${sessionsTable}</div>`, "transformed", "processed"))),
   register: registerSessions,
 };

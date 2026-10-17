@@ -46,33 +46,33 @@ def old_review(transformed, tmp_path, edits, notes):
 
 @pytest.mark.parametrize("edits, blocks", [ACCEPT_ALL, SPLIT_DROP_FLAG, NEW_OVER_REMOVED_AND_MOVE, NEW_OVER_REMOVED_AT_ITS_START],
                          ids=["accept all", "split drop flag", "new over removed and move", "new over removed at its start"])
-def test_a_review_saved_through_the_api_is_the_file_the_old_tool_writes(client, attached, transformed, tmp_path, edits, blocks):
-    saved = client.put(f"/api/sources/{attached[0]}/sessions/{S1}/review", json={"edits": edits, "notes": "shaky"}).json()
+def test_a_review_saved_through_the_api_is_the_file_the_old_tool_writes(client, transformed, tmp_path, edits, blocks):
+    saved = client.put(f"/api/sessions/{S1}/review", json={"edits": edits, "notes": "shaky"}).json()
     written = json.loads(Path(saved["path"]).read_text())
     expected = old_review(transformed, tmp_path, edits, "shaky")
     assert {**written, "reviewed_at": None} == {**expected, "reviewed_at": None}
     assert triples(written["blocks"]) == blocks
 
 
-def test_difference_an_edit_anchored_where_a_new_block_lies_over_a_removed_one_reaches_the_new_block(client, attached, transformed, tmp_path):
+def test_difference_an_edit_anchored_where_a_new_block_lies_over_a_removed_one_reaches_the_new_block(client, transformed, tmp_path):
     edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299},
              {"op": "move", "frame": 449, "edge": "start", "at": 399}]
-    saved = client.put(f"/api/sources/{attached[0]}/sessions/{S1}/review", json={"edits": edits}).json()["review"]
+    saved = client.put(f"/api/sessions/{S1}/review", json={"edits": edits}).json()["review"]
     assert triples(saved["blocks"]) == [(301, 1500, "dropped"), (449, 1299, "edited"), (2101, 3300, "confirmed")]  # the new block moves
     old = old_review(transformed, tmp_path, edits, "")
     assert triples(old["blocks"]) == [(399, 1299, "edited"), (449, 1500, "edited"), (2101, 3300, "confirmed")]  # the removed block, first in the list, moves
 
 
-def test_difference_a_removed_block_does_not_come_back_over_a_kept_one(client, attached, transformed, tmp_path):
+def test_difference_a_removed_block_does_not_come_back_over_a_kept_one(client, transformed, tmp_path):
     edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299}, {"op": "drop", "frame": 301}]
-    saved = client.put(f"/api/sources/{attached[0]}/sessions/{S1}/review", json={"edits": edits}).json()["review"]
+    saved = client.put(f"/api/sessions/{S1}/review", json={"edits": edits}).json()["review"]
     assert triples(saved["blocks"]) == [(301, 1500, "dropped"), (399, 1299, "edited"), (2101, 3300, "confirmed")]  # the drop is refused
     old = old_review(transformed, tmp_path, edits, "")
     assert triples(old["blocks"]) == [(301, 1500, "edited"), (399, 1299, "edited"), (2101, 3300, "confirmed")]  # two kept blocks overlap, the processor fails both
 
 
-def test_difference_an_epoch_under_another_condition_has_no_block_and_no_cuts(client, attached, transformed):
-    header = client.get(f"/api/sources/{attached[0]}/sessions/{S6}").json()  # S6's arena is under the rot45 condition
+def test_difference_an_epoch_under_another_condition_has_no_block_and_no_cuts(client, transformed):
+    header = client.get(f"/api/sessions/{S6}").json()  # S6's arena is under the rot45 condition
     old = old_tool.load_session(transformed, S6)
     assert [b["epoch"] for b in header["blocks"]] == ["track"]  # the processor builds no arena block for it
     assert [b["epoch"] for b in old["blocks"]] == ["arena", "track"]  # a confirmed one makes the processor raise
@@ -80,13 +80,13 @@ def test_difference_an_epoch_under_another_condition_has_no_block_and_no_cuts(cl
 
 
 @pytest.mark.parametrize("session_id, differing", [(S1, ()), (S6, ("cuts", "blocks"))])
-def test_a_session_equals_what_the_old_tool_loads(client, attached, transformed, session_id, differing):
+def test_a_session_equals_what_the_old_tool_loads(client, transformed, session_id, differing):
     old = old_tool.load_session(transformed, session_id)
-    header = client.get(f"/api/sources/{attached[0]}/sessions/{session_id}").json()
+    header = client.get(f"/api/sessions/{session_id}").json()
     for key in (key for key in SESSION_KEYS if key not in differing):
         assert header[key] == json.loads(json.dumps(old[key])), key
     assert header["led_offset"] == pytest.approx(old["led_offset"])
-    table = pa.ipc.open_stream(client.get(f"/api/sources/{attached[0]}/sessions/{session_id}/arrays").content).read_all()
+    table = pa.ipc.open_stream(client.get(f"/api/sessions/{session_id}/arrays").content).read_all()
     for key in ARRAY_COLUMNS:
         expected = np.array([np.nan if value is None else value for value in old[key]])
         np.testing.assert_allclose(table[key].to_numpy(), expected, atol=ROUNDING, equal_nan=True, err_msg=key)

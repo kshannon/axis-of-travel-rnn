@@ -7,36 +7,36 @@ FastAPI on 127.0.0.1, one process, no database, the files are the state. The lay
     pixi run ratreplay-api           # http://127.0.0.1:8060
     pixi run python -m pytest ratreplay/backend/tests
 
-Errors leave as `{"error": text}`: 404 for an unknown source, session, block or file, 400 for a request that cannot be
-served (a bad attach, a session route on a processed source, a review with a block still auto), 409 for a source attached
-again as another kind or with another processed folder, 422 for a body or query that fails its schema, the text naming
-the field.
+Errors leave as `{"error": text}`: 404 for an unknown session, block or file and for a transformed folder that is not
+there, 400 for a request that cannot be served (a key the config lacks, a review with a block still auto), 422 for a body
+or query that fails its schema, the text naming the field.
 
 ## Sources
 
-A source is a folder and a kind: `transformed` (the converter's tables and frames) or `processed` (the processor's blocks
-and manifest). A transformed source is paired with the processed folder its reviews and blocks live in (it need not exist
-yet, the first save creates `review/`), a processed source is its own. Entries live in `~/.ratreplay/sources.json`,
-ids are the first 8 hex digits of the sha256 of the resolved path.
+The two data folders are the ones the processor reads, `TRANSFORMED_LAB_DATA` and `PROCESSED_LAB_DATA` in
+`configs/local.yaml` (read through `proj_helpers.paths.local_config`), each resolved with `expanduser().resolve()`. The
+app reads that file when it starts. `create_app(config_path)` takes another file instead, which is how the tests and the
+Playwright server name their synthetic folders and never touch the real one. No route takes an id for a folder:
+the session routes read the transformed folder, the block and settings routes the processed folder, and the reviews live
+under its `review/`.
 
-    GET    /api/sources
-    POST   /api/sources    {"path", "kind": "transformed" | "processed", "processed_path": required for transformed}
-    DELETE /api/sources/{sid}                                 {"detached": sid}, the data is untouched
+    GET /api/sources
+    GET /api/sources?reload=true      reads the config file again first
 
-A source comes back as `{id, kind, path, processed_path, attached_at, status, problems, counts, manifests}`.
-`status` is `ok` or `invalid` with `problems` listing what breaks the format (empty when ok), checked at each request.
-`counts` holds `sessions`, `epochs`, `runs`, `frames` (a transformed source), `blocks` (once the processor ran) and
-`reviews`. `manifests` holds `transformed` and `processed`, each null or `{timestamp, modified}`, the run timestamp of the
-manifest and when the newest file in the folder was written. Attaching the same path again with the same kind and
-processed folder returns the entry already recorded. With another kind or processed folder it is refused with 409,
-`{"error"}` naming the pairing the source has, and detaching it first is the way to change it. A source that breaks the
-format is refused with 400 and every problem named.
+The answer is `{transformed, processed, config_path}`, `config_path` being the file the folders come from. Each folder
+is `{path, status, problems, counts, manifest}`. `status` is `ok` or `invalid` with `problems` listing what breaks the
+format (empty when ok), checked at each request. A key the config lacks gives `path` null, `invalid` and the problem
+`TRANSFORMED_LAB_DATA is not set in <config_path>`, and the routes that need the folder answer 400 with that text. `counts`
+holds `sessions`, `epochs`, `runs` and `frames` (transformed) or `blocks` and `reviews` (processed). `manifest` is null
+or `{timestamp, modified}`, the run timestamp of the folder's manifest and when its newest file was written. A processed
+folder the processor has not run in yet is `ok` with a null manifest and no `blocks` count, since the first review save
+creates it. A transformed folder that is not there is `invalid` with the problem `TRANSFORMED_LAB_DATA <path> does not exist`, and its routes answer 404 with that text.
 
-## Sessions, transformed sources only
+## Sessions
 
-    GET /api/sources/{sid}/sessions
-    GET /api/sources/{sid}/sessions/{session_id}
-    GET /api/sources/{sid}/sessions/{session_id}/arrays
+    GET /api/sessions
+    GET /api/sessions/{session_id}
+    GET /api/sessions/{session_id}/arrays
 
 The index is a list of rows: the sessions.csv columns, `epochs`, `n_runs`, `n_clean_runs`, `in_dataset` (the session
 survives the processor's funnel), `n_automatic` (the blocks the processor would build, null when there is no frames
@@ -54,9 +54,9 @@ one row per frame in frame order, frame number is the row index plus one: `t` s,
 
 ## Reviews
 
-    GET  /api/sources/{sid}/sessions/{session_id}/review                the review file or null
-    PUT  /api/sources/{sid}/sessions/{session_id}/review                {"edits": [...], "notes": ""}
-    POST /api/sources/{sid}/sessions/{session_id}/review/preview        {"edits": [...]}
+    GET  /api/sessions/{session_id}/review                the review file or null
+    PUT  /api/sessions/{session_id}/review                {"edits": [...], "notes": ""}
+    POST /api/sessions/{session_id}/review/preview        {"edits": [...]}
 
 An edit is `{"op", ...}`. The ops and their fields are `accept`, `confirm {frame}`, `move {frame, edge, at}`,
 `split {frame}`, `drop {frame}`, `new {frame_start, frame_end}`, `cut {frame_start, frame_end}` and `flag {run}`,
@@ -75,17 +75,17 @@ holds the frame it anchors to, the processor's refusal of a new block (it crosse
 overlaps a kept block), or that a removed block cannot come back over a kept one. It is the way a client shows the result
 of an edit, or the skipped count of a saved review, without reimplementing the rules.
 
-## Blocks, any source with a built processed dataset
+## Blocks
 
-    GET /api/sources/{sid}/blocks?{settings}
-    GET /api/sources/{sid}/blocks/{block_id}?{settings}
-    GET /api/sources/{sid}/blocks/{block_id}/arrays
+    GET /api/blocks?{settings}
+    GET /api/blocks/{block_id}?{settings}
+    GET /api/blocks/{block_id}/arrays
 
 `{settings}` are the window settings as query parameters, the project's defaults where one is left out: `window_s`,
 `stride_s`, `burn_in_s`, `horizon_s`, `train_rate_hz`, `min_heading_measured`, `min_complete_trips`. The index answers
 `{"blocks", "totals", "settings"}`: each block is its blocks.csv row with `heading_measured` (share of frames),
 `n_windows`, `ok` and `reason` at the settings, `totals` the blocks ok and in trouble, the windows and the hours per kind
-and overall. A source whose processed folder has no manifest answers 404.
+and overall. A processed folder without a manifest answers 404.
 
 A block header is json: the row's facts, `kind`, `status`, `environment`, `geometry` (`name, kind, room, boundary,
 walls, centerline, reward_sites` in metres, and for a circle `circle {center, radius}`), `rate_hz`, `frame_start` (the
@@ -102,11 +102,11 @@ stream, one row per frame: `frame` (lab frame number), `t` s, `x` and `y` m, `he
 ## Window settings
 
     GET /api/windows/settings
-    PUT /api/windows/settings    {"settings": {...}, "source": sid}
+    PUT /api/windows/settings    {"settings": {...}}
 
 Both answer `{"settings", "saved", "path"}`: the settings in force (the saved ones, else the defaults), the settings file
 as saved (`settings, processed_manifest_timestamp, rules, totals, written_at`) or null, and where it lives. PUT writes
-the file whole with the processed manifest of source `sid` and the totals over its blocks, and also answers `overwrote`.
+the file whole with the processed folder's manifest and the totals over its blocks, and also answers `overwrote`.
 
 ## Format
 

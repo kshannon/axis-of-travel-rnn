@@ -2,8 +2,6 @@
 The processed dataset's blocks: the index with verdicts at the window settings, and one block in metres with its environment, runs, trips and windows.
 """
 
-from pathlib import Path
-
 from ..engines import environment, spans, windows
 from ..errors import NotFound
 from ..stores import processed
@@ -12,22 +10,22 @@ from ..stores import processed
 ARRAY_COLUMNS = ("frame", "t", "x", "y", "heading", "speed", "n_lights")
 
 
-def find(source, block_id):
+def find(root, block_id):
     """
     The csv row of the block with this id.
     """
-    processed.require_built(Path(source["processed_path"]))
-    for row in processed.list_blocks(Path(source["processed_path"])):
+    processed.require_built(root)
+    for row in processed.list_blocks(root):
         if row["block_id"] == block_id:
             return row
     raise NotFound(f"no block {block_id}")
 
 
-def index(source, settings):
+def index(root, settings):
     """
     Every block's csv row with its measured heading share, the windows it yields and its verdict at the settings, and the totals per kind.
     """
-    rows, shares = processed.blocks_with_shares(Path(source["processed_path"]))
+    rows, shares = processed.blocks_with_shares(root)
     blocks = []
     for row in rows:
         ok, reason = windows.verdict(row, shares[row["block_id"]], settings)
@@ -37,11 +35,11 @@ def index(source, settings):
     return {"blocks": blocks, "totals": windows.summarize(rows, shares, settings), "settings": settings}
 
 
-def header(source, block_id, settings):
+def header(root, block_id, settings):
     """
     One block's facts: its environment geometry, the spans of its runs, trips and phases, its heading fills and one light stretches, its verdict and its windows at the settings.
     """
-    row = find(source, block_id)
+    row = find(root, block_id)
     block = processed.load_block(row["path"])
     ok, reason = windows.verdict(row, block, settings)
     return {"block_id": block_id, "session_id": row["session_id"], "kind": row["kind"], "status": row["status"],
@@ -53,9 +51,9 @@ def header(source, block_id, settings):
             "windows": windows.window_rows(block, row, settings)}
 
 
-def arrays(source, block_id):
+def arrays(root, block_id):
     """
     One block's arrays over its frames, in metres and radians.
     """
-    block = processed.load_block(find(source, block_id)["path"])
+    block = processed.load_block(find(root, block_id)["path"])
     return {name: block[name] for name in ARRAY_COLUMNS}

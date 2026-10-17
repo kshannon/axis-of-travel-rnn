@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from ..managers import windows
 from ..schemas import SettingsBody
-from .deps import registry_path, settings_path
+from .deps import processed_root, settings_path
 
 router = APIRouter(prefix="/api/windows/settings")
 
@@ -20,8 +20,8 @@ def get_settings(path=Depends(settings_path)):
 
 
 @router.put("")
-def put_settings(body: SettingsBody, path=Depends(settings_path), sources=Depends(registry_path)):
+def put_settings(body: SettingsBody, path=Depends(settings_path), root=Depends(processed_root)):
     """
-    Write the settings file with the totals over the named source's blocks and return it with whether it replaced one.
+    Write the settings file with the totals over the processed folder's blocks and return it with whether it replaced one.
     """
-    return windows.put(path, sources, body.source, body.settings.model_dump())
+    return windows.put(path, root, body.settings.model_dump())

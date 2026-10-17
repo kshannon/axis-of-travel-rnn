@@ -1,18 +1,12 @@
 """
-What the routes share: the registry and settings paths of the app, and the source a path names.
+What the routes share: the settings path of the app and the data folders its config names.
 """
 
 from fastapi import Depends, Request
 
-from .. import registry
-from ..errors import Invalid
+from proj_helpers import paths
 
-
-def registry_path(request: Request):
-    """
-    The sources file of the app.
-    """
-    return request.app.state.registry_path
+from ..managers import sources
 
 
 def settings_path(request: Request):
@@ -22,17 +16,38 @@ def settings_path(request: Request):
     return request.app.state.settings_path
 
 
-def attached_source(sid: str, path=Depends(registry_path)):
+def config_path(request: Request):
     """
-    The attached source with the id in the path.
+    The config file the data folders come from.
     """
-    return registry.get(path, sid)
+    return str(request.app.state.config_path)
 
 
-def transformed_source(source=Depends(attached_source)):
+def current_config(request: Request):
     """
-    The attached source, which must hold sessions.
+    The config the data folders come from.
     """
-    if source["kind"] != "transformed":
-        raise Invalid(f"source {source['id']} is {source['kind']}, sessions need a transformed source")
-    return source
+    return request.app.state.config
+
+
+def reread_config(request: Request, reload: bool = False):
+    """
+    The config, read from its file again first when the query says reload=true.
+    """
+    if reload:
+        request.app.state.config = paths.local_config(request.app.state.config_path)
+    return request.app.state.config
+
+
+def transformed_root(config=Depends(current_config), file=Depends(config_path)):
+    """
+    The transformed folder, which every session route reads.
+    """
+    return sources.transformed_root(config, file)
+
+
+def processed_root(config=Depends(current_config), file=Depends(config_path)):
+    """
+    The processed folder, which holds the reviews and the blocks.
+    """
+    return sources.required_root(config, file, "processed")

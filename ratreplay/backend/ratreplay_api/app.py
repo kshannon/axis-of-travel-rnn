@@ -11,26 +11,25 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
 from axis_of_travel_rnn.windows import CONFIG
+from proj_helpers import paths
 
-from .errors import Conflict, Invalid, NotFound
+from .errors import Invalid, NotFound
 from .routers import blocks, data_format, review, sessions, sources, windows
 
-# The sources registry lives in the home folder, outside the repository, and the window settings file is the one the
-# training pipeline reads. The frontend is served once it has been built.
-DEFAULT_REGISTRY = Path.home() / ".ratreplay" / "sources.json"
+# The frontend is served once it has been built.
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 ROUTERS = (data_format.router, sources.router, sessions.router, review.router, blocks.router, windows.router)
 INVALID = 400
-CONFLICT = 409
 UNPROCESSABLE = 422
 
 
-def create_app(registry_path=None, settings_path=None):
+def create_app(config_path=None, settings_path=None):
     """
-    The app with its routers mounted and the built frontend at /, the sources registry at registry_path and the window settings file at settings_path.
+    The app with its routers mounted and the built frontend at /, the data folders from the config file at config_path (configs/local.yaml when none is given, read at start and on reload) and the window settings file at settings_path.
     """
     app = FastAPI(title="RatReplay", openapi_url="/api/openapi.json", docs_url=None, redoc_url=None)
-    app.state.registry_path = Path(registry_path) if registry_path else DEFAULT_REGISTRY
+    app.state.config_path = Path(config_path or paths.repo_root() / paths.LOCAL_CONFIG).resolve()
+    app.state.config = paths.local_config(app.state.config_path)
     app.state.settings_path = Path(settings_path) if settings_path else CONFIG
 
     @app.exception_handler(HTTPException)
@@ -53,13 +52,6 @@ def create_app(registry_path=None, settings_path=None):
         A request that cannot be served is a 400.
         """
         return JSONResponse({"error": str(error)}, status_code=INVALID)
-
-    @app.exception_handler(Conflict)
-    def conflict(request, error):
-        """
-        A request that contradicts what is recorded is a 409.
-        """
-        return JSONResponse({"error": str(error)}, status_code=CONFLICT)
 
     @app.exception_handler(RequestValidationError)
     def bad_request(request, error):

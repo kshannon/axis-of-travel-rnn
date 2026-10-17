@@ -1,19 +1,18 @@
 import { expect, test } from "@playwright/test";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { BLOCK_LANES } from "../src/draw/block-scene";
 import { baseScale, laneBands } from "../src/draw/lanes";
-import { detachAll, environmentPixels, openBlocks, openTrackBlock, pageScrolls, removeSettings, S1_TRACK, S6_TRACK, selectSource, WALL_PIXELS } from "./synthetic";
+import { environmentPixels, openBlocks, openTrackBlock, pageScrolls, removeSettings, S1_TRACK, S6_TRACK, WALL_PIXELS } from "./synthetic";
 
 // At a 5 s window with the 10 s stride the 20 s track block has two windows. The first is ok. The second has the heading
 // measured on 63.6% of its frames, under the 80% the settings ask for.
 const BLOCK_S = 20;
 
-test.beforeEach(({ request }) => detachAll(request));
 test.afterEach(removeSettings);
 
 /** Open the block on the Blocks page, tested at this window length when one is given, and go to its windows. */
-async function openWindows(page: Page, request: APIRequestContext, blockId: string, windowS?: string): Promise<void> {
-  await openBlocks(page, request);
+async function openWindows(page: Page, blockId: string, windowS?: string): Promise<void> {
+  await openBlocks(page);
   if (windowS) {
     await page.getByLabel("window (s)").fill(windowS);
     await page.getByRole("button", { name: "Test on all blocks" }).click();
@@ -23,17 +22,15 @@ async function openWindows(page: Page, request: APIRequestContext, blockId: stri
   await page.getByRole("link", { name: "Step through its windows" }).click();
 }
 
-test("without a block the page says so and leads to the Blocks page", async ({ page, request }) => {
-  await selectSource(page, request);
+test("without a block the page says so and leads to the Blocks page", async ({ page }) => {
   await page.goto("/#/windows");
-  await page.reload();
   await expect(page.getByText("No block is open")).toBeVisible();
   await page.getByRole("link", { name: "Choose a block" }).click();
   await expect(page).toHaveURL(/#\/blocks$/);
 });
 
-test("the windows of the block opened on the Blocks page are stepped with the buttons, the keys, a jump and a click", async ({ page, request }) => {
-  await openTrackBlock(page, request);
+test("the windows of the block opened on the Blocks page are stepped with the buttons, the keys, a jump and a click", async ({ page }) => {
+  await openTrackBlock(page);
   await page.getByRole("link", { name: "Step through its windows" }).click();
   await expect(page).toHaveURL(/#\/windows$/);
   await expect(page.getByTestId("block-id")).toHaveText(S1_TRACK);
@@ -81,8 +78,8 @@ test("the windows of the block opened on the Blocks page are stepped with the bu
   await expect(page.getByLabel("Window number")).toHaveValue("2");
 });
 
-test("a block that yields no window says so instead of counting from one", async ({ page, request }) => {
-  await openWindows(page, request, S6_TRACK); // the default 40 s window fits none of the 20 s blocks
+test("a block that yields no window says so instead of counting from one", async ({ page }) => {
+  await openWindows(page, S6_TRACK); // the default 40 s window fits none of the 20 s blocks
   await expect(page.getByTestId("no-window")).toHaveText("no window fits");
   await expect(page.getByLabel("Window number")).toBeHidden();
   await expect(page.getByRole("button", { name: /Next/ })).toBeDisabled();

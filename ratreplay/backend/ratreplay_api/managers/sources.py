@@ -1,17 +1,17 @@
 """
-The attached sources: a folder is checked against the data format on attach, and each source is described with its status, counts and manifests.
+The two data folders the config names: each is checked against the data format and described with its status, counts and manifest.
 """
 
 from pathlib import Path
 
 from axis_of_travel_rnn import trajectory
 
-from .. import contract, registry
-from ..errors import Conflict, Invalid
+from .. import contract
+from ..errors import Invalid, NotFound
 from ..stores import folder, processed, review, transformed
 
-PROCESSED_PREFIX = "processed dataset: "
-ALREADY_ATTACHED = "{path} is already attached as {kind} with its reviews and blocks in {processed_path}, detach it first to attach it differently"
+# The config key of each folder, which the processor reads too.
+KEYS = {"transformed": "TRANSFORMED_LAB_DATA", "processed": "PROCESSED_LAB_DATA"}
 
 
 def has_key(manifest, dotted):
@@ -82,81 +82,95 @@ def processed_problems(root):
     return problems
 
 
-def problems_of(kind, root, processed_root):
+def not_set(kind, config_path):
     """
-    Every way the source breaks the format, none when it can be attached. A processed dataset paired with a transformed source is checked once it has a manifest, it may not be built yet.
+    The problem of a config file without the kind's key.
     """
+    return f"{KEYS[kind]} is not set in {config_path}"
+
+
+def not_there(kind, root):
+    """
+    The problem of a folder the config names that is not on disk.
+    """
+    return f"{KEYS[kind]} {root} does not exist"
+
+
+def root_of(config, kind):
+    """
+    The folder the config names for the kind, resolved as the processor resolves it, none when the key is not set.
+    """
+    value = config.get(KEYS[kind])
+    return Path(str(value)).expanduser().resolve() if value else None
+
+
+def required_root(config, config_path, kind):
+    """
+    The folder the config names for the kind, refused when the key is not set.
+    """
+    root = root_of(config, kind)
+    if root is None:
+        raise Invalid(not_set(kind, config_path))
+    return root
+
+
+def transformed_root(config, config_path):
+    """
+    The transformed folder the sessions are read from, refused when the key is not set or the folder is not there.
+    """
+    root = required_root(config, config_path, "transformed")
     if not folder.exists(root):
-        return ["folder does not exist"]
+        raise NotFound(not_there("transformed", root))
+    return root
+
+
+def problems_of(kind, root):
+    """
+    Every way the folder breaks the format. A processed folder not built yet has none, the first review save creates it.
+    """
     if kind == "processed":
-        return processed_problems(root)
-    problems = transformed_problems(root)
-    if processed.is_built(processed_root):
-        problems += [PROCESSED_PREFIX + problem for problem in processed_problems(processed_root)]
-    return problems
+        return processed_problems(root) if processed.is_built(root) else []
+    return transformed_problems(root) if folder.exists(root) else [not_there(kind, root)]
 
 
-def counts_of(entry):
+def counts_of(kind, root):
     """
-    What the source holds: for a transformed one its sessions, epochs, runs and frames files, then the blocks of a built processed dataset and the reviews.
+    What the folder holds: a transformed one its sessions, epochs, runs and frames files, a processed one its reviews and, once the processor ran, its blocks.
     """
-    root, processed_root = Path(entry["path"]), Path(entry["processed_path"])
-    counts = {}
-    if entry["kind"] == "transformed":
+    if kind == "transformed":
         tables = transformed.read_tables(root)
-        counts = {"sessions": len(tables["sessions"]), "epochs": len(tables["epochs"]), "runs": len(tables["runs"]),
-                  "frames": len(transformed.frame_ids(root))}
-    if processed.is_built(processed_root):
-        counts["blocks"] = len(processed.list_blocks(processed_root))
-    return {**counts, "reviews": len(review.list_ids(processed_root))}
+        return {"sessions": len(tables["sessions"]), "epochs": len(tables["epochs"]), "runs": len(tables["runs"]),
+                "frames": len(transformed.frame_ids(root))}
+    counts = {"reviews": len(review.list_ids(root))}
+    return {"blocks": len(processed.list_blocks(root)), **counts} if processed.is_built(root) else counts
 
 
-def manifest_info(root, read):
+def manifest_info(kind, root):
     """
-    When the folder's manifest says its run happened and when its newest file was written.
+    When the folder's manifest says its run happened and when its newest file was written, none for a processed folder not built yet.
     """
-    return {"timestamp": read(root)["run"]["timestamp"], "modified": folder.modified(root)}
+    if kind == "transformed":
+        manifest = transformed.manifest(root)
+    elif processed.is_built(root):
+        manifest = processed.read_manifest(root)
+    else:
+        return None
+    return {"timestamp": manifest["run"]["timestamp"], "modified": folder.modified(root)}
 
 
-def describe(entry):
+def describe(kind, root, config_path):
     """
-    The entry with its status, problems, counts and the facts of the transformed and processed manifests, checked now.
+    The folder with its path, status, problems, counts and manifest facts, checked now.
     """
-    root, processed_root = Path(entry["path"]), Path(entry["processed_path"])
-    problems = problems_of(entry["kind"], root, processed_root)
+    problems = [not_set(kind, config_path)] if root is None else problems_of(kind, root)
+    described = {"path": str(root) if root else None, "status": "invalid", "problems": problems, "counts": {}, "manifest": None}
     if problems:
-        return {**entry, "status": "invalid", "problems": problems, "counts": {}, "manifests": {"transformed": None, "processed": None}}
-    manifests = {"transformed": manifest_info(root, transformed.manifest) if entry["kind"] == "transformed" else None,
-                 "processed": manifest_info(processed_root, processed.read_manifest) if processed.is_built(processed_root) else None}
-    return {**entry, "status": "ok", "problems": [], "counts": counts_of(entry), "manifests": manifests}
+        return described
+    return {**described, "status": "ok", "counts": counts_of(kind, root), "manifest": manifest_info(kind, root)}
 
 
-def list_all(registry_path):
+def describe_all(config, config_path):
     """
-    Every attached source, described.
+    Both folders described, and the config file they come from.
     """
-    return [describe(entry) for entry in registry.read_all(registry_path)]
-
-
-def attach(registry_path, kind, path, processed_path):
-    """
-    Attach the folder when it follows the format, and describe the entry. A transformed source is paired with the processed folder its reviews and blocks live in, a processed one is its own. A folder already attached as another kind or with another processed folder is refused before it is checked.
-    """
-    if kind == "transformed" and not processed_path:
-        raise Invalid("a transformed source needs processed_path, the folder its reviews and blocks live in")
-    paired = processed_path if kind == "transformed" else path
-    root, paired_root = Path(path).expanduser().resolve(), Path(paired).expanduser().resolve()
-    recorded = registry.find(registry_path, root)
-    if recorded and (recorded["kind"], recorded["processed_path"]) != (kind, str(paired_root)):
-        raise Conflict(ALREADY_ATTACHED.format(**recorded))
-    problems = problems_of(kind, root, paired_root)
-    if problems:
-        raise Invalid(f"cannot attach {path}: " + ", ".join(problems))
-    return describe(registry.attach(registry_path, kind, path, paired))
-
-
-def detach(registry_path, sid):
-    """
-    Forget the source, its data stays where it is.
-    """
-    registry.detach(registry_path, sid)
+    return {**{kind: describe(kind, root_of(config, kind), config_path) for kind in KEYS}, "config_path": config_path}

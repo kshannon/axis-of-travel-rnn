@@ -26,3 +26,8 @@ def test_a_missing_column_is_named(transformed):
 def test_a_missing_block_file_is_counted(processed):
     next((processed / "track" / "blocks").glob("*.parquet")).unlink()
     assert sources.processed_problems(processed)[0].startswith("1 block files missing")
+
+
+def test_a_folder_is_resolved_as_the_processor_resolves_it_and_a_missing_key_gives_none(tmp_path):
+    assert sources.root_of({"TRANSFORMED_LAB_DATA": f"{tmp_path}/a/../b/"}, "transformed") == (tmp_path / "b").resolve()
+    assert sources.root_of({"TRANSFORMED_LAB_DATA": ""}, "transformed") is None

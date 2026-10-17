@@ -1,5 +1,5 @@
 """
-The RatReplay data format: the files, columns and types a folder must have to be attached. The sources manager checks it on attach and GET /api/format serves it.
+The RatReplay data format: the files, columns and types a folder must have to be read. The sources manager checks it and GET /api/format serves it.
 """
 
 from axis_of_travel_rnn import trajectory
@@ -11,7 +11,7 @@ from .engines import edits
 VERSION = 1
 
 # The transformed folder (docs/transform_lab_data/tables.md 2.1 to 2.4 and 2.6): every column with its type. A folder
-# is attached when it has the columns the tool reads, REQUIRED below, the others are the converter's and optional here.
+# is read when it has the columns the tool reads, REQUIRED below, the others are the converter's and optional here.
 SESSIONS = {
     "session_id": "string", "subject_id": "string", "group": "string", "date": "date32", "protocol": "string",
     "dvt_file": "string", "rmaps_file": "string", "rate_hz": "int64", "max_gap": "int64", "n_frames": "int64",

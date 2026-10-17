@@ -10,7 +10,6 @@ const sameResult = (a: ReviewPreview, b: ReviewPreview) =>
   JSON.stringify([a.blocks, a.flagged_runs, a.cuts]) === JSON.stringify([b.blocks, b.flagged_runs, b.cuts]);
 
 export interface Loaded {
-  sid: string;
   header: SessionHeader;
   arrays: SessionArrays;
   settings: WindowSettings;
@@ -26,7 +25,6 @@ export class Workspace {
   /** Kept while the person visits other pages, so edits not yet saved are still there on return. */
   static current: Workspace | null = null;
 
-  readonly sid: string;
   readonly header: SessionHeader;
   readonly arrays: SessionArrays;
   settings: WindowSettings;
@@ -38,7 +36,6 @@ export class Workspace {
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(loaded: Loaded) {
-    this.sid = loaded.sid;
     this.header = loaded.header;
     this.arrays = loaded.arrays;
     this.settings = loaded.settings;
@@ -49,28 +46,28 @@ export class Workspace {
     this.speedTop = speedTop(loaded.arrays.speed);
   }
 
-  /** The session of a source loaded with its saved review, or the one already open with the window settings read again. */
-  static async open(sid: string, sessionId: string): Promise<Workspace> {
+  /** The session loaded with its saved review, or the one already open with the window settings read again. */
+  static async open(sessionId: string): Promise<Workspace> {
     const kept = Workspace.current;
-    if (kept?.holds(sid, sessionId)) {
+    if (kept?.holds(sessionId)) {
       kept.settings = (await getWindowSettings()).settings; // the Blocks page may have saved new ones
       return kept;
     }
     const [header, arrays, saved, { settings }] = await Promise.all([
-      getSession(sid, sessionId), getSessionArrays(sid, sessionId), getReview(sid, sessionId), getWindowSettings(),
+      getSession(sessionId), getSessionArrays(sessionId), getReview(sessionId), getWindowSettings(),
     ]);
-    const preview = await previewReview(sid, sessionId, saved?.edits ?? []);
-    return (Workspace.current = new Workspace({ sid, header, arrays, settings, saved, preview }));
+    const preview = await previewReview(sessionId, saved?.edits ?? []);
+    return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview }));
   }
 
   /** The open session when opening this one would throw away its unsaved edits, none when they are saved or it is the one asked for. */
-  static unsavedWhenOpening(sid: string, sessionId: string): Workspace | null {
+  static unsavedWhenOpening(sessionId: string): Workspace | null {
     const kept = Workspace.current;
-    return kept?.editor.dirty && !kept.holds(sid, sessionId) ? kept : null;
+    return kept?.editor.dirty && !kept.holds(sessionId) ? kept : null;
   }
 
-  private holds(sid: string, sessionId: string): boolean {
-    return this.sid === sid && this.header.session_id === sessionId;
+  private holds(sessionId: string): boolean {
+    return this.header.session_id === sessionId;
   }
 
   /** Run a change after the ones before it, so two previews never cross. */
@@ -81,7 +78,7 @@ export class Workspace {
   }
 
   private previewOf(edits: Edit[]): Promise<ReviewPreview> {
-    return previewReview(this.sid, this.header.session_id, edits);
+    return previewReview(this.header.session_id, edits);
   }
 
   /** Add the edit made when the server applies it and it changes something. Gives back the edit added, or the reason it was not. */
@@ -120,7 +117,7 @@ export class Workspace {
   /** Write the review whole, replacing the earlier one. */
   save(notes: string): Promise<SavedReview> {
     return this.serially(async () => {
-      const saved = await putReview(this.sid, this.header.session_id, { edits: this.editor.edits, notes });
+      const saved = await putReview(this.header.session_id, { edits: this.editor.edits, notes });
       this.saved = saved.review;
       this.editor.markSaved();
       return saved;

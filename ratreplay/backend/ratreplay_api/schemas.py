@@ -11,16 +11,6 @@ from axis_of_travel_rnn.windows import DEFAULTS
 from .contract import EDIT_FIELDS
 
 
-class AttachBody(BaseModel):
-    """
-    A folder to attach, with the processed folder a transformed source is paired with.
-    """
-
-    path: str
-    kind: Literal["transformed", "processed"]
-    processed_path: str | None = None
-
-
 class WindowSettings(BaseModel):
     """
     The training window settings, the project's defaults where a field is left out.
@@ -37,11 +27,10 @@ class WindowSettings(BaseModel):
 
 class SettingsBody(BaseModel):
     """
-    The settings to save, with the processed source whose manifest and blocks the file records.
+    The settings to save, with the processed folder's manifest and blocks the file records.
     """
 
     settings: WindowSettings
-    source: str
 
 
 # Frames and runs are whole numbers counted from 1. Strict, so 2700.5 or true are refused instead of reaching the edits.

@@ -17,14 +17,14 @@ function preview(statuses: ReviewBlock["status"][], skipped: string[] = []): Rev
 
 // The server stands in as a function of the edit list: each drop edit removes one more block.
 function serverDropping(nBlocks = 3) {
-  return vi.fn(async (_sid: string, _id: string, edits: Edit[]) =>
+  return vi.fn(async (_id: string, edits: Edit[]) =>
     preview(Array.from({ length: nBlocks }, (_, i) => (i < edits.filter((e) => e.op === "drop").length ? "dropped" : "auto"))));
 }
 
 function workspace(first = preview(["auto", "auto", "auto"])) {
   const header = { session_id: "S", n_frames: 6000, rate_hz: 60 } as SessionHeader;
   const arrays = { speed: new Float64Array([1, 2, NaN, 3]) } as SessionArrays;
-  return new Workspace({ sid: "a1", header, arrays, settings: {} as never, saved: null, preview: first });
+  return new Workspace({ header, arrays, settings: {} as never, saved: null, preview: first });
 }
 
 beforeEach(() => vi.resetAllMocks());
@@ -36,7 +36,7 @@ test("an edit the server applies joins the list and the blocks are the server's 
   expect(await ws.edit(() => drop)).toBe(drop);
   expect(ws.editor.edits).toEqual([drop]);
   expect(ws.preview.blocks.map((b) => b.status)).toEqual(["dropped", "auto", "auto"]);
-  expect(client.previewReview).toHaveBeenCalledWith("a1", "S", [drop]);
+  expect(client.previewReview).toHaveBeenCalledWith("S", [drop]);
 });
 
 test("an edit the server skips gives back the server's reason and changes nothing", async () => {
@@ -95,7 +95,7 @@ test("a save marks the edits as saved and keeps the review the server wrote", as
   ws.editor.push({ op: "accept" });
   expect(ws.editor.dirty).toBe(true);
   await ws.save("a note");
-  expect(client.putReview).toHaveBeenCalledWith("a1", "S", { edits: [{ op: "accept" }], notes: "a note" });
+  expect(client.putReview).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], notes: "a note" });
   expect([ws.editor.dirty, ws.saved]).toEqual([false, review]);
 });
 
@@ -104,7 +104,7 @@ test("opening the session already open keeps its edits and reads the window sett
   const ws = workspace();
   Workspace.current = ws;
   ws.editor.push({ op: "accept" });
-  expect(await Workspace.open("a1", "S")).toBe(ws);
+  expect(await Workspace.open("S")).toBe(ws);
   expect([ws.settings.window_s, ws.editor.edits.length]).toEqual([5, 1]);
   Workspace.current = null;
 });
@@ -112,12 +112,11 @@ test("opening the session already open keeps its edits and reads the window sett
 test("opening another session drops the open one's edits only while they are unsaved", () => {
   const ws = workspace();
   Workspace.current = ws;
-  expect(Workspace.unsavedWhenOpening("a1", "T")).toBeNull();
+  expect(Workspace.unsavedWhenOpening("T")).toBeNull();
   ws.editor.push({ op: "accept" });
-  expect(Workspace.unsavedWhenOpening("a1", "T")).toBe(ws);
-  expect(Workspace.unsavedWhenOpening("b2", "S")).toBe(ws);
-  expect(Workspace.unsavedWhenOpening("a1", "S")).toBeNull();
+  expect(Workspace.unsavedWhenOpening("T")).toBe(ws);
+  expect(Workspace.unsavedWhenOpening("S")).toBeNull();
   ws.editor.markSaved();
-  expect(Workspace.unsavedWhenOpening("a1", "T")).toBeNull();
+  expect(Workspace.unsavedWhenOpening("T")).toBeNull();
   Workspace.current = null;
 });

@@ -1,47 +1,52 @@
+import { realpathSync, renameSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { detachAll, PROCESSED, TRANSFORMED } from "./synthetic";
+import { pageScrolls, PROCESSED, SYNTHETIC_ROOT, TRANSFORMED } from "./synthetic";
 
-test.beforeEach(({ request }) => detachAll(request));
-
-test("the form says what is wrong, then a source is attached, selected, kept over a reload and detached", async ({ page }) => {
+test("the Data page shows the flow, the two folders of the config with their counts and times, and the config file", async ({ page }) => {
   await page.goto("/#/data");
-  await expect(page.getByText("Nothing is attached yet")).toBeVisible();
+  await expect(page.getByText("built by the processor into processed data")).toBeVisible();
 
-  await page.getByRole("button", { name: "Attach" }).click();
-  await expect(page.getByRole("alert")).toContainText("Enter the path of the folder");
-  await page.getByLabel("Folder path", { exact: true }).fill("/no/such/folder");
-  await page.getByLabel("Processed folder path").fill(PROCESSED);
-  await page.getByRole("button", { name: "Attach" }).click();
-  await expect(page.getByRole("alert")).toContainText("folder does not exist");
+  const transformed = page.getByTestId("transformed");
+  await expect(transformed).toContainText("incoming");
+  await expect(transformed).toContainText(realpathSync(TRANSFORMED));
+  await expect(transformed.getByText("ok", { exact: true })).toBeVisible();
+  await expect(transformed.locator("dl > div").filter({ hasText: "sessions" }).first()).toContainText("6");
+  await expect(transformed.getByText("converter run")).toBeVisible();
 
-  await page.getByLabel("Folder path", { exact: true }).fill(TRANSFORMED);
-  await page.getByRole("button", { name: "Attach" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Attached" })).toBeVisible();
-  const source = page.getByRole("article");
-  await expect(source).toContainText("ok");
-  await expect(source.locator("dl > div").filter({ hasText: "sessions" }).first()).toContainText("6");
-  await expect(source.getByText("converter run")).toBeVisible();
+  const processed = page.getByTestId("processed");
+  await expect(processed).toContainText("outbound");
+  await expect(processed).toContainText(realpathSync(PROCESSED));
+  await expect(processed.locator("dl > div").filter({ hasText: "blocks" }).first()).toContainText("3");
+  await expect(processed.getByText("processor run")).toBeVisible();
 
-  await page.getByLabel("Folder path", { exact: true }).fill(TRANSFORMED);
-  await page.getByLabel("Processed folder path").fill(`${PROCESSED}-elsewhere`);
-  await page.getByRole("button", { name: "Attach" }).click();
-  await expect(page.getByRole("alert")).toContainText("is already attached as transformed with its reviews and blocks in");
-  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(page.getByTestId("config-path")).toHaveText(realpathSync(join(SYNTHETIC_ROOT, "local.yaml")));
+  await expect(page.getByText("Changing a folder means editing this file")).toBeVisible();
+  expect(await pageScrolls(page)).toBe(false);
+});
 
-  await source.getByRole("button", { name: "Select", exact: true }).click();
-  await expect(source.getByRole("button", { name: "Selected" })).toBeDisabled();
-  await page.reload();
-  await expect(page.getByRole("article").getByRole("button", { name: "Selected" })).toBeDisabled();
+test("a folder that breaks the format shows why, the pages that need it say so and link to Data, and Reload clears it once fixed", async ({ page }) => {
+  const epochs = join(TRANSFORMED, "epochs.csv");
+  const transformed = page.getByTestId("transformed");
+  await page.goto("/#/data");
+  await expect(transformed.getByText("ok", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Detach" }).click();
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("article")).toHaveCount(1);
-  await page.getByRole("button", { name: "Detach" }).click();
-  await page.getByRole("button", { name: "Confirm detach" }).click();
-  await expect(page.getByRole("article")).toHaveCount(0);
+  renameSync(epochs, `${epochs}.off`);
+  try {
+    await page.getByRole("button", { name: "Reload" }).click();
+    await expect(transformed.getByText("invalid", { exact: true })).toBeVisible();
+    await expect(transformed).toContainText("missing epochs.csv");
 
-  await page.getByRole("link", { name: "Sessions" }).click();
-  await expect(page.getByText("No source is selected.")).toBeVisible();
-  await page.getByRole("link", { name: "Choose a source on the Data page" }).click();
-  await expect(page).toHaveURL(/#\/data$/);
+    await page.getByRole("link", { name: "Sessions" }).click();
+    await expect(page.getByText("The transformed lab data cannot be used: missing epochs.csv")).toBeVisible();
+    await page.getByRole("link", { name: "Open the Data page" }).click();
+    await expect(page).toHaveURL(/#\/data$/);
+  } finally {
+    renameSync(`${epochs}.off`, epochs);
+  }
+
+  await page.getByRole("button", { name: "Reload" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Read the config file again" })).toBeVisible();
+  await expect(transformed.getByText("ok", { exact: true })).toBeVisible();
+  await expect(transformed).not.toContainText("missing epochs.csv");
 });

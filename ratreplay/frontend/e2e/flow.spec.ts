@@ -3,15 +3,14 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { baseScale, laneBands } from "../src/draw/lanes";
 import { SESSION_LANES } from "../src/draw/session-scene";
-import { detachAll, PROCESSED, removeReviews, removeSettings, S1, S1_TRACK, S6, SESSION_S, SETTINGS_FILE, TRANSFORMED } from "./synthetic";
+import { PROCESSED, removeReviews, removeSettings, S1, S1_TRACK, S6, SESSION_S, SETTINGS_FILE } from "./synthetic";
 
-test.beforeEach(({ request }) => detachAll(request));
 test.afterEach(() => {
   removeReviews();
   removeSettings();
 });
 
-// The story a person lives on the synthetic data, from no source to the windows of a block. Nothing waits on a timer:
+// The story a person lives on the synthetic data, from the configured folders to the windows of a block. Nothing waits on a timer:
 // each step waits for what it expects to see, and a save for the toast it ends in.
 /** Step the cursor one frame at a time until the lab frame tile reads the frame wanted. */
 async function goToFrame(page: Page, frame: number) {
@@ -24,22 +23,20 @@ async function goToFrame(page: Page, frame: number) {
   throw new Error(`could not reach frame ${frame}`);
 }
 
-test("attach the data, review a session, test the blocks and inspect their windows", async ({ page }) => {
+test("read the data folders, review a session, test the blocks and inspect their windows", async ({ page }) => {
   test.setTimeout(60_000);
   const goTo = (name: string) => page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
   const toast = (text: string) => page.getByRole("status").filter({ hasText: text });
   const cards = page.getByRole("article");
   const frame = page.getByTestId("tile-frame");
   const shown = page.getByTestId("shown");
+  const processed = page.getByTestId("processed");
 
-  await test.step("attach the transformed source with its processed folder and select it", async () => {
+  await test.step("the Data page shows the two folders of the config, ok, with no review yet", async () => {
     await page.goto("/#/data");
-    await expect(page.getByText("Nothing is attached yet")).toBeVisible();
-    await page.getByLabel("Folder path", { exact: true }).fill(TRANSFORMED);
-    await page.getByLabel("Processed folder path").fill(PROCESSED);
-    await page.getByRole("button", { name: "Attach" }).click();
-    await page.getByRole("button", { name: "Select", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Selected" })).toBeDisabled();
+    await expect(page.getByTestId("transformed").getByText("ok", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("processed").getByText("ok", { exact: true })).toBeVisible();
+    await expect(processed.locator("dl > div").filter({ hasText: "reviews" }).first()).toContainText("0");
   });
 
   await test.step("the sessions index lists the dataset sessions first and opens one in the replay", async () => {
@@ -142,6 +139,11 @@ test("attach the data, review a session, test the blocks and inspect their windo
     await expect(state).toContainText(/^saved .* by \S+, [45] edits$/);
     await expect(page.getByLabel("Notes on the session")).toHaveValue("the whole story");
     await expect(cards.first()).toContainText("dropped");
+  });
+
+  await test.step("the Data page counts the review in the processed folder", async () => {
+    await goTo("Data");
+    await expect(processed.locator("dl > div").filter({ hasText: "reviews" }).first()).toContainText("1");
   });
 
   await test.step("the blocks index shows the processed dataset, a window length is tested and saved", async () => {

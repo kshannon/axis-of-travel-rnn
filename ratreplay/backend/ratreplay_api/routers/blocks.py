@@ -9,30 +9,30 @@ from fastapi import APIRouter, Depends, Query
 from .. import arrow
 from ..managers import blocks
 from ..schemas import WindowSettings
-from .deps import attached_source
+from .deps import processed_root
 
-router = APIRouter(prefix="/api/sources/{sid}/blocks")
+router = APIRouter(prefix="/api/blocks")
 
 
 @router.get("")
-def block_index(settings: Annotated[WindowSettings, Query()], source=Depends(attached_source)):
+def block_index(settings: Annotated[WindowSettings, Query()], root=Depends(processed_root)):
     """
     Every block with its verdict at the window settings in the query, and the totals.
     """
-    return blocks.index(source, settings.model_dump())
+    return blocks.index(root, settings.model_dump())
 
 
 @router.get("/{block_id}")
-def block_header(block_id: str, settings: Annotated[WindowSettings, Query()], source=Depends(attached_source)):
+def block_header(block_id: str, settings: Annotated[WindowSettings, Query()], root=Depends(processed_root)):
     """
     A block's environment geometry, runs, trips, phases, verdict and windows at the settings as json.
     """
-    return blocks.header(source, block_id, settings.model_dump())
+    return blocks.header(root, block_id, settings.model_dump())
 
 
 @router.get("/{block_id}/arrays", response_class=arrow.ArrowResponse)
-def block_arrays(block_id: str, source=Depends(attached_source)):
+def block_arrays(block_id: str, root=Depends(processed_root)):
     """
     A block's arrays over its frames as an Arrow IPC stream.
     """
-    return arrow.ArrowResponse(arrow.encode(blocks.arrays(source, block_id)))
+    return arrow.ArrowResponse(arrow.encode(blocks.arrays(root, block_id)))

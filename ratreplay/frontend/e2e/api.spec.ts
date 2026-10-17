@@ -5,11 +5,11 @@ test("the API page lists the data format and the routes, each route opening on i
   await page.goto("/#/api");
   await expect(page.getByText("sessions.csv", { exact: true })).toBeVisible();
 
-  const attach = page.locator("details").filter({ hasText: "Attach Source" });
-  await expect(attach.getByText("Request body, AttachBody")).toBeHidden();
-  await attach.locator("summary").click();
-  await expect(attach.getByText("Request body, AttachBody")).toBeVisible();
-  await expect(attach.getByRole("cell", { name: "processed_path" })).toBeVisible();
+  const save = page.locator("details").filter({ hasText: "Put Review" });
+  await expect(save.getByText("Request body, ReviewBody")).toBeHidden();
+  await save.locator("summary").click();
+  await expect(save.getByText("Request body, ReviewBody")).toBeVisible();
+  await expect(save.getByRole("cell", { name: "notes" })).toBeVisible();
   expect(await pageScrolls(page)).toBe(false);
 });
 

@@ -5,8 +5,7 @@ import { timeLabel } from "../draw/lanes";
 import { MapView } from "../draw/map";
 import { Timeline } from "../draw/timeline";
 import { BlockPlayer } from "../session/block";
-import { sourceStore } from "../state/source";
-import { sourcePage } from "../ui/gate";
+import { folderPage } from "../ui/gate";
 import { belongsToTarget, commandOf } from "../ui/keys";
 import { toast } from "../ui/toast";
 import { blockLine, NO_LINE, testedLine } from "./blocks-view";
@@ -18,7 +17,7 @@ import type { Check } from "./windows-view";
 function registerWindows(): void {
   Alpine.data("windowsPage", () => {
     // The block comes from the Blocks page, its arrays and views are plain objects.
-    const player = BlockPlayer.holding(sourceStore().id);
+    const player = BlockPlayer.holding();
     let timeline!: Timeline;
     let map!: MapView;
     let stopKeys = () => {};
@@ -108,6 +107,6 @@ function registerWindows(): void {
 export const windowsPage: Page = {
   id: "windows",
   title: "Windows",
-  html: sourcePage("Windows", windowsRoot),
+  html: folderPage("Windows", windowsRoot, "processed"),
   register: registerWindows,
 };

@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 export const PORT = 8061;
 
@@ -15,31 +15,19 @@ export const PROCESSED = join(SYNTHETIC_ROOT, "processed");
 export const WALL_PIXELS = 1000;
 export const RING_PIXELS = 400;
 export const SETTINGS_FILE = join(SYNTHETIC_ROOT, "lab_blocks.yaml");
-
-export async function detachAll(request: APIRequestContext): Promise<void> {
-  for (const source of await (await request.get("/api/sources")).json()) await request.delete(`/api/sources/${source.id}`);
-}
+// Where the page keeps the session open in the replay.
+const SESSION_KEY = "ratreplay-session";
 
 export async function pageScrolls(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
 }
 
-/** Attach the synthetic transformed source, paired with its processed folder, and select it with a session open, as the Data and Sessions pages do by hand in their own flows. Gives back the source's id. */
-export async function selectSource(page: Page, request: APIRequestContext, sessionId = ""): Promise<string> {
-  const source = await (await request.post("/api/sources", { data: { path: TRANSFORMED, kind: "transformed", processed_path: PROCESSED } })).json();
+/** Open a session in the replay, as the Sessions page does by hand in its own flows. */
+export async function openReplay(page: Page, sessionId: string): Promise<void> {
   await page.goto("/");
-  await page.evaluate(
-    ([s, id]) => localStorage.setItem("ratreplay-source", JSON.stringify({ id: s.id, kind: s.kind, path: s.path, counts: s.counts, sessionId: id })),
-    [source, sessionId] as const,
-  );
-  return source.id;
-}
-
-/** Select the synthetic source and open a session in the replay. */
-export async function openReplay(page: Page, request: APIRequestContext, sessionId: string): Promise<void> {
-  await selectSource(page, request, sessionId);
+  await page.evaluate(([key, id]) => localStorage.setItem(key, id), [SESSION_KEY, sessionId] as const);
   await page.goto("/#/replay");
-  await page.reload(); // the page read its selection when it booted
+  await page.reload(); // the page read the session when it booted
   await expect(page.getByTestId("tile-frame")).toHaveText("1"); // the session has loaded
 }
 
@@ -54,17 +42,15 @@ export const S1_TRACK = "NS14_rec1_20150101_001_track_01";
 export const S1_ARENA = "NS14_rec1_20150101_001_arena_01";
 export const S6_TRACK = "NS16_rec6_20150106_001_track_01";
 
-/** Select the synthetic source and open the Blocks page with its index loaded. */
-export async function openBlocks(page: Page, request: APIRequestContext): Promise<void> {
-  await selectSource(page, request);
+/** Open the Blocks page with its index loaded. */
+export async function openBlocks(page: Page): Promise<void> {
   await page.goto("/#/blocks");
-  await page.reload(); // the page read its selection when it booted
   await expect(page.getByRole("row")).toHaveCount(4); // the header and the three blocks
 }
 
 /** Test the blocks at a 5 s window and open the block of S1's track on the Blocks page. */
-export async function openTrackBlock(page: Page, request: APIRequestContext): Promise<void> {
-  await openBlocks(page, request);
+export async function openTrackBlock(page: Page): Promise<void> {
+  await openBlocks(page);
   await page.getByLabel("window (s)").fill("5");
   await page.getByRole("button", { name: "Test on all blocks" }).click();
   await page.getByRole("button", { name: `Open ${S1_TRACK}` }).click();

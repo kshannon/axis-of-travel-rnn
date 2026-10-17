@@ -1,15 +1,14 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { detachAll, environmentPixels, openBlocks, openTrackBlock, pageScrolls, removeSettings, RING_PIXELS, S1_ARENA, S1_TRACK, S6_TRACK, SETTINGS_FILE, WALL_PIXELS } from "./synthetic";
+import { environmentPixels, openBlocks, openTrackBlock, pageScrolls, removeSettings, RING_PIXELS, S1_ARENA, S1_TRACK, S6_TRACK, SETTINGS_FILE, WALL_PIXELS } from "./synthetic";
 
-test.beforeEach(({ request }) => detachAll(request));
 test.afterEach(removeSettings);
 
 const row = (page: Page, blockId: string) => page.getByTitle(blockId);
 
-test("the index lists the blocks with their verdicts, sorts, expands a row to its facts and the totals follow", async ({ page, request }) => {
-  await openBlocks(page, request);
+test("the index lists the blocks with their verdicts, sorts, expands a row to its facts and the totals follow", async ({ page }) => {
+  await openBlocks(page);
   expect(await pageScrolls(page)).toBe(false);
   await expect(page.getByRole("row").filter({ hasText: "no window fits" })).toHaveCount(3);
   await expect(page.getByTestId("tested")).toContainText("Verdicts at a 40 s window plus a 0.5 s horizon every 10 s");
@@ -27,8 +26,8 @@ test("the index lists the blocks with their verdicts, sorts, expands a row to it
   expect(await pageScrolls(page)).toBe(false);
 });
 
-test("a changed window setting changes the verdicts once tested, and the settings are saved to the file the pipeline reads", async ({ page, request }) => {
-  await openBlocks(page, request);
+test("a changed window setting changes the verdicts once tested, and the settings are saved to the file the pipeline reads", async ({ page }) => {
+  await openBlocks(page);
   await page.getByLabel("window (s)").fill("5");
   await expect(row(page, S1_TRACK)).toContainText("no window fits"); // nothing changes until the test is run
 
@@ -54,8 +53,8 @@ test("a changed window setting changes the verdicts once tested, and the setting
   await expect(page.getByRole("status").filter({ hasText: "window_s" })).toBeVisible();
 });
 
-test("saving the settings tests at them, so the inputs and the verdicts are still those after a visit to another page", async ({ page, request }) => {
-  await openBlocks(page, request);
+test("saving the settings tests at them, so the inputs and the verdicts are still those after a visit to another page", async ({ page }) => {
+  await openBlocks(page);
   await page.getByLabel("window (s)").fill("5");
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect(page.getByTestId("tested")).toContainText("Verdicts at a 5 s window");
@@ -66,8 +65,8 @@ test("saving the settings tests at them, so the inputs and the verdicts are stil
   await expect(row(page, S1_TRACK)).not.toContainText("trouble");
 });
 
-test("a block opens with the environment drawn under its path in metres, plays and shows its lanes", async ({ page, request }) => {
-  await openTrackBlock(page, request);
+test("a block opens with the environment drawn under its path in metres, plays and shows its lanes", async ({ page }) => {
+  await openTrackBlock(page);
   await expect(page.getByTestId("block-verdict")).toHaveText("ok");
   await expect(page.getByTestId("shown")).toHaveText("0:00 to 0:20");
   await expect(page.getByTestId("tile-frame")).toHaveText("2101"); // the lab frame of the block's first row

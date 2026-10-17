@@ -1,10 +1,12 @@
 import { decodeColumns } from "./arrow";
 import type {
-  AttachBody, BlockArrays, BlockHeader, BlockIndex, Edit, FormatContract, OpenApiDocument, Review, ReviewBody, ReviewPreview,
-  SavedReview, SessionArrays, SessionHeader, SessionRow, SettingsAnswer, Source, WindowSettings,
+  BlockArrays, BlockHeader, BlockIndex, Edit, FormatContract, OpenApiDocument, Review, ReviewBody, ReviewPreview,
+  SavedReview, SessionArrays, SessionHeader, SessionRow, SettingsAnswer, Sources, WindowSettings,
 } from "./types";
 
 const SOURCES = "/api/sources";
+const SESSIONS = "/api/sessions";
+const BLOCKS = "/api/blocks";
 const WINDOW_SETTINGS = "/api/windows/settings";
 const UNREACHABLE = "Cannot reach the API, is it running?";
 
@@ -48,33 +50,25 @@ function withSettings(url: string, settings: Partial<WindowSettings>): string {
   return query.size ? `${url}?${query}` : url;
 }
 
-export const listSources = () => json<Source[]>("GET", SOURCES);
-export const attachSource = (body: AttachBody) => json<Source>("POST", SOURCES, body);
-export const detachSource = (sid: string) => json<{ detached: string }>("DELETE", `${SOURCES}/${sid}`);
+export const getSources = (reload = false) => json<Sources>("GET", reload ? `${SOURCES}?reload=true` : SOURCES);
 
-export const listSessions = (sid: string) => json<SessionRow[]>("GET", `${SOURCES}/${sid}/sessions`);
-export const getSession = (sid: string, sessionId: string) =>
-  json<SessionHeader>("GET", `${SOURCES}/${sid}/sessions/${sessionId}`);
-export const getSessionArrays = (sid: string, sessionId: string) =>
-  columns<SessionArrays>(`${SOURCES}/${sid}/sessions/${sessionId}/arrays`);
+export const listSessions = () => json<SessionRow[]>("GET", SESSIONS);
+export const getSession = (sessionId: string) => json<SessionHeader>("GET", `${SESSIONS}/${sessionId}`);
+export const getSessionArrays = (sessionId: string) => columns<SessionArrays>(`${SESSIONS}/${sessionId}/arrays`);
 
-export const getReview = (sid: string, sessionId: string) =>
-  json<Review | null>("GET", `${SOURCES}/${sid}/sessions/${sessionId}/review`);
-export const putReview = (sid: string, sessionId: string, body: ReviewBody) =>
-  json<SavedReview>("PUT", `${SOURCES}/${sid}/sessions/${sessionId}/review`, body);
-export const previewReview = (sid: string, sessionId: string, edits: Edit[]) =>
-  json<ReviewPreview>("POST", `${SOURCES}/${sid}/sessions/${sessionId}/review/preview`, { edits });
+export const getReview = (sessionId: string) => json<Review | null>("GET", `${SESSIONS}/${sessionId}/review`);
+export const putReview = (sessionId: string, body: ReviewBody) => json<SavedReview>("PUT", `${SESSIONS}/${sessionId}/review`, body);
+export const previewReview = (sessionId: string, edits: Edit[]) =>
+  json<ReviewPreview>("POST", `${SESSIONS}/${sessionId}/review/preview`, { edits });
 
-export const listBlocks = (sid: string, settings: Partial<WindowSettings> = {}) =>
-  json<BlockIndex>("GET", withSettings(`${SOURCES}/${sid}/blocks`, settings));
-export const getBlock = (sid: string, blockId: string, settings: Partial<WindowSettings> = {}) =>
-  json<BlockHeader>("GET", withSettings(`${SOURCES}/${sid}/blocks/${blockId}`, settings));
-export const getBlockArrays = (sid: string, blockId: string) =>
-  columns<BlockArrays>(`${SOURCES}/${sid}/blocks/${blockId}/arrays`);
+export const listBlocks = (settings: Partial<WindowSettings> = {}) => json<BlockIndex>("GET", withSettings(BLOCKS, settings));
+export const getBlock = (blockId: string, settings: Partial<WindowSettings> = {}) =>
+  json<BlockHeader>("GET", withSettings(`${BLOCKS}/${blockId}`, settings));
+export const getBlockArrays = (blockId: string) => columns<BlockArrays>(`${BLOCKS}/${blockId}/arrays`);
 
 export const getWindowSettings = () => json<SettingsAnswer>("GET", WINDOW_SETTINGS);
-export const putWindowSettings = (settings: WindowSettings, source: string) =>
-  json<SettingsAnswer & { overwrote: boolean }>("PUT", WINDOW_SETTINGS, { settings, source });
+export const putWindowSettings = (settings: WindowSettings) =>
+  json<SettingsAnswer & { overwrote: boolean }>("PUT", WINDOW_SETTINGS, { settings });
 
 export const getFormat = () => json<FormatContract>("GET", "/api/format");
 export const getOpenApi = () => json<OpenApiDocument>("GET", "/api/openapi.json");

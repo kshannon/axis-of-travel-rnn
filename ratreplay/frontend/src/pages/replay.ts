@@ -14,7 +14,7 @@ import { editFor, label, reselected } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { Workspace } from "../session/workspace";
-import { sourceStore } from "../state/source";
+import { sourcesStore } from "../state/sources";
 import { card } from "../ui/card";
 import type { Command } from "../ui/keys";
 import { BUTTON_PRIMARY } from "../ui/style";
@@ -26,6 +26,7 @@ import { blockCards, factsLine, liveTiles, marksLine, stateLine, summaryTiles } 
 import type { BlockCard, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Sessions page.";
+const PROBLEM = "$store.sources.problem('transformed', 'processed')";
 
 // The chips of the timeline keep their state when the person visits another page and comes back.
 const layers = allLayers();
@@ -100,7 +101,7 @@ function registerReplay(): void {
           timeline.refresh();
           map.refresh();
         });
-        await this.load(sourceStore().sessionId);
+        await this.load(sourcesStore().sessionId);
       },
 
       destroy() {
@@ -116,7 +117,7 @@ function registerReplay(): void {
         this.sessionId = sessionId;
         this.error = "";
         try {
-          ws = await Workspace.open(sourceStore().id, sessionId);
+          ws = await Workspace.open(sessionId);
         } catch (error) {
           this.error = errorText(error);
           return;
@@ -303,13 +304,13 @@ function registerReplay(): void {
         }
       },
       async openNext() {
-        const rows = await listSessions(ws.sid);
+        const rows = await listSessions();
         const next = rows.find((row) => !row.reviewed && row.n_automatic !== null && row.session_id !== ws.header.session_id);
         if (!next) {
           toast.success("Every session with frames has a review now.");
           return;
         }
-        sourceStore().openSession(next.session_id);
+        sourcesStore().openSession(next.session_id);
         await this.load(next.session_id);
         toast.success(`Opened the next session to review, ${next.session_id}`);
       },
@@ -319,7 +320,7 @@ function registerReplay(): void {
 
 const noSession = `
   <div class="flex flex-col items-start gap-2 text-sm">
-    <p x-text="$store.source.problem('transformed') || '${NO_SESSION}'"></p>
+    <p x-text="${PROBLEM} || '${NO_SESSION}'"></p>
     <a href="#/sessions" class="${BUTTON_PRIMARY}">Choose a session</a>
   </div>`;
 
@@ -328,10 +329,10 @@ export const replayPage: Page = {
   title: "Replay",
   html: `
     <div class="h-full">
-      <template x-if="$store.source.problem('transformed') || !$store.source.sessionId">
+      <template x-if="${PROBLEM} || !$store.sources.sessionId">
         <div class="grid h-full grid-cols-12 grid-rows-6 gap-4">${card("Replay", noSession)}</div>
       </template>
-      <template x-if="!$store.source.problem('transformed') && $store.source.sessionId">${replayGrid}</template>
+      <template x-if="!${PROBLEM} && $store.sources.sessionId">${replayGrid}</template>
     </div>`,
   register: registerReplay,
 };

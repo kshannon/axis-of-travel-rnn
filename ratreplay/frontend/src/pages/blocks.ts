@@ -9,9 +9,8 @@ import { Timeline } from "../draw/timeline";
 import { BlockPlayer } from "../session/block";
 import { REAL_TIME, SPEEDS } from "../session/clock";
 import { startPlayback } from "../session/playback";
-import { sourceStore } from "../state/source";
 import type { Fact } from "../ui/facts";
-import { sourcePage } from "../ui/gate";
+import { folderPage } from "../ui/gate";
 import { clickHeader, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
 import { counted } from "../ui/text";
@@ -33,7 +32,6 @@ function registerBlocks(): void {
     let drawn = "";
     let alive = true;
     let stopPlayback = () => {};
-    const sid = () => sourceStore().id;
 
     return {
       view: "index" as "index" | "block",
@@ -100,7 +98,7 @@ function registerBlocks(): void {
           this.settingsPath = answer.path;
           this.draft = { ...(testedSettings ?? answer.settings) };
           await this.fetchIndex();
-          const open = BlockPlayer.holding(sid());
+          const open = BlockPlayer.holding();
           if (open) {
             await this.load(open.header.block_id);
             this.view = "block";
@@ -113,7 +111,7 @@ function registerBlocks(): void {
 
       /** Every block's verdict and the totals at the settings in the inputs. */
       async fetchIndex() {
-        const index = await listBlocks(sid(), { ...this.draft });
+        const index = await listBlocks({ ...this.draft });
         testedSettings = index.settings;
         this.rows = index.blocks;
         this.totals = totalGroups(index.totals);
@@ -124,7 +122,7 @@ function registerBlocks(): void {
       /** The verdicts again at the settings in the inputs, and the windows of the block that is open. */
       async retest() {
         await this.fetchIndex();
-        const open = BlockPlayer.holding(sid());
+        const open = BlockPlayer.holding();
         if (open) await this.load(open.header.block_id);
       },
 
@@ -145,7 +143,7 @@ function registerBlocks(): void {
       async saveSettings() {
         this.busy = true;
         try {
-          const saved = await putWindowSettings({ ...this.draft }, sid());
+          const saved = await putWindowSettings({ ...this.draft });
           await this.retest();
           toast.success(`Saved, ${saved.overwrote ? "replacing the earlier file" : "a new file"}`, saved.path);
         } catch (error) {
@@ -168,7 +166,7 @@ function registerBlocks(): void {
 
       /** Load a block into the views at the settings tested. The zoom is kept when the block is the one already drawn. */
       async load(blockId: string) {
-        player = await BlockPlayer.open(sid(), blockId, testedSettings!);
+        player = await BlockPlayer.open(blockId, testedSettings!);
         const { header, arrays } = player;
         const scene = blockScene(header, arrays.speed, player.speedTop);
         if (drawn !== blockId) {
@@ -245,6 +243,6 @@ function registerBlocks(): void {
 export const blocksPage: Page = {
   id: "blocks",
   title: "Blocks",
-  html: sourcePage("Blocks", blocksRoot),
+  html: folderPage("Blocks", blocksRoot, "processed"),
   register: registerBlocks,
 };

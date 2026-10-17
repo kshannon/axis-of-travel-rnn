@@ -1,6 +1,6 @@
 // The shapes the API answers with, as ratreplay/backend/README.md lists them.
 
-export type SourceKind = "transformed" | "processed";
+export type Kind = "transformed" | "processed";
 export type Span = [first: number, last: number];
 
 export interface ManifestInfo {
@@ -17,22 +17,19 @@ export interface Counts {
   reviews?: number;
 }
 
+/** One data folder the config names. The path is null when the config lacks the key, the manifest when the processor has not run. */
 export interface Source {
-  id: string;
-  kind: SourceKind;
-  path: string;
-  processed_path: string;
-  attached_at: string;
+  path: string | null;
   status: "ok" | "invalid";
   problems: string[];
   counts: Counts;
-  manifests: { transformed: ManifestInfo | null; processed: ManifestInfo | null };
+  manifest: ManifestInfo | null;
 }
 
-export interface AttachBody {
-  path: string;
-  kind: SourceKind;
-  processed_path?: string;
+export interface Sources {
+  transformed: Source;
+  processed: Source;
+  config_path: string;
 }
 
 export interface Epoch {

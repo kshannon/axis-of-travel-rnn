@@ -1,16 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { detachAll, openReplay, pageScrolls, PROCESSED, S1, S6, TRANSFORMED } from "./synthetic";
+import { openReplay, pageScrolls, S1, S6 } from "./synthetic";
 
-test.beforeEach(({ request }) => detachAll(request));
-
-test("attach, select, sort the sessions, open one in the replay", async ({ page }) => {
-  await page.goto("/#/data");
-  await page.getByLabel("Folder path", { exact: true }).fill(TRANSFORMED);
-  await page.getByLabel("Processed folder path").fill(PROCESSED);
-  await page.getByRole("button", { name: "Attach" }).click();
-  await page.getByRole("button", { name: "Select", exact: true }).click();
-
-  await page.getByRole("link", { name: "Sessions" }).click();
+test("sort the sessions, open one in the replay", async ({ page }) => {
+  await page.goto("/#/sessions");
   const rows = page.getByRole("row");
   await expect(rows).toHaveCount(7); // the header and six sessions
   await expect(page.getByTestId("totals")).toHaveText("0 of 6 sessions reviewed, 0 blocks confirmed, confirmed hours: arena 0.00, track 0.00");
@@ -34,8 +26,8 @@ test("attach, select, sort the sessions, open one in the replay", async ({ page 
   await expect(page.getByTestId("session-id")).toHaveText(S6);
 });
 
-test("opening another session while the replay has unsaved edits asks first, the session already open does not", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+test("opening another session while the replay has unsaved edits asks first, the session already open does not", async ({ page }) => {
+  await openReplay(page, S6);
   await page.getByRole("button", { name: "Accept all" }).click();
   await expect(page.getByTestId("state")).toContainText("now 1 edit not saved yet");
 

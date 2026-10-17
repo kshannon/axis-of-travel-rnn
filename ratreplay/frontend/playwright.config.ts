@@ -4,8 +4,8 @@ import { PORT, SYNTHETIC_ROOT } from "./e2e/synthetic";
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 // The API serves the built frontend, so run npm run build first. It runs on synthetic folders rebuilt under
-// SYNTHETIC_ROOT, with its sources list there too, so no real data and no ~/.ratreplay is touched. The tests share that
-// server, so they run one at a time and each starts by detaching every source.
+// SYNTHETIC_ROOT, named by a local.yaml there, so no real data and not the repository's configs/local.yaml is touched.
+// The tests share that server, so they run one at a time and each puts back what it changed.
 export default defineConfig({
   testDir: "e2e",
   workers: 1,

@@ -3,16 +3,15 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { baseScale, laneBands } from "../src/draw/lanes";
 import { SESSION_LANES } from "../src/draw/session-scene";
-import { detachAll, openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings, S1, S6, SESSION_S } from "./synthetic";
+import { openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings, S1, S6, SESSION_S } from "./synthetic";
 
-test.beforeEach(({ request }) => detachAll(request));
 test.afterEach(() => {
   removeReviews();
   removeSettings();
 });
 
-test("play and pause, zoom with the buttons, select a block by its bar and accept it with enter", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("play and pause, zoom with the buttons, select a block by its bar and accept it with enter", async ({ page }) => {
+  await openReplay(page, S1);
   const frame = page.getByTestId("tile-frame");
   await expect(frame).toHaveText("1");
   expect(await pageScrolls(page)).toBe(false);
@@ -49,8 +48,8 @@ test("play and pause, zoom with the buttons, select a block by its bar and accep
   await expect(page.getByTestId("state")).toContainText("now 1 edit not saved yet");
 });
 
-test("a range over a block is refused, over a removed block it makes a new block, undo takes it back", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("a range over a block is refused, over a removed block it makes a new block, undo takes it back", async ({ page }) => {
+  await openReplay(page, S1);
   const cards = page.getByRole("article");
   await expect(cards).toHaveCount(2);
 
@@ -78,8 +77,8 @@ test("a range over a block is refused, over a removed block it makes a new block
   await expect(page.getByRole("status").filter({ hasText: "Undid the new block over frames" })).toBeVisible();
 });
 
-test("the edges of a new block over a removed block move the new block and the removed one is saved as it was", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("the edges of a new block over a removed block move the new block and the removed one is saved as it was", async ({ page }) => {
+  await openReplay(page, S1);
   const cards = page.getByRole("article");
   await page.getByRole("button", { name: "Reject block 1" }).click();
 
@@ -116,8 +115,8 @@ test("the edges of a new block over a removed block move the new block and the r
   expect(markIn).toBeLessThan(markOut);
 });
 
-test("a new block that starts on the frame of a removed block has its own card, and each card reaches its own block", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("a new block that starts on the frame of a removed block has its own card, and each card reaches its own block", async ({ page }) => {
+  await openReplay(page, S1);
   const cards = page.getByRole("article");
   await page.getByRole("button", { name: "Reject block 1" }).click();
 
@@ -139,8 +138,8 @@ test("a new block that starts on the frame of a removed block has its own card, 
   await expect(cards.nth(1)).toContainText("dropped");
 });
 
-test("the keys step, jump and clear, and a letter typed in the notes stays a letter", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("the keys step, jump and clear, and a letter typed in the notes stays a letter", async ({ page }) => {
+  await openReplay(page, S1);
   const frame = page.getByTestId("tile-frame");
   await page.keyboard.press("ArrowRight");
   await expect(frame).toHaveText("2");
@@ -169,8 +168,8 @@ test("the keys step, jump and clear, and a letter typed in the notes stays a let
   await expect(page.getByTestId("state")).toContainText("1 edit");
 });
 
-test("a save is refused while a block is auto, names its file, advances to the next session and shows as saved after a reload", async ({ page, request }) => {
-  await openReplay(page, request, S1);
+test("a save is refused while a block is auto, names its file, advances to the next session and shows as saved after a reload", async ({ page }) => {
+  await openReplay(page, S1);
   await page.getByRole("button", { name: "Save session" }).click();
   await expect(page.getByRole("status").filter({ hasText: "some blocks are still auto" })).toBeVisible();
 
@@ -197,8 +196,8 @@ test("a save is refused while a block is auto, names its file, advances to the n
   await expect(page.getByRole("status").filter({ hasText: "replacing the earlier review" })).toBeVisible();
 });
 
-test("reset to automatic clears the edits in memory and says so", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+test("reset to automatic clears the edits in memory and says so", async ({ page }) => {
+  await openReplay(page, S6);
   await page.getByRole("button", { name: "Accept all" }).click();
   await expect(page.getByRole("article").first()).toContainText("confirmed");
   await page.getByRole("button", { name: "Reset to automatic" }).click();
@@ -207,8 +206,8 @@ test("reset to automatic clears the edits in memory and says so", async ({ page,
   await expect(page.getByTestId("state")).toHaveText("automatic");
 });
 
-test("the block cards tell the training windows at the saved settings and grey a block shorter than one window", async ({ page, request }) => {
-  await openReplay(page, request, S6);
+test("the block cards tell the training windows at the saved settings and grey a block shorter than one window", async ({ page }) => {
+  await openReplay(page, S6);
   const cards = page.getByRole("article");
   await expect(cards.first()).toContainText("shorter than one window"); // 20 s blocks under the default 40 s window
 

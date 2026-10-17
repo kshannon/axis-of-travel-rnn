@@ -1,6 +1,6 @@
 # RatReplay
 
-A standalone review tool for rat trajectory data: attach data folders in a known format, replay
+A standalone review tool for rat trajectory data: read data folders in a known format, replay
 sessions, confirm the blocks a processor will build, inspect built blocks and training windows.
 Localhost only. It lives here with its own backend and frontend so it can become its own
 repository. The old Dash tool in `src/ratreplay/` is no longer imported here and stays until the authors delete it.
@@ -18,11 +18,13 @@ Node comes from pixi through the `ratreplay` environment, `pixi run` finds it fo
 
 ## Using
 
-**Attach.** On the Data page choose the kind of folder and its path. A `transformed` folder is the converter's
-output, and it is paired with the `processed` folder where its reviews and blocks live, which need not exist yet.
-A `processed` folder is the processor's output. Attaching checks the folder against the data format (the API page
-lists it) and names every problem, and detaching forgets the entry and never touches the data. Select the source
-to work on, the choice is kept in the browser.
+**Data folders.** The two folders come from `configs/local.yaml`, the `TRANSFORMED_LAB_DATA` and `PROCESSED_LAB_DATA`
+keys the processor reads, so the tool and the processor never disagree about where the data is. The transformed folder is
+the converter's output. The processed folder is where the reviews are written and the processor builds its blocks, it
+need not exist yet. The Data page shows the path the data takes, each folder with its resolved path, whether it follows
+the data format (the API page lists it), every problem if not, its counts and times, and the config file. To change a
+folder edit that file and press Reload. A page that needs a folder shows its problem and a link to the Data page until
+the folder is ok.
 
 **Review a session.** The Sessions page lists one row per session, the sessions of the dataset first. A click on a
 header sorts, a click on a row opens its details, and Open in replay loads it. The Replay page plays the session
@@ -51,8 +53,7 @@ those settings. The block cards of the Replay page count windows at the saved se
 | --- | --- |
 | a session's review | `review/<session_id>.json` under the processed folder, overwritten whole on each save, the toast names it |
 | the window settings | `configs/datasets/lab_blocks.yaml` in the repository, overwritten whole on each save |
-| the attached sources | `~/.ratreplay/sources.json`, the folders' paths and never their contents |
-| the theme and the selection | the browser's local storage |
+| the theme and the session open in the replay | the browser's local storage |
 
 **Keys.** Everything else is a button or a chip.
 
@@ -78,9 +79,10 @@ frontend, so build first:
     pixi run -e ratreplay npm --prefix ratreplay/frontend run e2e
 
 The flows use `frontend/e2e/serve_synthetic.py`, which rebuilds the backend tests' synthetic folders under
-`$TMPDIR/ratreplay-e2e` on each start and serves the API there with its sources list, window settings and reviews in
-the same folder. Nothing outside it is touched, no real data and no `~/.ratreplay`. The server shares one port, so the
-flows run one at a time and each starts by detaching every source.
+`$TMPDIR/ratreplay-e2e` on each start, writes a `local.yaml` there naming them and serves the API on that config, with
+its window settings and reviews in the same folder. Nothing outside it is touched, no real data and not the
+repository's `configs/local.yaml`. The server shares one port, so the flows run one at a time and each puts back what it
+changed.
 
 The backend imports the project packages, so after pulling a change to the `packages` list in
 `pyproject.toml` run `pixi reinstall axis-of-travel-rnn` once.
@@ -106,5 +108,4 @@ What `src/ratreplay` still does and this does not:
 - Keys for every action: `a`, `n`, `i`, `o`, `,`, `.`, `s`, `d`, `f` and `{`, `}` to jump between blocks. They were
   dropped on purpose, the actions are buttons here.
 - A click on a block's glyph accepts it and a right click on a run flags it.
-- It opens on the first session to review of the folders in `configs/local.yaml`, where here a source is attached and a
-  session chosen on the Sessions page.
+- It opens on the first session to review, where here a session is chosen on the Sessions page.

@@ -1,36 +1,18 @@
 """
-The attached sources: list, attach, detach.
+The data folders the config names.
 """
 
 from fastapi import APIRouter, Depends
 
 from ..managers import sources
-from ..schemas import AttachBody
-from .deps import registry_path
+from .deps import config_path, reread_config
 
 router = APIRouter(prefix="/api/sources")
 
 
 @router.get("")
-def list_sources(path=Depends(registry_path)):
+def get_sources(config=Depends(reread_config), file=Depends(config_path)):
     """
-    Every attached source with its status, counts and manifests.
+    The transformed and processed folders each with its status, counts and manifest, and the config file they come from. reload=true reads that file again first.
     """
-    return sources.list_all(path)
-
-
-@router.post("")
-def attach_source(body: AttachBody, path=Depends(registry_path)):
-    """
-    Attach a folder after checking it against the data format.
-    """
-    return sources.attach(path, body.kind, body.path, body.processed_path)
-
-
-@router.delete("/{sid}")
-def detach_source(sid: str, path=Depends(registry_path)):
-    """
-    Detach a source, its data stays.
-    """
-    sources.detach(path, sid)
-    return {"detached": sid}
+    return sources.describe_all(config, file)

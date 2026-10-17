@@ -1,8 +1,6 @@
 """
-The sessions of a transformed source: the index rows, and one session for the replay.
+The sessions of the transformed folder: the index rows, and one session for the replay.
 """
-
-from pathlib import Path
 
 from ..engines import cuts, edits, heading, occupancy
 from ..stores import review, transformed
@@ -48,11 +46,10 @@ def review_facts(saved, rate_hz):
                             for kind in cuts.EPOCH_KINDS}}
 
 
-def index(source):
+def index(root, processed_root):
     """
     Every session with an arena or track epoch, the dataset's sessions first, then unreviewed, then the oldest review first.
     """
-    root, processed_root = Path(source["path"]), Path(source["processed_path"])
     tables = transformed.read_tables(root)
     dataset = cuts.in_dataset(tables)
     rows = []
@@ -69,11 +66,11 @@ def index(source):
     return sorted(rows, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
 
 
-def header(source, session_id):
+def header(root, session_id):
     """
     One session's facts: its epochs and runs, the epochs that are cut into blocks, what cut it, the heading fills, the LED offset, the occupancy per epoch and the automatic blocks.
     """
-    found = transformed.read_session(Path(source["path"]), session_id)
+    found = transformed.read_session(root, session_id)
     session, epochs, frames = found["session"], found["epochs"], found["frames"]
     rate_hz, max_gap = session["rate_hz"], session["max_gap"]
     track = heading.track(frames, epochs, rate_hz)
@@ -86,11 +83,11 @@ def header(source, session_id):
             "blocks": cuts.automatic_blocks(frames, session, epochs)}
 
 
-def arrays(source, session_id):
+def arrays(root, session_id):
     """
     One session's arrays over every frame: time, the mashup light's position in pixels, the corrected and filled heading, the speed in px/s, the direction of motion and the number of lights.
     """
-    found = transformed.read_session(Path(source["path"]), session_id)
+    found = transformed.read_session(root, session_id)
     frames = found["frames"]
     track = heading.track(frames, found["epochs"], found["session"]["rate_hz"])
     return {"t": frames["t"], "x": frames["mashup_x"], "y": frames["mashup_y"], "heading": track["heading"], "speed": track["speed"],

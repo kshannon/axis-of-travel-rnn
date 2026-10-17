@@ -14,15 +14,14 @@ const RULES = [
 const FILES = [
   ["review of a session", "review/&lt;session_id&gt;.json under the processed folder, overwritten whole on each save"],
   ["window settings", "configs/datasets/lab_blocks.yaml, the file the training pipeline reads"],
-  ["attached sources", "~/.ratreplay/sources.json, the list of folders, never their contents"],
-  ["theme and selected source", "kept in this browser only"],
+  ["theme and open session", "kept in this browser only"],
 ];
 
 const intro = `
   <p class="text-sm leading-6">
-    RatReplay is a review tool for rat trajectory data. Attach a folder from the converter or the processor, replay a session,
-    confirm the blocks the processor will build, then inspect the built blocks and the training windows they give.
-    What it saves is small files that other tools read.
+    RatReplay is a review tool for rat trajectory data. It reads the converter's folder and the processor's folder, the two that
+    configs/local.yaml names. Replay a session, confirm the blocks the processor will build, then inspect the built blocks and the
+    training windows they give. What it saves is small files that other tools read.
   </p>`;
 
 const rules = `<ul class="list-disc space-y-1.5 pl-5 text-sm leading-6">${RULES.map((rule) => `<li>${rule}</li>`).join("")}</ul>`;

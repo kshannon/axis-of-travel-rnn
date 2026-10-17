@@ -12,6 +12,6 @@ router = APIRouter()
 @router.get("/api/format")
 def get_format():
     """
-    The files, columns and types a folder must have to be attached, the review file and the window settings.
+    The files, columns and types a folder must have to be read, the review file and the window settings.
     """
     return contract.build()
