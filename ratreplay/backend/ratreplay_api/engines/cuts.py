@@ -12,9 +12,9 @@ CUT_KEYS = ("pauses", "jumps", "gaps", "margins")
 
 def selected(epochs):
     """
-    The epochs the processor cuts into blocks, the arena and track ones.
+    The epochs the processor cuts into blocks, the arena and track ones under its condition, so a block is never offered that it will not build.
     """
-    return [e for e in epochs if e["epoch"] in EPOCH_KINDS]
+    return [e for e in epochs if e["epoch"] in EPOCH_KINDS and e["condition"] == select.CONDITION]
 
 
 def in_dataset(tables):

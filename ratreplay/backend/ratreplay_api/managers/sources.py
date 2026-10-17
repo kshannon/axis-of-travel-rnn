@@ -7,10 +7,11 @@ from pathlib import Path
 from axis_of_travel_rnn import trajectory
 
 from .. import contract, registry
-from ..errors import Invalid
+from ..errors import Conflict, Invalid
 from ..stores import folder, processed, review, transformed
 
 PROCESSED_PREFIX = "processed dataset: "
+ALREADY_ATTACHED = "{path} is already attached as {kind} with its reviews and blocks in {processed_path}, detach it first to attach it differently"
 
 
 def has_key(manifest, dotted):
@@ -139,12 +140,16 @@ def list_all(registry_path):
 
 def attach(registry_path, kind, path, processed_path):
     """
-    Attach the folder when it follows the format, and describe the entry. A transformed source is paired with the processed folder its reviews and blocks live in, a processed one is its own.
+    Attach the folder when it follows the format, and describe the entry. A transformed source is paired with the processed folder its reviews and blocks live in, a processed one is its own. A folder already attached as another kind or with another processed folder is refused before it is checked.
     """
     if kind == "transformed" and not processed_path:
         raise Invalid("a transformed source needs processed_path, the folder its reviews and blocks live in")
     paired = processed_path if kind == "transformed" else path
-    problems = problems_of(kind, Path(path).expanduser().resolve(), Path(paired).expanduser().resolve())
+    root, paired_root = Path(path).expanduser().resolve(), Path(paired).expanduser().resolve()
+    recorded = registry.find(registry_path, root)
+    if recorded and (recorded["kind"], recorded["processed_path"]) != (kind, str(paired_root)):
+        raise Conflict(ALREADY_ATTACHED.format(**recorded))
+    problems = problems_of(kind, root, paired_root)
     if problems:
         raise Invalid(f"cannot attach {path}: " + ", ".join(problems))
     return describe(registry.attach(registry_path, kind, path, paired))

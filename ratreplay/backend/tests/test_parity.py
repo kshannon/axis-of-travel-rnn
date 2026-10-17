@@ -1,5 +1,5 @@
 """
-Parity with the old tool: the same synthetic session through the new API and through src/ratreplay/data.py gives the same review files, session facts and arrays. This file goes when the old tool does.
+Parity with the old tool: the same synthetic session through the new API and through src/ratreplay/data.py gives the same review files, session facts and arrays, except for the documented differences. This file imports the old tool on purpose, it is the parity oracle and nothing else in the backend imports ratreplay. It goes when the old tool does.
 """
 
 import json
@@ -15,14 +15,15 @@ from ratreplay_api.contract import EDIT_FIELDS
 
 ARRAY_COLUMNS = ("t", "x", "y", "heading", "speed")
 ROUNDING = 1e-4  # the old tool sends its arrays rounded to 4 decimals
+SESSION_KEYS = ("n_frames", "epochs", "runs", "cuts", "blocks", "heading_lost", "heading_filled", "heading_held")
 
 # S1 has an arena block over frames 301 to 1500 and a track block over 2101 to 3300, the track's runs lie in 2200 to 2700.
 # Each list comes with the blocks it must leave, so that a list that did nothing in both tools cannot pass.
 ACCEPT_ALL = ([{"op": "accept"}], [(301, 1500, "confirmed"), (2101, 3300, "confirmed")])
 NEW_OVER_REMOVED_AT_ITS_START = ([{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 301, "frame_end": 1299}],
                                  [(301, 1500, "dropped"), (301, 1299, "edited"), (2101, 3300, "confirmed")])
-SPLIT_DROP_FLAG = ([{"op": "drop", "frame": 1000}, {"op": "split", "frame": 2700}, {"op": "accept"}, {"op": "flag", "run": 2}],
-                   [(301, 1500, "dropped"), (2101, 2699, "edited"), (2700, 3300, "edited")])
+SPLIT_DROP_FLAG = ([{"op": "drop", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "accept"}, {"op": "flag", "run": 2}],
+                   [(301, 1500, "dropped"), (2101, 2700, "edited"), (2701, 3300, "edited")])
 NEW_OVER_REMOVED_AND_MOVE = ([{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299},
                               {"op": "move", "frame": 2230, "edge": "start", "at": 2101}],
                              [(301, 1500, "dropped"), (399, 1299, "edited"), (2200, 3300, "edited")])
@@ -53,7 +54,7 @@ def test_a_review_saved_through_the_api_is_the_file_the_old_tool_writes(client, 
     assert triples(written["blocks"]) == blocks
 
 
-def test_the_one_difference_is_an_edit_anchored_where_a_new_block_lies_over_a_removed_one(client, attached, transformed, tmp_path):
+def test_difference_an_edit_anchored_where_a_new_block_lies_over_a_removed_one_reaches_the_new_block(client, attached, transformed, tmp_path):
     edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299},
              {"op": "move", "frame": 449, "edge": "start", "at": 399}]
     saved = client.put(f"/api/sources/{attached[0]}/sessions/{S1}/review", json={"edits": edits}).json()["review"]
@@ -62,11 +63,27 @@ def test_the_one_difference_is_an_edit_anchored_where_a_new_block_lies_over_a_re
     assert triples(old["blocks"]) == [(399, 1299, "edited"), (449, 1500, "edited"), (2101, 3300, "confirmed")]  # the removed block, first in the list, moves
 
 
-@pytest.mark.parametrize("session_id", [S1, S6])
-def test_a_session_equals_what_the_old_tool_loads(client, attached, transformed, session_id):
+def test_difference_a_removed_block_does_not_come_back_over_a_kept_one(client, attached, transformed, tmp_path):
+    edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299}, {"op": "drop", "frame": 301}]
+    saved = client.put(f"/api/sources/{attached[0]}/sessions/{S1}/review", json={"edits": edits}).json()["review"]
+    assert triples(saved["blocks"]) == [(301, 1500, "dropped"), (399, 1299, "edited"), (2101, 3300, "confirmed")]  # the drop is refused
+    old = old_review(transformed, tmp_path, edits, "")
+    assert triples(old["blocks"]) == [(301, 1500, "edited"), (399, 1299, "edited"), (2101, 3300, "confirmed")]  # two kept blocks overlap, the processor fails both
+
+
+def test_difference_an_epoch_under_another_condition_has_no_block_and_no_cuts(client, attached, transformed):
+    header = client.get(f"/api/sources/{attached[0]}/sessions/{S6}").json()  # S6's arena is under the rot45 condition
+    old = old_tool.load_session(transformed, S6)
+    assert [b["epoch"] for b in header["blocks"]] == ["track"]  # the processor builds no arena block for it
+    assert [b["epoch"] for b in old["blocks"]] == ["arena", "track"]  # a confirmed one makes the processor raise
+    assert all(first >= 1801 for first, _ in header["cuts"]["margins"]) and old["cuts"]["margins"][0][0] < 1801
+
+
+@pytest.mark.parametrize("session_id, differing", [(S1, ()), (S6, ("cuts", "blocks"))])
+def test_a_session_equals_what_the_old_tool_loads(client, attached, transformed, session_id, differing):
     old = old_tool.load_session(transformed, session_id)
     header = client.get(f"/api/sources/{attached[0]}/sessions/{session_id}").json()
-    for key in ("n_frames", "epochs", "runs", "cuts", "blocks", "heading_lost", "heading_filled", "heading_held"):
+    for key in (key for key in SESSION_KEYS if key not in differing):
         assert header[key] == json.loads(json.dumps(old[key])), key
     assert header["led_offset"] == pytest.approx(old["led_offset"])
     table = pa.ipc.open_stream(client.get(f"/api/sources/{attached[0]}/sessions/{session_id}/arrays").content).read_all()

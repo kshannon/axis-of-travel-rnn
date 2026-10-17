@@ -59,7 +59,7 @@ def index(source):
     for session in tables["sessions"]:
         session_id = session["session_id"]
         epochs = [e for e in tables["epochs"] if e["session_id"] == session_id]
-        if not cuts.selected(epochs):
+        if not any(e["epoch"] in cuts.EPOCH_KINDS for e in epochs):
             continue
         runs = [r for r in tables["runs"] if r["session_id"] == session_id]
         rows.append({**session, "date": str(session["date"]), "epochs": [picked(e, EPOCH_KEYS) for e in epochs],
@@ -71,7 +71,7 @@ def index(source):
 
 def header(source, session_id):
     """
-    One session's facts: its epochs and runs, the epoch kinds that are cut into blocks, what cut it, the heading fills, the LED offset, the occupancy per epoch and the automatic blocks.
+    One session's facts: its epochs and runs, the epochs that are cut into blocks, what cut it, the heading fills, the LED offset, the occupancy per epoch and the automatic blocks.
     """
     found = transformed.read_session(Path(source["path"]), session_id)
     session, epochs, frames = found["session"], found["epochs"], found["frames"]
@@ -79,7 +79,7 @@ def header(source, session_id):
     track = heading.track(frames, epochs, rate_hz)
     return {"session_id": session_id, "subject_id": session["subject_id"], "date": str(session["date"]), "protocol": session["protocol"],
             "group": session["group"], "rate_hz": rate_hz, "max_gap": max_gap, "n_frames": len(frames["t"]),
-            "epochs": [picked(e, EPOCH_KEYS) for e in epochs], "block_epochs": list(cuts.EPOCH_KINDS),
+            "epochs": [picked(e, EPOCH_KEYS) for e in epochs], "block_epochs": [e["epoch"] for e in cuts.selected(epochs)],
             "runs": [picked(r, RUN_KEYS) for r in found["runs"]], "cuts": cuts.cut_points(frames, epochs, max_gap, rate_hz),
             "heading_lost": track["spans"]["lost"], "heading_filled": track["spans"]["filled"], "heading_held": track["spans"]["held"],
             "led_offset": track["led_offset"], "occupancy": occupancy.occupancy(frames, epochs),

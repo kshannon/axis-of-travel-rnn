@@ -6,9 +6,9 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from fixtures import S1, S2, S6, STAMP
+from fixtures import S1, S2, S6, STAMP, write_processed
 
-EDITS = [{"op": "drop", "frame": 1000}, {"op": "split", "frame": 2700}, {"op": "accept"}, {"op": "flag", "run": 2}]
+EDITS = [{"op": "drop", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "accept"}, {"op": "flag", "run": 2}]
 
 
 def arrays_of(response):
@@ -31,6 +31,17 @@ def test_attach_lists_and_detaches_without_touching_the_data(client, transformed
     assert client.delete(f"/api/sources/{source['id']}").status_code == 404
 
 
+def test_attaching_a_folder_again_as_another_kind_or_with_another_processed_folder_is_a_conflict(client, transformed, processed, tmp_path):
+    body = {"path": str(transformed), "kind": "transformed", "processed_path": str(processed)}
+    source = client.post("/api/sources", json=body).json()
+    for other in ({**body, "processed_path": str(tmp_path / "elsewhere")}, {"path": str(transformed), "kind": "processed"}):
+        response = client.post("/api/sources", json=other)
+        assert response.status_code == 409
+        assert response.json()["error"].startswith(f"{source['path']} is already attached as transformed with its reviews and blocks in {source['processed_path']}")
+    assert [(s["kind"], s["processed_path"]) for s in client.get("/api/sources").json()] == [("transformed", source["processed_path"])]
+    assert client.post("/api/sources", json={**body, "path": f"{transformed}/"}).json()["id"] == source["id"]
+
+
 def test_attach_refuses_a_folder_that_breaks_the_format(client, tmp_path, transformed, processed):
     (transformed / "epochs.csv").unlink()
     cases = [{"path": str(tmp_path / "nope"), "kind": "processed"},
@@ -46,9 +57,20 @@ def test_attach_refuses_a_folder_that_breaks_the_format(client, tmp_path, transf
 def test_session_index_lists_the_funnel_and_the_automatic_blocks(client, attached):
     rows = client.get(f"/api/sources/{attached[0]}/sessions").json()
     assert [r["session_id"] for r in rows][:2] == [S1, S6] and len(rows) == 6
-    assert [(r["in_dataset"], r["n_automatic"]) for r in rows[:2]] == [(True, 2), (True, 2)]
+    assert [(r["in_dataset"], r["n_automatic"]) for r in rows[:2]] == [(True, 2), (True, 1)]  # S6's arena is under another condition
     assert all(not r["in_dataset"] and r["n_automatic"] is None for r in rows[2:])
     assert client.get(f"/api/sources/{attached[1]}/sessions").status_code == 400
+
+
+def test_no_block_is_offered_in_an_epoch_the_processor_leaves_out_so_an_accepted_review_is_built(client, attached, transformed, processed):
+    session = f"/api/sources/{attached[0]}/sessions/{S6}"  # S6's arena is under the rot45 condition, its track is baseline
+    header = client.get(session).json()
+    assert header["block_epochs"] == ["track"] and [b["epoch"] for b in header["blocks"]] == ["track"]
+    new = {"op": "new", "frame_start": 399, "frame_end": 1299}
+    assert [e["op"] for e in client.post(f"{session}/review/preview", json={"edits": [new]}).json()["skipped"]] == ["new"]
+    blocks = client.put(f"{session}/review", json={"edits": [{"op": "accept"}]}).json()["review"]["blocks"]
+    assert [(b["epoch"], b["status"]) for b in blocks] == [("track", "confirmed")]
+    write_processed(transformed, processed)  # the processor raises on a block of an epoch it has no frame parameters for
 
 
 def test_a_session_is_served_as_a_header_and_arrow_arrays(client, attached):
@@ -122,7 +144,7 @@ def arena_blocks(blocks):
 
 
 def test_an_edit_at_a_frame_a_removed_block_and_a_kept_one_share_reaches_the_kept_one(client, attached):
-    url = f"/api/sources/{attached[0]}/sessions/{S6}/review"
+    url = f"/api/sources/{attached[0]}/sessions/{S1}/review"
     edits = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299},
              {"op": "move", "frame": 449, "edge": "start", "at": 399}]
     expected = [(301, 1500, "dropped"), (449, 1299, "edited")]
@@ -130,6 +152,19 @@ def test_an_edit_at_a_frame_a_removed_block_and_a_kept_one_share_reaches_the_kep
     assert arena_blocks(client.put(url, json={"edits": edits}).json()["review"]["blocks"]) == expected
     removed = client.post(f"{url}/preview", json={"edits": [*edits[:3], {"op": "drop", "frame": 399}]}).json()["blocks"]
     assert arena_blocks(removed) == [(301, 1500, "dropped"), (399, 1299, "dropped")]
+
+
+def test_a_removed_block_cannot_come_back_over_a_kept_block_and_a_saved_review_never_holds_two(client, attached):
+    url = f"/api/sources/{attached[0]}/sessions/{S1}/review"
+    standing = [{"op": "accept"}, {"op": "drop", "frame": 301}, {"op": "new", "frame_start": 399, "frame_end": 1299}]
+    restore = {"op": "drop", "frame": 301}
+    expected = [(301, 1500, "dropped"), (399, 1299, "edited")]
+    preview = client.post(f"{url}/preview", json={"edits": [*standing, restore]}).json()
+    assert arena_blocks(preview["blocks"]) == expected
+    assert preview["skipped"] == [{**restore, "reason": "a removed block cannot come back over a block that is kept, remove that block first"}]
+    assert arena_blocks(client.put(url, json={"edits": [*standing, restore]}).json()["review"]["blocks"]) == expected
+    after = [*standing, {"op": "drop", "frame": 399}, restore]  # the kept block is removed first, so the other comes back
+    assert arena_blocks(client.post(f"{url}/preview", json={"edits": after}).json()["blocks"]) == [(301, 1500, "edited"), (399, 1299, "dropped")]
 
 
 def test_blocks_that_start_on_the_same_frame_are_numbered_in_the_order_they_were_made(client, attached):
@@ -159,6 +194,11 @@ def test_a_block_is_served_in_metres_with_its_environment_and_windows(client, at
     assert [r["run"] for r in track["runs"]] == [1, 2, 3] and track["verdict"] == {"ok": True, "reason": None}
     assert track["one_light"] == [[699, 818]]  # the back light lost at lab frames 2800 to 2919, the block starting at 2101
     assert [w["first"] for w in track["windows"]] == [0, 600] and track["windows"][0]["ok"] and not track["windows"][1]["ok"]
+    counted = {b["block_id"]: b["n_windows"] for b in client.get(url, params={"window_s": 5}).json()["blocks"]}
+    assert counted[f"{S1}_track_01"] == len(track["windows"])
+    assert [(w["trips_complete"], w["trips_partial"]) for w in track["windows"]] == [(0, 2), (0, 1)]  # trip 2 returns after the first window
+    longer = client.get(f"{url}/{S1}_track_01", params={"window_s": 10}).json()["windows"]
+    assert [(w["trips_complete"], w["trips_partial"]) for w in longer] == [(1, 2)]
     assert client.get(f"{url}/{S1}_arena_01").json()["geometry"]["circle"]["radius"] > 0
     columns = arrays_of(client.get(f"{url}/{S1}_track_01/arrays"))
     assert list(columns) == ["frame", "t", "x", "y", "heading", "speed", "n_lights"] and len(columns["x"]) == track["n_frames"]

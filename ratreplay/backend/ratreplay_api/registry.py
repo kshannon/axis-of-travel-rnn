@@ -46,18 +46,25 @@ def get(registry_path, sid):
     raise NotFound(f"no source {sid}")
 
 
+def find(registry_path, path):
+    """
+    The entry recorded for this path, or None.
+    """
+    sid = source_id(Path(path).expanduser().resolve())
+    return next((e for e in read_all(registry_path) if e["id"] == sid), None)
+
+
 def attach(registry_path, kind, path, processed_path):
     """
     Record the source and return its entry, or the entry already recorded for the same path.
     """
     path = Path(path).expanduser().resolve()
-    entries = read_all(registry_path)
-    found = next((e for e in entries if e["id"] == source_id(path)), None)
+    found = find(registry_path, path)
     if found:
         return found
     entry = {"id": source_id(path), "kind": kind, "path": str(path),
              "processed_path": str(Path(processed_path).expanduser().resolve()), "attached_at": iso_now()}
-    write_all(registry_path, entries + [entry])
+    write_all(registry_path, read_all(registry_path) + [entry])
     return entry
 
 

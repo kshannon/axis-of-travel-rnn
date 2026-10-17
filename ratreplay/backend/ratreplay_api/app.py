@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException
 
 from axis_of_travel_rnn.windows import CONFIG
 
-from .errors import Invalid, NotFound
+from .errors import Conflict, Invalid, NotFound
 from .routers import blocks, data_format, review, sessions, sources, windows
 
 # The sources registry lives in the home folder, outside the repository, and the window settings file is the one the
@@ -21,6 +21,7 @@ DEFAULT_REGISTRY = Path.home() / ".ratreplay" / "sources.json"
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 ROUTERS = (data_format.router, sources.router, sessions.router, review.router, blocks.router, windows.router)
 INVALID = 400
+CONFLICT = 409
 UNPROCESSABLE = 422
 
 
@@ -52,6 +53,13 @@ def create_app(registry_path=None, settings_path=None):
         A request that cannot be served is a 400.
         """
         return JSONResponse({"error": str(error)}, status_code=INVALID)
+
+    @app.exception_handler(Conflict)
+    def conflict(request, error):
+        """
+        A request that contradicts what is recorded is a 409.
+        """
+        return JSONResponse({"error": str(error)}, status_code=CONFLICT)
 
     @app.exception_handler(RequestValidationError)
     def bad_request(request, error):

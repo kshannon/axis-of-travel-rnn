@@ -8,8 +8,9 @@ FastAPI on 127.0.0.1, one process, no database, the files are the state. The lay
     pixi run python -m pytest ratreplay/backend/tests
 
 Errors leave as `{"error": text}`: 404 for an unknown source, session, block or file, 400 for a request that cannot be
-served (a bad attach, a session route on a processed source, a review with a block still auto), 422 for a body or query
-that fails its schema, the text naming the field.
+served (a bad attach, a session route on a processed source, a review with a block still auto), 409 for a source attached
+again as another kind or with another processed folder, 422 for a body or query that fails its schema, the text naming
+the field.
 
 ## Sources
 
@@ -26,8 +27,10 @@ A source comes back as `{id, kind, path, processed_path, attached_at, status, pr
 `status` is `ok` or `invalid` with `problems` listing what breaks the format (empty when ok), checked at each request.
 `counts` holds `sessions`, `epochs`, `runs`, `frames` (a transformed source), `blocks` (once the processor ran) and
 `reviews`. `manifests` holds `transformed` and `processed`, each null or `{timestamp, modified}`, the run timestamp of the
-manifest and when the newest file in the folder was written. Attaching the same path again returns the entry already
-recorded. A source that breaks the format is refused with 400 and every problem named.
+manifest and when the newest file in the folder was written. Attaching the same path again with the same kind and
+processed folder returns the entry already recorded. With another kind or processed folder it is refused with 409,
+`{"error"}` naming the pairing the source has, and detaching it first is the way to change it. A source that breaks the
+format is refused with 400 and every problem named.
 
 ## Sessions, transformed sources only
 
@@ -41,7 +44,7 @@ file), then `reviewed`, `reviewed_at`, `reviewed_by`, `n_confirmed`, `confirmed_
 Dataset sessions come first, then unreviewed ones, then the oldest review first.
 
 A session is two requests. The header is json: `session_id, subject_id, date, protocol, group, rate_hz, max_gap,
-n_frames`, `epochs`, `block_epochs` (the epoch kinds the processor cuts into blocks), `runs`, `cuts` (`pauses` and `jumps` as frame numbers, `gaps` and `margins` as [first, last]
+n_frames`, `epochs`, `block_epochs` (the epochs the processor cuts into blocks), `runs`, `cuts` (`pauses` and `jumps` as frame numbers, `gaps` and `margins` as [first, last]
 pairs), `heading_lost`, `heading_filled`, `heading_held` (lists of [first, last] lab frames), `led_offset` (`rad`, `r`),
 `occupancy` (`bins`, the `x` and `y` extent and, by epoch name, the counts row by row from the lowest y, bins squared
 values) and `blocks`, the automatic blocks. The arrays are an Arrow IPC stream (`application/vnd.apache.arrow.stream`),
@@ -60,14 +63,17 @@ An edit is `{"op", ...}`. The ops and their fields are `accept`, `confirm {frame
 listed in `GET /api/format`. The server replays them on the automatic blocks with the processor's rules, so an edit that
 no longer applies is skipped. An edit anchored at a frame (`confirm`, `move`, `split`, `drop`) reaches the block
 holding it, a block that is not removed before one that is, so a new block over a removed one is the one reached, and
-the removed one only by a frame the new block leaves out. The blocks come in frame order, two that start on one frame in
-the order they were made, which is how the old tool numbers them. PUT writes `review/<session_id>.json` whole under the
+the removed one only by a frame the new block leaves out. A removed block does not come back over a block that is kept:
+a `drop`, `move`, `split` or `cut` that would bring it back while a kept block overlaps it is skipped, so a saved review
+never holds two kept blocks that share a frame. The blocks come in frame order, two that start on one frame in the order
+they were made, which is how the old tool numbers them. PUT writes `review/<session_id>.json` whole under the
 processed folder and answers `{"review": <the file's content>, "path", "overwrote": bool}`. It is refused with 400 while
 a block is still auto.
 POST answers `{"blocks", "cuts", "flagged_runs", "skipped"}` and writes nothing: the blocks the edits make (with the
-review file's block keys), the ranges cut, the runs flagged and the edits skipped, each with a `reason` (the processor's
-refusal of a new block, else that no block holds the frame it anchors to). It is the way a client shows the result of an
-edit, or the skipped count of a saved review, without reimplementing the rules.
+review file's block keys), the ranges cut, the runs flagged and the edits skipped, each with a `reason`: that no block
+holds the frame it anchors to, the processor's refusal of a new block (it crosses a cut, lasts under the minimum or
+overlaps a kept block), or that a removed block cannot come back over a kept one. It is the way a client shows the result
+of an edit, or the skipped count of a saved review, without reimplementing the rules.
 
 ## Blocks, any source with a built processed dataset
 
@@ -89,8 +95,8 @@ first, burn_in_stop, window_stop, stop, position_finite, heading_measured, trips
 into the block's arrays with the stops exclusive, `stop` the end of the window plus its horizon, the checks taken over
 that whole range, `ok` when the position is finite throughout and the measured heading share reaches the minimum.
 `trips_complete` counts the trips whose outbound start and return end both lie inside that range and `trips_partial` the
-other trips touching it, cut by the range or by the block. These checks are the tool's own and only for the Windows page:
-the verdicts, the totals and the settings file come from the project's window functions. The arrays are an Arrow
+other trips touching it, cut by the range or by the block. The rows come from `axis_of_travel_rnn.windows.window_rows`,
+like the verdicts, the totals and the settings file. The arrays are an Arrow
 stream, one row per frame: `frame` (lab frame number), `t` s, `x` and `y` m, `heading` rad, `speed` m/s, `n_lights`.
 
 ## Window settings
@@ -108,3 +114,15 @@ the file whole with the processed manifest of source `sid` and the totals over i
 
 The contract: for `transformed` and `processed` the files with their columns (name, type, `required` when the tool reads
 it), for `review` the keys, block keys, statuses and edit fields, and the default `window_settings`.
+
+## Differences from the old tool
+
+`src/ratreplay` still runs and reads and writes the same review files and settings file. The backend no longer imports
+it: the edit rules are copied into `ratreplay_api/engines/edits.py`. `tests/test_parity.py` runs the same edits through
+both and finds the same review files, session facts and arrays, except for these two, which it documents:
+
+- An edit anchored at a frame where a new block lies over a removed one reaches the new block here, and the removed one
+  in the old tool, where the removed block comes first in its list.
+- A removed block does not come back over a kept one. The old tool accepts the `drop`, `move`, `split` or `cut` that does
+  it and saves two kept blocks over the same frames, which the processor then fails both of on its `one_block` check.
+  Here the edit is skipped with the reason named, in a preview and in a saved review.

@@ -2,8 +2,10 @@
 A session's review: the file saved for it, and the blocks a list of edits makes.
 """
 
+import getpass
 from pathlib import Path
 
+from .. import clock
 from ..engines import edits
 from ..errors import Invalid
 from ..stores import review as review_files
@@ -38,8 +40,8 @@ def save(source, session_id, edit_list, notes):
     """
     Apply the edits to the automatic blocks and write the review whole, replacing the earlier one. Refused while a block is still auto. Returns the saved review, the file and whether it replaced one.
     """
-    saved = edits.review_of(context(source, session_id), edit_list, notes,
-                            transformed.manifest(Path(source["path"]))["run"]["timestamp"])
+    stamp = transformed.manifest(Path(source["path"]))["run"]["timestamp"]
+    saved = edits.review_of(context(source, session_id), edit_list, notes, stamp, getpass.getuser(), clock.iso_now())
     if any(block["status"] == "auto" for block in saved["blocks"]):
         raise Invalid(STILL_AUTO)
     path, replaced = review_files.write(Path(source["processed_path"]), saved)
