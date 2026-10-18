@@ -10,20 +10,20 @@ export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent font-medium text-page en
 export const BUTTON_ICON = "rounded-md border border-ink/30 bg-ink/5 p-1.5 text-ink enabled:hover:bg-ink/15 disabled:cursor-not-allowed disabled:opacity-40";
 export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabled:hover:bg-bad/10`;
 
-// Buttons of one group as one block, such as the zoom controls: SEGMENTS holds the SEGMENT buttons divided by lines, and
-// the primary action of a group is a SEGMENT_PRIMARY in the accent. GROUP_LABEL names a group beside its block, small
-// muted capitals with room between the letters so it reads as a label and not as a button.
-export const SEGMENTS = "inline-flex shrink-0 divide-x divide-ink/25 overflow-hidden rounded-md border border-ink/35 bg-ink/10";
-const SEGMENT_BASE = "px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40";
-export const SEGMENT = `${SEGMENT_BASE} text-ink enabled:hover:bg-ink/15`;
-export const SEGMENT_PRIMARY = `${SEGMENT_BASE} bg-accent font-medium text-page enabled:hover:opacity-90 ${PRIMARY_DISABLED}`;
+// Buttons of one group as one block, such as the zoom controls: SEGMENTS holds the SEGMENT buttons divided by the line colour,
+// every segment a neutral fill with the ink as its text and a shade lighter or darker under the pointer. The primary action
+// of a group is a SEGMENT_PRIMARY, which takes the accent only while it is enabled. A disabled segment is muted and says
+// why in its title. GROUP_LABEL names a group beside its block, small muted capitals with room between the letters so it
+// reads as a label and not as a button.
+export const SEGMENTS = "inline-flex shrink-0 divide-x divide-line overflow-hidden rounded-md border border-line";
+const SEGMENT_BASE = "bg-page px-2.5 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:text-ink/40";
+export const SEGMENT = `${SEGMENT_BASE} enabled:hover:bg-ink/15`;
+export const SEGMENT_PRIMARY = `${SEGMENT_BASE} enabled:bg-accent enabled:font-medium enabled:text-white enabled:hover:brightness-110`;
 export const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted";
 
-// A layer toggle of the timeline as one pill holding its checkbox, colour dot and label, so the three read as one unit.
-// A pill that is off dims its text, a pill that is on has a fill. Put a gap of a few pixels between pills.
-export const LAYER_TOGGLE =
-  "inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-ink/30 px-2.5 py-1 text-xs " +
-  "hover:bg-ink/10 has-checked:border-ink/45 has-checked:bg-ink/10 has-[:not(:checked)]:text-muted";
+// A layer toggle of the timeline as one plain box holding its checkbox, its word and the colour dot after the word, with
+// the line colour as its border. Put the same gap between boxes.
+export const LAYER_TOGGLE = "inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2.5 py-1 text-xs hover:bg-ink/10";
 
 const CHIP = "rounded-full border px-2 py-0.5 text-xs";
 export const CHIP_MUTED = `${CHIP} border-line text-muted`;

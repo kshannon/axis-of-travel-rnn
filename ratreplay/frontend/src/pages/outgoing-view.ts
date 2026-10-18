@@ -81,8 +81,14 @@ export interface OutRow {
   compare: SettingRow[];
 }
 
+/** The built sessions with `failed` taken as none and `excluded` as false where an API older than the page leaves them out, so the table is incomplete and not broken. */
+function normalised(built: Readiness["built"]): Readiness["built"] {
+  return Object.fromEntries(Object.entries(built).map(([sid, build]) => [sid, { ...build, failed: build.failed ?? [], excluded: build.excluded ?? false }]));
+}
+
 /** Every built session with its blocks, then each reviewed session that is not built with why, in session order. The sessions the readiness answer has and the index's excluded flag come together here. */
-export function outRows({ blocks, built, settings }: Readiness, sessions: SessionRow[]): OutRow[] {
+export function outRows({ blocks, built: reported, settings }: Readiness, sessions: SessionRow[]): OutRow[] {
+  const built = normalised(reported);
   const index = new Map(sessions.map((row) => [row.session_id, row]));
   const counts = new Map<string, number>();
   for (const { session_id } of blocks) counts.set(session_id, (counts.get(session_id) ?? 0) + 1);

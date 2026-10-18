@@ -13,6 +13,10 @@ function queue(): ToastQueue {
 export const toast = {
   success: (text: string, path = "") => queue().push("success", text, path),
   warning: (text: string, path = "") => queue().push("warning", text, path),
+  /** A warning that is not added again while an identical one is still on the stack. */
+  warningOnce: (text: string) => {
+    if (!queue().problems.some((held) => held.text === text)) queue().push("warning", text);
+  },
   error: (text: string) => queue().push("error", text),
 };
 

@@ -17,12 +17,14 @@ const TIMELINE_HELP = `
 
 const judgedBody = `
   <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-    <label class="flex items-center gap-2 text-xs text-muted">
-      <span>dataset</span>
-      <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT} w-28">
-        <template x-for="choice in choices" :key="choice"><option :value="choice" :selected="choice === which" x-text="choice"></option></template>
-      </select>
-    </label>
+    <template x-if="choices.length > 1">
+      <label class="flex items-center gap-2 text-xs text-muted">
+        <span>dataset</span>
+        <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT} w-28">
+          <template x-for="choice in choices" :key="choice"><option :value="choice" :selected="choice === which" x-text="choice"></option></template>
+        </select>
+      </label>
+    </template>
     <p data-testid="judged" class="text-sm" x-text="judgedLine"></p>
     <a href="#/settings" class="text-sm text-accent underline">Change on the Settings page</a>
   </div>`;

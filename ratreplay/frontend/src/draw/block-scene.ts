@@ -77,6 +77,6 @@ function frameLayers(header: BlockHeader, speed: Float64Array, speedTop: number)
 export function blockScene(header: BlockHeader, windows: BlockWindow[], settings: WindowSettings, speed: Float64Array, speedTop: number): Scene {
   return {
     lanes: BLOCK_LANES, rateHz: header.rate_hz, nFrames: header.row.n_frames,
-    bars: [...runBars(header), ...tripBars(header), ...windowBars(windows, settings)], frames: frameLayers(header, speed, speedTop),
+    bars: [...runBars(header), ...tripBars(header), ...windowBars(windows, settings)], frames: frameLayers(header, speed, speedTop), breaks: [],
   };
 }

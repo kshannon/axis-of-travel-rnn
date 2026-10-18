@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
-import { errorText, getFormat, getSelected, listBlocks, selectSettings } from "../api/client";
+import { errorText, getFormat, getSelected, listBlocks, selectSettings, staleApi } from "../api/client";
 import type { WindowSettings } from "../api/types";
-import { healthStore } from "../state/health";
+import { healthStore, warnStale } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { toast } from "../ui/toast";
 import type { Page } from "./page";
@@ -40,8 +40,10 @@ function registerSettings(): void {
       async init() {
         try {
           const [format, current, selected] = await Promise.all([getFormat(), settingsStore().load(), getSelected()]);
-          this.defaults = format.settings;
-          this.rules = ruleRows(format.rules);
+          // An API older than the page may lack the rules or the defaults: say to restart it and show what it gave.
+          if (staleApi(format)) warnStale();
+          this.defaults = format.settings ?? null;
+          this.rules = ruleRows(format.rules ?? {});
           this.draft = { ...current };
           this.triedLine = testedLine(current);
           this.selectedLine = selectedLine(selected.selected);

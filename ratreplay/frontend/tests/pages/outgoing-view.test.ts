@@ -78,6 +78,14 @@ test("every built session is a row with its blocks, failed blocks, exclusion and
   expect(rows[1].built_at).toBe("2026-10-18T10:00:00+00:00");
 });
 
+test("a built entry from an API older than the page, with no failed and no excluded, is a row with none failed and not excluded", () => {
+  const old = { ...readiness, built: { A: { settings: IN_USE, built_at: "2026-10-17T10:00:00+00:00" } as Readiness["built"][string] } };
+  const [row] = outRows(old, [session("A")]);
+  expect([row.failed, row.excluded]).toEqual([[], false]);
+  expect([COLUMNS.find((col) => col.key === "failed")!.text(row), rowNote(row), failedLines(row)]).toEqual(["0", "Every block was written.", []]);
+  expect(outRows(old, [session("A", { excluded: true })])[0].excluded).toBe(true);
+});
+
 test("a session built at other settings than the ones in use is marked and names the settings that differ, one built the same is not", () => {
   const [a, b] = outRows(readiness, []);
   expect([builtElsewhere(a), builtElsewhere(b)]).toEqual([true, false]);

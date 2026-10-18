@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { SessionHeader } from "../../src/api/types";
-import { LAYERS, layerMeanings } from "../../src/draw/layers";
+import { allLayers, LAYERS, layerMeanings } from "../../src/draw/layers";
 
 const header = {
   max_gap: 12,
@@ -10,7 +10,6 @@ const header = {
 test("every layer says what it means with the numbers of the session's own rules", () => {
   const meanings = layerMeanings(header, 0.85);
   expect(Object.keys(meanings)).toEqual(LAYERS.map((layer) => layer.key));
-  expect(meanings.pauses).toContain("0.1 s");
   expect(meanings.gaps).toContain("both lights");
   expect(meanings.gaps).toContain("up to 12 frames");
   expect(meanings.jumps).toContain("40 px");
@@ -25,7 +24,12 @@ test("every layer says what it means with the numbers of the session's own rules
 
 test("the layers are named by whose work they are", () => {
   expect(LAYERS.map((layer) => layer.label)).toEqual([
-    "recording paused", "tracking lost", "position jumped", "margins trimmed",
+    "tracking lost", "position jumped", "margins trimmed",
     "head dir missing", "head dir interpolated by RatReplay", "head dir held by RatReplay", "speed",
   ]);
+});
+
+test("a pause is not a layer, it is dead time drawn whatever the layers are", () => {
+  expect(LAYERS.map((layer) => layer.key)).not.toContain("pauses");
+  expect(Object.keys(allLayers())).toEqual(LAYERS.map((layer) => layer.key));
 });

@@ -16,7 +16,7 @@ import { clickHeader, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
 import { toast } from "../ui/toast";
 import { blocksRoot } from "./blocks-html";
-import { blockLine, COLUMNS, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, totalTiles, WHICH_CHOICES } from "./blocks-view";
+import { blockLine, COLUMNS, datasetName, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, totalTiles, WHICH_CHOICES } from "./blocks-view";
 import type { IndexRow, TotalTile } from "./blocks-view";
 import type { Page } from "./page";
 import { judgedLine } from "./settings-view";
@@ -118,7 +118,7 @@ function registerBlocks(): void {
         this.tried = index.settings;
         this.rows = indexRows(index);
         this.totals = totalTiles(index.totals);
-        this.judgedLine = judgedLine(index.settings);
+        this.judgedLine = judgedLine(index.settings, this.choices.length > 1 ? "" : datasetName(this.which));
         this.error = "";
         await BlockPlayer.holding()?.useSettings({ ...index.settings });
       },

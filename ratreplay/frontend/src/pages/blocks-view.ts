@@ -12,6 +12,9 @@ const SECONDS_PER_MINUTE = 60;
 export const REAL = "real";
 export const WHICH_CHOICES: readonly string[] = [REAL];
 
+/** What the judged line calls a dataset when there is no choice to show: the real one is the lab's blocks. */
+export const datasetName = (which: string): string => (which === REAL ? "real lab blocks" : which);
+
 export function verdictText(verdict: Verdict): string {
   return verdict.ok ? "ok" : `trouble, ${verdict.reasons.join(", ")}`;
 }

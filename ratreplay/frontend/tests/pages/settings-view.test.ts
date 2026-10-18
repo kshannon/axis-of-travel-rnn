@@ -23,6 +23,7 @@ test("the sentence under the fields spells out the settings, the line on the Blo
   expect(testedLine({ ...DEFAULTS, min_complete_trips: 2 })).toContain("at least 2 complete trips");
   expect(settingsLine(DEFAULTS)).toBe("40 s window, 10 s stride, 1 s burn-in, 0.5 s horizon, 20 Hz, min 80% heading measured, min 1 complete trip");
   expect(judgedLine(DEFAULTS)).toBe(`judged at: ${settingsLine(DEFAULTS)}`);
+  expect(judgedLine(DEFAULTS, "real lab blocks")).toBe(`judged at: real lab blocks, ${settingsLine(DEFAULTS)}`);
 });
 
 test("the selection line says none was selected, or when, by whom, the settings and what they gave", () => {

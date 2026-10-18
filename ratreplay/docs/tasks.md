@@ -163,3 +163,9 @@ anything that touches real data.
       cleanly in both themes, Reload moves to the card's top right as an icon button "Reload config
       file" so the rows align, and the note reads "If you update the config file, or change its location,
       you will need to reload it to view data". Kyle, 2026-10-18. [Page 1]
+- [x] K17 Replay visuals, second pass: the button groups readable in both themes, the layer toggles plain
+      light bordered boxes with the colour dot after the word, tracking lost a striped coloured bar, the
+      speed line lighter, the faint grid lines removed, "recording paused" gone as a toggle and pauses
+      drawn as dead time (a break in every lane, no span bridges a pause), and a failed session load
+      reported in the warning stack with the page left usable, never silently half disabled. Kyle,
+      2026-10-18. [Page 3]

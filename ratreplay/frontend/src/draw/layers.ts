@@ -1,6 +1,6 @@
 import type { SessionHeader } from "../api/types";
 
-export type LayerKey = "pauses" | "gaps" | "jumps" | "margins" | "lost" | "filled" | "held" | "speed";
+export type LayerKey = "gaps" | "jumps" | "margins" | "lost" | "filled" | "held" | "speed";
 export type Layers = Record<LayerKey, boolean>;
 
 /** What happened to the head direction of a frame, the words saying whose work it is. */
@@ -9,12 +9,12 @@ export const HEAD_DIR = { lost: "missing", filled: "interpolated by RatReplay", 
 /**
  * The layers of the frames lane that a checkbox toggles, each with the colour it is drawn in and its toggle dot shows. A
  * colour is a CSS variable of the theme, so the dot and the lane follow the theme: orange for what is wrong with the
- * tracking, amber for a pause, blue for what RatReplay filled in, grey for what the lab lost, the margins in silver on
- * the dark theme and black on the light. The words say whose work it is.
+ * tracking, blue for what RatReplay filled in, muted violet for the stripes of what the lab lost, the margins in silver on
+ * the dark theme and black on the light. The words say whose work it is. A pause is no layer, it is dead time and is
+ * always drawn as a break across every lane.
  */
 export const LAYERS: readonly { key: LayerKey; label: string; colour: string }[] = [
-  { key: "pauses", label: "recording paused", colour: "var(--warn)" },
-  { key: "gaps", label: "tracking lost", colour: "var(--neutral)" },
+  { key: "gaps", label: "tracking lost", colour: "var(--trip)" },
   { key: "jumps", label: "position jumped", colour: "var(--bad)" },
   { key: "margins", label: "margins trimmed", colour: "var(--margin)" },
   { key: "lost", label: `head dir ${HEAD_DIR.lost}`, colour: "var(--bad)" },
@@ -36,8 +36,7 @@ export function layerMeanings(header: Pick<SessionHeader, "rules" | "max_gap">, 
   const { rules, max_gap: maxGap } = header;
   const lights = rules.gap_lights === "both" ? "both lights" : "a light";
   return {
-    pauses: `time stepped over ${rules.pause_step_s} s, a tick at the top`,
-    gaps: `lights filled by the lab up to ${maxGap} frames, ${lights} lost for longer`,
+    gaps: `striped bar, lights filled by the lab up to ${maxGap} frames, ${lights} lost for longer`,
     jumps: `moved over ${rules.jump_px} px in one frame, a tick`,
     margins: `${rules.pause_margin_s} s trimmed beside a pause, jump or epoch bound`,
     lost: "no head direction measured or filled, bottom band",

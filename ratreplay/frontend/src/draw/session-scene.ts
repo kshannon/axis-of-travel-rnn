@@ -1,5 +1,5 @@
 import type { MadeBlock, ReviewBlock, SessionHeader, Span } from "../api/types";
-import { cutsOf } from "../session/cuts";
+import { cutsOf, splitAtPauses } from "../session/cuts";
 import { counted } from "../ui/text";
 import { colourOf } from "./layers";
 import type { LayerKey, Layers } from "./layers";
@@ -17,15 +17,14 @@ const OTHER_EPOCH_COLOUR = "neutral";
 const BLOCK_FILLS: Record<ReviewBlock["status"], string> = { auto: "accent", confirmed: "ok", edited: "warn", dropped: "muted" };
 
 // How strong the bars are drawn, and in the frames lane the band of the heading layers at the bottom (a fraction of the
-// lane) and the length of a pause tick from the top. A margin is a band over the cut it trims, light on the dark theme
-// and dark on the light, fainter than the bars so the cut shows through.
+// lane). A margin is a band over the cut it trims, light on the dark theme and dark on the light, fainter than the bars so
+// the cut shows through. The lost tracking is a striped bar, its fill under the stripes this faint.
 const BAR_ALPHA = 0.8;
 const AUTO_ALPHA = 0.45;
 const DROPPED_ALPHA = 0.35;
-const GAP_ALPHA = 0.5;
+const GAP_ALPHA = 0.3;
 const MARGIN_ALPHA = 0.45;
 const HEADING_BAND = 0.14;
-const PAUSE_TICK = 0.3;
 const SECONDS_PER_MINUTE = 60;
 
 export const blockName = (position: number): string => `block ${position + 1}`;
@@ -66,18 +65,21 @@ function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
   }));
 }
 
-/** The frames lane: the gaps and margins behind, the heading bands, the speed trace, then the jumps and pauses in front, each for the layers that are on. */
+/**
+ * The frames lane: the lost tracking and margins behind, the heading bands, the speed trace, then the jumps in front, each for the
+ * layers that are on. A span is in frames and a pause is between two frames, so every span is cut at the pauses before it is drawn.
+ */
 function frameLayers(header: SessionHeader, layers: Layers, speed: Float64Array, speedTop: number): FrameLayer[] {
-  const span = (spans: Span[], key: LayerKey, from: number, alpha = 1): FrameLayer[] =>
-    layers[key] ? [{ kind: "span", spans, colour: colourOf(key), alpha, from, to: 1 }] : [];
-  const tick = (frames: number[], key: LayerKey, to: number): FrameLayer[] => (layers[key] ? [{ kind: "tick", frames, colour: colourOf(key), to }] : []);
   const { gaps, margins, jumps, pauses } = cutsOf(header);
+  const span = (spans: Span[], key: LayerKey, from: number, alpha = 1, hatched = false): FrameLayer[] =>
+    layers[key] ? [{ kind: "span", spans: splitAtPauses(spans, pauses), colour: colourOf(key), alpha, from, to: 1, hatched }] : [];
+  const tick = (frames: number[], key: LayerKey, to: number): FrameLayer[] => (layers[key] ? [{ kind: "tick", frames, colour: colourOf(key), to }] : []);
   const { lost, filled, held } = header.heading_spans;
   return [
-    ...span(gaps, "gaps", 0, GAP_ALPHA), ...span(margins, "margins", 0, MARGIN_ALPHA),
+    ...span(gaps, "gaps", 0, GAP_ALPHA, true), ...span(margins, "margins", 0, MARGIN_ALPHA),
     ...span(filled, "filled", 1 - HEADING_BAND), ...span(held, "held", 1 - HEADING_BAND), ...span(lost, "lost", 1 - HEADING_BAND),
     ...(layers.speed ? [{ kind: "trace" as const, values: speed, top: speedTop }] : []),
-    ...tick(jumps, "jumps", 1), ...tick(pauses, "pauses", PAUSE_TICK),
+    ...tick(jumps, "jumps", 1),
   ];
 }
 
@@ -88,6 +90,6 @@ export function sessionScene(
   return {
     lanes: SESSION_LANES, rateHz: header.rate_hz, nFrames: header.n_frames,
     bars: [...epochBars(header), ...runBars(header, new Set(flaggedRuns)), ...blockBars(blocks, header.rate_hz)],
-    frames: frameLayers(header, layers, speed, speedTop),
+    frames: frameLayers(header, layers, speed, speedTop), breaks: [...cutsOf(header).pauses].sort((a, b) => a - b),
   };
 }

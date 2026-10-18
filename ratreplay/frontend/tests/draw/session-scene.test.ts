@@ -43,6 +43,33 @@ test("the margins are a theme colour drawn fainter than the bars, so the cut und
   expect((margins as { alpha: number }).alpha).toBeLessThan(0.8);
 });
 
+test("a pause is not a toggle, it is a break the scene always carries, and no layer has a tick for it", () => {
+  const off = Object.fromEntries(Object.keys(allLayers()).map((key) => [key, false])) as ReturnType<typeof allLayers>;
+  expect(scene([], [], off).breaks).toEqual([2701]);
+  expect(scene([]).frames.filter((layer) => layer.kind === "tick")).toHaveLength(1); // the jumps alone
+});
+
+test("no span of the frames lane runs across a pause: the lost heading, the lost tracking and the margins are split where one falls inside", () => {
+  const crossing = {
+    ...header,
+    heading_spans: { lost: [[2600, 2800]], filled: [[100, 129]], held: [[2701, 2900]] },
+    cut_points: [...header.cut_points, { frame: 2650, frame_end: 2750, reason: "gap" }], margins: [[2690, 2710]],
+  } as unknown as SessionHeader;
+  const layers = sessionScene(crossing, [], [], allLayers(), speed, 1).frames.filter((layer) => layer.kind === "span");
+  const spans = layers.flatMap((layer) => (layer as { spans: [number, number][] }).spans);
+  expect(spans.filter(([first, last]) => first < 2701 && last >= 2701)).toEqual([]);
+  expect(spans).toContainEqual([2600, 2700]);
+  expect(spans).toContainEqual([2701, 2800]);
+  expect(spans).toContainEqual([2701, 2750]); // the margins trimmed beside the pause still draw on their own frames
+  expect(spans).toContainEqual([2690, 2700]);
+});
+
+test("the lost tracking is a striped span in the muted violet, and no other layer is striped", () => {
+  const gaps = scene([]).frames.find((layer) => layer.kind === "span" && layer.hatched);
+  expect(gaps).toMatchObject({ colour: "var(--trip)", spans: [[10, 20]] });
+  expect(scene([]).frames.filter((layer) => layer.kind === "span" && layer.hatched)).toHaveLength(1);
+});
+
 test("epochs and runs can be picked by their place in the header, as the blocks are by their place in time", () => {
   const bars = scene([block(1, 100, "confirmed")]).bars;
   expect(bars.filter((bar) => bar.lane === "session").map((bar) => bar.pick)).toEqual([0]);

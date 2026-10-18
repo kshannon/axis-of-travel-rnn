@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { errorText, listSessions } from "../api/client";
+import { errorText, listSessions, StaleApiError } from "../api/client";
 import type { MadeBlock } from "../api/types";
 import { allLayers, LAYERS, layerMeanings } from "../draw/layers";
 import type { LayerKey } from "../draw/layers";
@@ -15,7 +15,7 @@ import { editFor, label, reselected } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { Workspace } from "../session/workspace";
-import { healthStore } from "../state/health";
+import { healthStore, warnStale } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { card } from "../ui/card";
 import type { Command } from "../ui/keys";
@@ -59,7 +59,6 @@ function registerReplay(): void {
     return {
       loading: true,
       busy: false,
-      error: "",
       sessionId: "",
       facts: "",
       status: { state: { text: "", chip: "", title: "" }, flags: [] } as Status,
@@ -129,40 +128,50 @@ function registerReplay(): void {
         map?.destroy();
       },
 
-      /** Open a session in the views, its unsaved edits still there when it is the one already open. */
-      async load(sessionId: string) {
+      /**
+       * Open a session in the views, its unsaved edits still there when it is the one already open. Gives back whether it opened. When it
+       * does not, the reason goes to the warning stack and the console, and the page falls back to its empty state with the link to choose a session.
+       */
+      async load(sessionId: string): Promise<boolean> {
         this.loading = true;
         this.sessionId = sessionId;
-        this.error = "";
         try {
           ws = await Workspace.open(sessionId, { ...(await settingsStore().load()) });
+          if (!alive) return false;
+          if (!ws.header.rules) throw new StaleApiError();
+          const { header, arrays } = ws;
+          selected = null;
+          picked = null;
+          timeline.load(this.scene());
+          for (const kind of header.selected_epochs) mapLayers.kinds[kind] ??= true;
+          occupancy = new OccupancyBackdrop(header);
+          occupancy.choice = mapLayers;
+          map.trail = mapLayers.trail;
+          map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
+          this.sessionId = header.session_id;
+          this.facts = factsLine(header);
+          this.inDataset = header.in_dataset;
+          this.excluded = ws.excluded;
+          this.reason = header.reason ?? "";
+          this.notes = ws.saved?.notes ?? "";
+          this.epochKinds = header.selected_epochs;
+          this.meanings = layerMeanings(header, ws.speedTop);
+          this.speedIndex = (SPEEDS as readonly number[]).indexOf(ws.clock.speed);
+          this.loading = false; // before the counts are read again, which wait for it
+          this.sync();
+          this.show();
+          await this.settingsChanged(); // a change made while the session was loading
+          return true;
         } catch (error) {
-          this.error = errorText(error);
-          return;
+          console.error(`Could not open ${sessionId}`, error);
+          if (error instanceof StaleApiError) warnStale();
+          else toast.error(`Could not open ${sessionId}: ${errorText(error)}`);
+          if (!Workspace.current?.editor.dirty) Workspace.current = null; // read again next time, unless unsaved edits are in it
+          healthStore().closeSession(); // the page shows its empty state and the way to choose a session
+          return false;
+        } finally {
+          this.loading = false;
         }
-        if (!alive) return;
-        const { header, arrays } = ws;
-        selected = null;
-        picked = null;
-        timeline.load(this.scene());
-        for (const kind of header.selected_epochs) mapLayers.kinds[kind] ??= true;
-        occupancy = new OccupancyBackdrop(header);
-        occupancy.choice = mapLayers;
-        map.trail = mapLayers.trail;
-        map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
-        this.sessionId = header.session_id;
-        this.facts = factsLine(header);
-        this.inDataset = header.in_dataset;
-        this.excluded = ws.excluded;
-        this.reason = header.reason ?? "";
-        this.notes = ws.saved?.notes ?? "";
-        this.epochKinds = header.selected_epochs;
-        this.meanings = layerMeanings(header, ws.speedTop);
-        this.speedIndex = (SPEEDS as readonly number[]).indexOf(ws.clock.speed);
-        this.loading = false;
-        this.sync();
-        this.show();
-        await this.settingsChanged(); // a change made while the session was loading
       },
 
       /** The timeline's bars and layers for the blocks as they stand, the flagged runs and the layers that are on. */
@@ -170,7 +179,7 @@ function registerReplay(): void {
         return sessionScene(ws.header, ws.preview.blocks, ws.preview.flagged_runs, this.layers, ws.arrays.speed, ws.speedTop);
       },
       clock() {
-        return this.loading ? null : ws.clock;
+        return this.loading ? null : (ws?.clock ?? null);
       },
       runStarts() {
         return ws.header.runs.map((r) => r.frame_start);
@@ -398,8 +407,7 @@ function registerReplay(): void {
           return;
         }
         healthStore().openSession(next.session_id);
-        await this.load(next.session_id);
-        toast.success(`Opened the next session to review, ${next.session_id}`);
+        if (await this.load(next.session_id)) toast.success(`Opened the next session to review, ${next.session_id}`);
       },
     };
   });

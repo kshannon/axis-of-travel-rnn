@@ -14,16 +14,15 @@ export function folderStatus(folder: Folder, held: number | undefined): Status {
   return folder.root && folder.exists && !held ? "nothing yet" : "ok";
 }
 
-// What each state looks like: its word and its solid dot in its colour, and the left edge of the card that owns it. A
-// state the page does not name reads as nothing yet.
-const STATES: Record<Status, { text: string; dot: string; edge: string }> = {
-  ok: { text: "text-ok", dot: "bg-ok", edge: "border-l-4 border-l-ok" },
-  problem: { text: "text-bad", dot: "bg-bad", edge: "border-l-4 border-l-bad" },
-  "nothing yet": { text: "text-muted", dot: "bg-muted", edge: "border-l-4 border-l-muted" },
+// What each state looks like: its word and its solid dot in its colour. A state the page does not name reads as nothing yet.
+const STATES: Record<Status, { text: string; dot: string }> = {
+  ok: { text: "text-ok", dot: "bg-ok" },
+  problem: { text: "text-bad", dot: "bg-bad" },
+  "nothing yet": { text: "text-muted", dot: "bg-muted" },
 };
 
 /** An Alpine expression that gives the classes of one part of the state, `status` being an Alpine expression that gives a state. */
-function classesOf(status: string, part: "text" | "dot" | "edge"): string {
+function classesOf(status: string, part: "text" | "dot"): string {
   const cases = Object.entries(STATES).map(([state, classes]) => `'${state}': '${classes[part]}'`);
   return `({ ${cases.join(", ")} })[${status}] ?? '${STATES["nothing yet"][part]}'`;
 }
@@ -35,9 +34,4 @@ export function statusMark(status: string): string {
       <span class="size-3 shrink-0 rounded-full" :class="${classesOf(status, "dot")}"></span>
       <span x-text="${status}"></span>
     </span>`;
-}
-
-/** The Alpine expression for the class of the card that owns the state: a left edge in the colour of the mark. A card puts it in its `:class`. */
-export function statusEdge(status: string): string {
-  return classesOf(status, "edge");
 }

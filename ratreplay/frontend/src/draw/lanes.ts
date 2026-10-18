@@ -69,17 +69,21 @@ export interface Bar {
 
 /** What the frames lane draws, in order. Spans and ticks are over lab frames from 1, `from` and `to` are fractions of the lane's height from its top. A colour is a palette name, `var(--name)` of one, or a CSS colour. */
 export type FrameLayer =
-  | { kind: "span"; spans: Span[]; colour: string; alpha: number; from: number; to: number }
+  | { kind: "span"; spans: Span[]; colour: string; alpha: number; from: number; to: number; hatched?: boolean }
   | { kind: "tick"; frames: number[]; colour: string; to: number }
   | { kind: "trace"; values: Float64Array; top: number };
 
-/** Everything a timeline draws: its lanes, the bars and the frames lane's layers over a recording of `nFrames` at `rateHz`. */
+/**
+ * Everything a timeline draws: its lanes, the bars and the frames lane's layers over a recording of `nFrames` at `rateHz`. `breaks`
+ * are the pauses, the first lab frame after each, in order: dead time between two frames, drawn as a gap across every lane.
+ */
 export interface Scene {
   lanes: readonly LaneSpec[];
   rateHz: number;
   nFrames: number;
   bars: Bar[];
   frames: FrameLayer[];
+  breaks: number[];
 }
 
 /** The lane the frame layers are drawn in. */

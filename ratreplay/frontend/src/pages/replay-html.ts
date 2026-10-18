@@ -9,7 +9,7 @@ const MAP_HELP = `
   <p class="mt-2">The trail is the last 2 s of the path coloured by speed in m/s. The red dot is the cursor's position and the red arrow the head direction after the fill and the LED offset. The thin line is the path of what is selected on the timeline. Positions outside the room are drawn outside the outline, where a registration problem shows, and are counted in the Session card.</p>`;
 
 const TIMELINE_HELP = `
-  <p>One time axis in minutes of recording, a pause is a mark and not a stretch. The purple line is the cursor, the frame the playback is at. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a checkbox in the row under the lanes, hover one for what it means. Blocks: the blocks as they stand after the edits, coloured by status, a hover tells their windows and verdict.</p>
+  <p>One time axis in minutes of recording. A pause in the recording is dead time between two frames, so it is a gap across every lane, with no time in it, and nothing is drawn across it. The purple line is the cursor, the frame the playback is at. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a checkbox in the row under the lanes with its colour after the word, hover one for what it means. Tracking lost is the striped violet bar. Blocks: the blocks as they stand after the edits, coloured by status, a hover tells their windows and verdict.</p>
   <p class="mt-2">A block is cut at every pause, jump, gap and epoch bound, a margin is trimmed beside each cut and a piece that is too short is dropped. The cuts, margins and fills are the engine's, the same call that builds the blocks, so a confirmed block is the block it builds.</p>
   <p class="mt-2">Click an epoch, a run, a block or a frame of the frames lane to select it, and click it again or press escape to let go. Click empty space in a lane to move the cursor. The wheel zooms and a drag pans. The buttons above the lanes act on the cursor, the marks and the selected block.</p>`;
 
@@ -36,7 +36,6 @@ const sessionBody = `
     <ul data-testid="notices" x-show="notices.length" class="max-h-12 space-y-0.5 overflow-auto text-xs">
       <template x-for="notice in notices"><li :class="notice.tone" x-text="notice.text"></li></template>
     </ul>
-    <p x-show="error" x-text="error" role="alert" class="text-xs text-bad"></p>
   </div>`;
 
 const summaryBody = `
@@ -155,7 +154,7 @@ const layerRow = `
     <template x-for="layer in layerList" :key="layer.key">
       <label class="${LAYER_TOGGLE}" :title="meanings[layer.key]">
         <input type="checkbox" :checked="layers[layer.key]" @change="toggleLayer(layer.key)" class="accent-accent" />
-        <span class="size-2.5 shrink-0 rounded-full" :style="{ background: layer.colour }"></span><span x-text="layer.label"></span>
+        <span x-text="layer.label"></span><span class="size-2.5 shrink-0 rounded-full" :style="{ background: layer.colour }"></span>
       </label>
     </template>
   </div>`;

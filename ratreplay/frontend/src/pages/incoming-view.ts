@@ -11,7 +11,6 @@ import { formatStamp, stampWithSince } from "../ui/time";
 
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
-const NOTES_EXCERPT = 60;
 const LISTED = 6;
 const NOT_SET = "not set";
 const TRANSFORMED_FORMAT = "Transformed folder";
@@ -65,8 +64,6 @@ export function minutesOf(row: SessionRow): number {
   return row.epochs.reduce((total, epoch) => total + epoch.duration_s, 0) / SECONDS_PER_MINUTE;
 }
 
-const excerpt = (notes: string) => (notes.length > NOTES_EXCERPT ? `${notes.slice(0, NOTES_EXCERPT)}...` : notes);
-
 export const COLUMNS: readonly Column<SessionRow>[] = [
   { key: "rat", label: "Rat", value: (r) => r.subject_id, text: (r) => r.subject_id },
   { key: "date", label: "Date", value: (r) => r.date, text: (r) => r.date },
@@ -79,7 +76,7 @@ export const COLUMNS: readonly Column<SessionRow>[] = [
   { key: "built", label: "Built blocks", value: (r) => r.built, text: (r) => String(r.built), numeric: true },
   { key: "by", label: "Reviewed by", value: (r) => r.reviewed_by, text: (r) => r.reviewed_by ?? "" },
   { key: "at", label: "Reviewed", value: (r) => r.reviewed_at, text: (r) => stampWithSince(r.reviewed_at) },
-  { key: "notes", label: "Notes", value: (r) => r.notes || null, text: (r) => excerpt(r.notes) },
+  { key: "notes", label: "Has notes", value: (r) => Number(r.notes.trim() !== ""), text: (r) => (r.notes.trim() ? "yes" : "") },
 ];
 
 /** The rows whose session id or rat contains the text. */

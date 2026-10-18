@@ -42,6 +42,14 @@ test("the Excluded column says yes for a session you excluded and nothing for th
   expect([kept, left].map(column.value)).toEqual([0, 1]);
 });
 
+test("the Has notes column says yes for a session with notes, exclusion notes included, and nothing for the others, and sorts on it", () => {
+  const column = COLUMNS.find((c) => c.key === "notes")!;
+  expect(column.label).toBe("Has notes");
+  const [none, blank, noted] = [row("A"), row("B", { notes: "  \n" }), row("C", { notes: "camera moved\nbad light" })];
+  expect([none, blank, noted].map(column.text)).toEqual(["", "", "yes"]);
+  expect([none, blank, noted].map(column.value)).toEqual([0, 0, 1]);
+});
+
 test("the review text says who reviewed and when, who excluded and when, and a session only excluded was not reviewed", () => {
   const reviewed = { reviewed: true, reviewed_by: "kyle", reviewed_at: "2026-10-16T12:00:00+00:00", n_confirmed: 2, confirmed_s: { track: 600 } };
   const excluded = { excluded: true, excluded_by: "yuki", excluded_at: "2026-10-17T12:00:00+00:00" };

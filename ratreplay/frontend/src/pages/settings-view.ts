@@ -59,9 +59,9 @@ export function settingsLine(s: WindowSettings): string {
     `min ${percent(s.min_heading_measured)} heading measured, min ${counted(s.min_complete_trips, "complete trip")}`;
 }
 
-/** The line on the Blocks page saying which settings the verdicts are judged at. */
-export function judgedLine(s: WindowSettings): string {
-  return `judged at: ${settingsLine(s)}`;
+/** The line on the Blocks page saying which settings the verdicts are judged at, with the dataset's name first when there is one. */
+export function judgedLine(s: WindowSettings, dataset = ""): string {
+  return `judged at: ${dataset ? `${dataset}, ` : ""}${settingsLine(s)}`;
 }
 
 /** The sentence under the fields saying what the verdicts are tested at. */

@@ -12,11 +12,29 @@ const WINDOWS = "/api/windows";
 const REAL = "real";
 const UNREACHABLE = "Cannot reach the API, is it running?";
 
+// The version of the format contract this page is built for, and the keys of `/api/format` its pages cannot do without. An API
+// that answers another version, or without a key, is not the one this page was built with.
+export const FORMAT_VERSION = 1;
+const NEEDED_KEYS = ["settings", "rules"] as const;
+export const STALE_API = "The API is older than this page, restart it (pixi run ratreplay-api)";
+
 /** A request the API refused, or could not be made (status 0): the status and the text of its {"error"} body. */
 export class ApiError extends Error {
   constructor(readonly status: number, readonly error: string) {
     super(error);
   }
+}
+
+/** Thrown where a page meets an answer from an API older than itself, so the page can say to restart it and not fail on a missing key. */
+export class StaleApiError extends Error {
+  constructor() {
+    super(STALE_API);
+  }
+}
+
+/** Whether the answer of `/api/format` is not the contract this page expects: another version, or a key the pages need is missing. */
+export function staleApi(format: Partial<FormatContract>): boolean {
+  return format.version !== FORMAT_VERSION || NEEDED_KEYS.some((key) => format[key] === undefined);
 }
 
 /** What to tell the person about a failed call. */

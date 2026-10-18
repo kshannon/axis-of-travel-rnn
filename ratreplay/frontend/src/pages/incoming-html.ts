@@ -1,6 +1,6 @@
 import { card, foldedCard } from "../ui/card";
 import { factsList } from "../ui/facts";
-import { statusEdge, statusMark } from "../ui/status";
+import { statusMark } from "../ui/status";
 import { BUTTON, BUTTON_DANGER, BUTTON_ICON, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
 import { ANNOTATED_NOTE } from "./exclusion-view";
@@ -81,7 +81,7 @@ const details = `
         </ul>
         <p x-show="detailsError" x-text="detailsError" class="text-bad"></p>
       </div>
-      <div class="flex flex-col gap-3">
+      <div class="flex min-w-0 flex-col gap-3">
         <div>
           <h3 class="mb-1 font-medium">Blocks</h3>
           <p x-show="!header && !detailsError" class="text-muted">Loading</p>
@@ -95,8 +95,11 @@ const details = `
         <div>
           <h3 class="mb-1 font-medium">Review</h3>
           <p x-text="reviewOf(row)"></p>
-          <p x-show="row.notes" class="mt-1 whitespace-pre-wrap text-muted" x-text="row.notes"></p>
           <p x-show="row.annotated_exclude" class="mt-1 text-muted">${ANNOTATED_NOTE}</p>
+        </div>
+        <div x-show="row.notes">
+          <h3 class="mb-1 font-medium">Notes</h3>
+          <p class="whitespace-pre-wrap break-words text-muted" x-text="row.notes"></p>
         </div>
         <div class="flex flex-wrap items-start gap-2">${openButtons}${exclusionButton}</div>
       </div>
@@ -140,7 +143,7 @@ const sessionsGate = `
 /** The Incoming page: the strip of read paths, the sessions of the lab data with their tiles and details, and the transformed files' format folded at the bottom. */
 export const incomingRoot = `
   <div x-data="incomingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
-    ${card("Read from", stripBody, "col-span-12", reloadButton, `lines.length ? ${statusEdge("status")} : ''`)}
+    ${card("Read from", stripBody, "col-span-12", reloadButton)}
     ${card("Sessions", sessionsGate, "col-span-12")}
     ${foldedCard("Incoming data format", formatBody, "col-span-12", formatChip)}
   </div>`;

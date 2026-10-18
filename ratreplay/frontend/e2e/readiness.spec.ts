@@ -37,7 +37,7 @@ test("set a 5 s window, read the verdicts of the built blocks, step the windows 
 
   await test.step("the Blocks page judges the three built blocks at 5 s, and names the settings it judged at", async () => {
     await goTo(page, "Blocks");
-    await expect(judged).toContainText("judged at: 5 s window");
+    await expect(judged).toContainText("judged at: real lab blocks, 5 s window");
     await expect(page.getByRole("link", { name: "Change on the Settings page" })).toBeVisible();
     await expect(page.getByRole("row")).toHaveCount(4); // the header and the three blocks
     await expect(row(S1_TRACK).getByRole("cell", { name: "ok", exact: true })).toBeVisible();

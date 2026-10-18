@@ -11,14 +11,17 @@ import type { Bands, Bar, FrameLayer, Scale, Scene } from "./lanes";
 
 const FONT = "12px ui-sans-serif, system-ui, sans-serif";
 const LANE_TINT = 0.05;
-const GRID_ALPHA = 0.08;
 const LABEL_GAP_PX = 8;
 const TICK_SPACING_PX = 90;
 const HATCH_PX = 5;
 const MIN_HATCH_PX = 4;
 const HATCH_COLOUR = "rgba(255, 255, 255, 0.6)";
 const LINE_PX = 2;
-const SPEED_ALPHA = 0.7;
+const SPEED_ALPHA = 0.35;
+// The stripes of a hatched span of the frames lane, in its own colour, and the width of the gap a pause leaves across every lane.
+const STRIPE_PX = 7;
+const STRIPE_LINE_PX = 2;
+const BREAK_PX = 6;
 
 const CURSOR_HEAD_PX = 5;
 const MARK_DASH = [4, 3];
@@ -280,10 +283,11 @@ export class Timeline {
     ctx.clip();
     for (const bar of this.scene!.bars) this.drawBar(ctx, scale, bar);
     this.drawFrames(ctx, scale);
+    this.drawBreaks(ctx, scale);
     ctx.restore();
   }
 
-  /** The lane backgrounds with their names, the time grid and the axis labels. */
+  /** The lane backgrounds with their names and the time axis labels under the lanes. */
   private drawLanes(ctx: CanvasRenderingContext2D, scale: Scale): void {
     const c = this.colours;
     ctx.textBaseline = "middle";
@@ -298,10 +302,8 @@ export class Timeline {
     const ticks = timeTicks(scale.domain() as [number, number], (this.width - PLOT.left - PLOT.right) / TICK_SPACING_PX);
     ctx.textAlign = "center";
     for (const t of ticks) {
-      const x = scale(t);
-      this.line(ctx, x, PLOT.top, x, this.height - PLOT.bottom, withAlpha(c.ink, GRID_ALPHA));
       ctx.fillStyle = c.muted;
-      ctx.fillText(timeLabel(t), x, this.height - PLOT.bottom / 2);
+      ctx.fillText(timeLabel(t), scale(t), this.height - PLOT.bottom / 2);
     }
   }
 
@@ -326,7 +328,7 @@ export class Timeline {
       ctx.textAlign = "center";
       ctx.fillText(name, x + w / 2, y + h / 2);
     }
-    if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h);
+    if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h, HATCH_COLOUR, 1, HATCH_PX);
     if (bar.outline) {
       ctx.strokeStyle = colourOf(this.colours, bar.outline);
       ctx.lineWidth = LINE_PX;
@@ -334,15 +336,16 @@ export class Timeline {
     }
   }
 
-  private hatch(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  /** Diagonal stripes over a box, drawn only inside it. */
+  private hatch(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, colour: string, lineWidth: number, spacing: number): void {
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, y, w, h);
     ctx.clip();
-    ctx.strokeStyle = HATCH_COLOUR;
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = lineWidth;
     ctx.beginPath();
-    for (let d = -h; d < w; d += HATCH_PX) {
+    for (let d = -h; d < w; d += spacing) {
       ctx.moveTo(x + d, y + h);
       ctx.lineTo(x + d + h, y);
     }
@@ -357,10 +360,13 @@ export class Timeline {
     const draw = (layer: FrameLayer) => {
       if (layer.kind === "trace") return this.drawSpeed(ctx, scale, layer);
       if (layer.kind === "span") {
-        ctx.fillStyle = withAlpha(colourOf(this.colours, layer.colour), layer.alpha);
+        const colour = colourOf(this.colours, layer.colour);
+        ctx.fillStyle = withAlpha(colour, layer.alpha);
         for (const [first, last] of layer.spans) {
           const [x0, x1] = barSpan(scale, { first, last }, this.rate);
-          ctx.fillRect(x0, top + layer.from * height, x1 - x0, (layer.to - layer.from) * height);
+          const [y0, h] = [top + layer.from * height, (layer.to - layer.from) * height];
+          ctx.fillRect(x0, y0, x1 - x0, h);
+          if (layer.hatched) this.hatch(ctx, x0, y0, x1 - x0, h, colour, STRIPE_LINE_PX, STRIPE_PX);
         }
         return;
       }
@@ -372,6 +378,16 @@ export class Timeline {
     this.scene!.frames.forEach(draw);
   }
 
+  /** A pause is dead time between two frames: a gap of the card's colour across every lane at the boundary of the two, over whatever the lanes drew there. */
+  private drawBreaks(ctx: CanvasRenderingContext2D, scale: Scale): void {
+    const bottom = this.height - PLOT.bottom;
+    ctx.fillStyle = this.colours.card;
+    for (const frame of this.scene!.breaks) {
+      const x = scale((frame - 1) / this.rate);
+      if (x >= PLOT.left - BREAK_PX && x <= this.width - PLOT.right + BREAK_PX) ctx.fillRect(x - BREAK_PX / 2, PLOT.top, BREAK_PX, bottom - PLOT.top);
+    }
+  }
+
   /** The speed as a thin trace, the mean of the frames under each pixel so a long recording still draws in a few thousand points. */
   private drawSpeed(ctx: CanvasRenderingContext2D, scale: Scale, { values, top: speedTop }: Extract<FrameLayer, { kind: "trace" }>): void {
     const { top, bottom } = this.bands[FRAMES_LANE];
@@ -379,28 +395,33 @@ export class Timeline {
     const first = Math.max(0, Math.floor(from * this.rate));
     const last = Math.min(this.nFrames - 1, Math.ceil(to * this.rate));
     const step = Math.max(1, Math.ceil((last - first + 1) / (this.width - PLOT.left - PLOT.right)));
+    // The trace is cut at every pause: the index of the first frame after each ends a stretch, and no bin reaches across one.
+    const edges = [first, ...this.scene!.breaks.map((frame) => frame - 1).filter((index) => index > first && index <= last), last + 1];
     ctx.strokeStyle = withAlpha(this.colours.ink, SPEED_ALPHA);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    let drawing = false;
-    for (let i = first; i <= last; i += step) {
-      let sum = 0;
-      let n = 0;
-      for (let k = i; k < Math.min(i + step, last + 1); k++) {
-        if (!Number.isNaN(values[k])) {
-          sum += values[k];
-          n++;
+    for (let part = 0; part + 1 < edges.length; part++) {
+      let drawing = false;
+      for (let i = edges[part]; i < edges[part + 1]; i += step) {
+        const stop = Math.min(i + step, edges[part + 1]);
+        let sum = 0;
+        let n = 0;
+        for (let k = i; k < stop; k++) {
+          if (!Number.isNaN(values[k])) {
+            sum += values[k];
+            n++;
+          }
         }
+        if (!n) {
+          drawing = false;
+          continue;
+        }
+        const x = scale((i + (stop - i) / 2) / this.rate);
+        const y = bottom - Math.min(sum / n / speedTop, 1) * (bottom - top);
+        if (drawing) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+        drawing = true;
       }
-      if (!n) {
-        drawing = false;
-        continue;
-      }
-      const x = scale((i + step / 2) / this.rate);
-      const y = bottom - Math.min(sum / n / speedTop, 1) * (bottom - top);
-      if (drawing) ctx.lineTo(x, y);
-      else ctx.moveTo(x, y);
-      drawing = true;
     }
     ctx.stroke();
   }

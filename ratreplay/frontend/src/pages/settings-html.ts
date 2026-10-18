@@ -29,7 +29,7 @@ const rulesBody = `
     <p class="text-xs text-muted">
       The rules are fixed in the engine. Changing one is a code change, and a Rebuild all on the <a href="#/outgoing" class="text-accent underline">Outgoing</a> page for it to reach what is built.
     </p>
-    <p x-show="!rules.length" class="text-sm text-muted">Reading the rules</p>
+    <p x-show="!rules.length" class="text-sm text-muted" x-text="loading ? 'Reading the rules' : 'The API gave no rules.'"></p>
     <table x-show="rules.length" data-testid="rules" class="${TABLE} text-xs">
       <thead class="sticky top-0 z-10 bg-card"><tr><th class="${TH}">Rule</th><th class="${TH}">Value</th><th class="${TH}">Meaning</th></tr></thead>
       <tbody>
