@@ -147,3 +147,11 @@ client.
   block whole and listed it in the manifest, the alternative is to build it and let the window checks
   reject only the windows that touch the problem. The "reviewed under other rules" warning belongs to
   ReviewManager (it holds the review's saved rules).
+- E4: `windows` gained a `rules` parameter, `windows(block, settings, rules)`, because the end of a trip is
+  the end of the first contiguous stretch of return path ids and `return_paths` is a rule (a rule on the
+  labelled columns alone was not equivalent when a return run is all pause or two return runs touch).
+  The block verdict is now `{ok, reasons}` listing every broken rule (the old shape was one reason), rows
+  gain `start_s`, `stop_s` and `reason`, F3 picks both up. The trip minimum applies to track blocks over
+  the whole block, a window needs no trip. `settings["rate_hz"]` is unused by `windows`, it is the RNN
+  project's resampling rate. Window counts use the rounded block rate, a 1e-15 s difference from the old
+  code, inside the tolerance.

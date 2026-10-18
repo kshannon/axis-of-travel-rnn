@@ -36,7 +36,7 @@ anything that touches real data.
 - [x] E3 `blocks`: labels (trip, phase), frames to metres at the lab rate, from `src/process_lab_data/labels.py`
       and `output.py` and `src/axis_of_travel_rnn/trajectory.py`. Test: parity with the processor's blocks
       on the synthetic sessions, same call on generated arrays gives blocks in the same schema. [TrajectoryEngine]
-- [ ] E4 `windows`: rows and verdicts from `src/axis_of_travel_rnn/windows.py`. Test: the existing window
+- [x] E4 `windows`: rows and verdicts from `src/axis_of_travel_rnn/windows.py`. Test: the existing window
       tests, a block with no window fitting, with low heading share, with no complete trip. [TrajectoryEngine]
 - [ ] E5 `recipe`: the statistics (speed, turn rate, dwell, run duration, occupancy). Test: the recipe of a
       block equals hand computed numbers on a fixture. [TrajectoryEngine]

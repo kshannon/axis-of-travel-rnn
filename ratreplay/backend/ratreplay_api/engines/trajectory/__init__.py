@@ -2,7 +2,7 @@
 TrajectoryEngine: the one contract for selecting, cutting, labelling and windowing trajectories, six operations over arrays with every rule a parameter.
 """
 
-from . import build, funnel, session
+from . import build, funnel, session, windows
 from .edits import apply_edits
 
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
@@ -73,7 +73,8 @@ RULES = {
 }
 
 # The default window settings: a window, the stride between windows, the burn-in inside it, the future position
-# predicted, the rate after resampling, and the two block checks (measured heading share, complete trips).
+# predicted, the rate the RNN project resamples to, and the two block checks (measured heading share, complete trips).
+# rate_hz is recorded in windows.json for that project and is unused by windows, which works at the block's own rate.
 SETTINGS = {
     "window_s": 40.0,
     "stride_s": 10.0,
@@ -114,11 +115,11 @@ class TrajectoryEngine:
         """
         return build.blocks(arrays, review, environment, rules)
 
-    def windows(self, block, settings):
+    def windows(self, block, settings, rules):
         """
-        The window rows of a block with the verdict of each, and the verdict of the block.
+        The window rows of a block (its row and arrays) with the checks and first failing check of each, the verdict of the block as ok and its reasons, and the window count, under the settings and the rules the block was built with.
         """
-        raise NotImplementedError("task E4")
+        return windows.windows(block, settings, rules)
 
     def recipe(self, blocks):
         """

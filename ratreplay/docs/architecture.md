@@ -39,8 +39,8 @@ the settings for export. Delete a synthetic set. Read what the tool is and the r
 
 Session: one recording of one rat on one day, the unit of review. Epoch: a stretch of a session under
 one condition (arena, track, rotated track). Run: one traversal of a path in the lab's labelling (paths
-1 to 4 outbound, 9 and 10 return). Trip: outbound run, dwell, return run, dwell, what a complete window
-must contain. Block: a continuous stretch of one epoch with no pause, gap or jump, at least 10 s, the
+1 to 4 outbound, 9 and 10 return). Trip: outbound run, dwell, return run, dwell, what a track block
+must hold at least once to be training ready. Block: a continuous stretch of one epoch with no pause, gap or jump, at least 10 s, the
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
 person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
 writes. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
@@ -177,9 +177,14 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
 - `blocks(arrays, review, environment, rules)`: the labelled blocks (trip, phase, frames in metres at
   the lab rate) for a session, from the review's blocks or the initial blocks when there is none.
   The same call for real and generated arrays.
-- `windows(block, settings)`: the window rows (start, end, burn-in, horizon, trips inside, measured
-  heading share, position finite) and the verdict of each, plus the block's verdict (no window fits,
-  heading share under the minimum, fewer than one complete trip). The verdict rules live here only.
+- `windows(block, settings, rules)`: the window rows (start, end, burn-in, horizon, complete and
+  partial trips inside, measured heading share, position finite) and the verdict of each, plus the
+  block's verdict listing every rule it breaks (no window fits, measured heading share under the minimum
+  over the block, and on a track block only, fewer complete trips over the whole block than
+  `min_complete_trips`). A window needs no trip of its own. `rules` gives the return paths that end a
+  trip, the rules the block was built with. `settings["rate_hz"]` is the RNN project's resampling rate,
+  recorded in `windows.json`, and plays no part here, the arithmetic runs at the block's own rate. The
+  verdict rules live here only.
 - `recipe(blocks)`: the statistics the generator fits and the numbers real and synthetic are compared
   on (speed and turn rate distributions, dwell times, run durations, occupancy).
 
@@ -254,7 +259,7 @@ sequenceDiagram
     RM->>PA: review(sid): review or none
     RM->>TE: session(arrays, environment, rules): kinematics, fills, cut points, spans, occupancy, initial blocks
     RM->>TE: apply(initial blocks, review.edits, session) when a review exists
-    RM->>TE: windows(block, settings) for each kept block
+    RM->>TE: windows(block, settings, rules) for each kept block
     RM-->>P: header (epochs, runs, cuts, spans, blocks with window counts, review facts) + Arrow arrays
     loop while editing
         P->>RM: preview(sid, edits, settings)
@@ -265,7 +270,7 @@ sequenceDiagram
     RM->>TE: apply(...), one illegal edit refuses the whole save
     RM->>PA: write_review(sid, review)
     RM->>TE: blocks(arrays, review, environment, rules): labelled blocks in metres
-    RM->>TE: windows(block, settings) for each block
+    RM->>TE: windows(block, settings, rules) for each block
     RM->>PA: write_blocks(sid, blocks, metadata), whole and idempotent
     RM-->>P: result: review saved, n blocks built (or build failed with the reason)
 ```
@@ -290,7 +295,7 @@ sequenceDiagram
     SM->>EA: environment(name)
     SM->>GE: session(recipe, environment, seed, length): arrays in the transformed schema
     SM->>TE: blocks(arrays, no review, environment, rules): same call as real data
-    SM->>TE: windows(block, settings) for each block
+    SM->>TE: windows(block, settings, rules) for each block
     SM->>TE: recipe(synthetic blocks): the same statistics, for the comparison
     SM->>SA: write_set(set id, blocks, provenance with both recipes)
     SM-->>P: result: set id, n blocks, the comparison table
@@ -313,11 +318,11 @@ sequenceDiagram
     else synthetic
         VM->>SA: blocks(set id)
     end
-    VM->>TE: windows(block, settings) for each block
+    VM->>TE: windows(block, settings, rules) for each block
     VM-->>P: per block verdicts, totals, the settings the blocks were built with
     P->>VM: windows(block id, settings)
     VM->>PA: block(block id)
-    VM->>TE: windows(block, settings)
+    VM->>TE: windows(block, settings, rules)
     VM-->>P: window rows with their checks, for stepping
     P->>VM: select_settings(settings)
     VM->>PA: write_window_settings(settings): windows.json, whole
