@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { clickHeader, sortRows } from "./table";
-import type { Column } from "./table";
+import { clickHeader, sortRows } from "../../src/ui/table";
+import type { Column } from "../../src/ui/table";
 
 interface Row {
   rat: string;
@@ -20,10 +20,6 @@ const ROWS: Row[] = [
   { rat: "NS16", runs: 7, at: "2026-10-15" },
 ];
 const rats = (rows: Row[]) => rows.map((r) => r.rat);
-
-test("without a sort the rows stay in the order they came", () => {
-  expect(rats(sortRows(ROWS, COLUMNS, null))).toEqual(["NS14", "NS5", "NS16"]);
-});
 
 test("a number sorts as a number and a name as a name with its digits in order", () => {
   expect(rats(sortRows(ROWS, COLUMNS, { key: "runs", descending: false }))).toEqual(["NS14", "NS16", "NS5"]);

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { degrees, percent } from "./format";
+import { degrees, percent } from "../../src/ui/format";
 
 test("a share is a percent with the decimals asked for and none left over", () => {
   expect([0.9, 0.6364, 1, 0.004].map((share) => percent(share))).toEqual(["90%", "64%", "100%", "0%"]);

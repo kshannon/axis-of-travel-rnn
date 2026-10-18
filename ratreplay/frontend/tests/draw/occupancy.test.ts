@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { Geometry, SessionHeader } from "../api/types";
-import { ALL, CURRENT, environmentsShown, epochsShown } from "./occupancy";
+import type { Geometry, SessionHeader } from "../../src/api/types";
+import { ALL, CURRENT, environmentsShown, epochsShown } from "../../src/draw/occupancy";
 
 const geometry = (name: string) => ({ name }) as Geometry;
 const header = {

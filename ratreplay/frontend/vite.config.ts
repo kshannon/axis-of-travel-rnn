@@ -6,5 +6,5 @@ const API_URL = "http://127.0.0.1:8060";
 export default defineConfig({
   plugins: [tailwindcss()],
   server: { proxy: { "/api": API_URL } },
-  test: { include: ["src/**/*.test.ts"] },
+  test: { include: ["tests/**/*.test.ts"] },
 });

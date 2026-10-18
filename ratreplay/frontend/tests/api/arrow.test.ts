@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
-import { decodeColumns } from "./arrow";
+import { decodeColumns } from "../../src/api/arrow";
 
 // Written by fixtures/make_columns.py with the backend's encoder.
-const bytes = readFileSync(new URL("./fixtures/columns.arrow", import.meta.url));
+const bytes = readFileSync(new URL("../fixtures/columns.arrow", import.meta.url));
 const columns = decodeColumns(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 
 test("each column comes back in its own typed array, a bool as 0 and 1", () => {

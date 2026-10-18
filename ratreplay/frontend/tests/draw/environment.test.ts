@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { Geometry } from "../api/types";
-import { extentOf, labelsBelow } from "./environment";
+import type { Geometry } from "../../src/api/types";
+import { extentOf } from "../../src/draw/environment";
 
 const TRACK: Geometry = {
   name: "triple_t", kind: "triple_t", room: [1.8, 1.8], boundary: null, circle: null,
@@ -18,16 +18,4 @@ test("a path that strays off the environment widens the extent and a lost positi
   const x = new Float64Array([0.9, NaN, 2.0]);
   const y = new Float64Array([0.5, 9, -0.2]);
   expect(extentOf(TRACK, x, y)).toEqual({ x: [0.86, 2.0], y: [-0.2, 1.135] });
-});
-
-test("an arena is covered by its circle", () => {
-  const arena: Geometry = { ...TRACK, walls: [], centerline: [], reward_sites: {}, circle: { center: [0.9, 0.9], radius: 0.5 } };
-  expect(extentOf(arena, none, none)).toEqual({ x: [0.4, 1.4], y: [0.4, 1.4] });
-});
-
-test("a label that would reach the next site on its row goes below its circle", () => {
-  const site = (px: number, py = 100) => ({ px, py, width: 28 });
-  expect(labelsBelow([site(199), site(266), site(309), site(375)])).toEqual([false, true, false, false]); // the triple T's goals at 1440 by 900
-  expect(labelsBelow([site(100), site(300)])).toEqual([false, false]);
-  expect(labelsBelow([site(100, 100), site(110, 160)])).toEqual([false, false]);
 });

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { Clock } from "./clock";
-import { movePlayback } from "./playback";
+import { Clock } from "../../src/session/clock";
+import { movePlayback } from "../../src/session/playback";
 
 const RATE_HZ = 60;
 const RUN_STARTS = [2200, 2400, 2600];

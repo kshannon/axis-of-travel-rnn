@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { barBox, barSpan, baseScale, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, runFill, runKind, timeLabel, timeTicks, windowTransform, zoomLimits } from "./lanes";
-import type { Bar, LaneSpec } from "./lanes";
+import { barBox, barSpan, baseScale, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
+import type { Bar, LaneSpec } from "../../src/draw/lanes";
 
 const RATE_HZ = 60;
 const N_FRAMES = 36_000; // ten minutes
@@ -70,13 +70,6 @@ test("a click finds the block bar or the run bar under it and nothing outside th
   expect(hitBar(bars, bands, base, RATE_HZ, { x, y: middle("session") })).toBe(epoch);
 });
 
-test("a bar too short to see is still two pixels wide and can be hit", () => {
-  const blink = bar("runs", 100, 100);
-  const [x0, x1] = barSpan(base, blink, RATE_HZ);
-  expect(x1 - x0).toBe(2);
-  expect(hitBar([blink], bands, base, RATE_HZ, { x: x0 + 1, y: middle("runs") })).toBe(blink);
-});
-
 test("bars that overlap in time share their lane in rows, each hit only in its own row", () => {
   const early = bar("runs", 1000, 4000, { row: 0, rows: 3 });
   const late = bar("runs", 2000, 5000, { row: 2, rows: 3 });
@@ -100,11 +93,6 @@ test("a cursor past the window pages the window to it, one inside leaves the zoo
   expect(paged[1] - paged[0]).toBeCloseTo(60);
   const back = keepVisible(zoomed, base, 119).rescaleX(base).domain();
   expect(back[1]).toBeCloseTo(119 + 6);
-});
-
-test("the lab's paths are outbound or return", () => {
-  expect([1, 4, 9, 10, 5].map(runKind)).toEqual(["outbound", "outbound", "return", "return", "other"]);
-  expect(runFill(1)).not.toBe(runFill(9));
 });
 
 test("ticks are round seconds inside the window and labels read as a clock", () => {

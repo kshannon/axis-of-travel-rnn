@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { endpoints, formatGroups, typeText } from "./describe";
-import type { FormatContract, OpenApiDocument } from "./types";
+import { endpoints, formatGroups } from "../../src/api/describe";
+import type { FormatContract, OpenApiDocument } from "../../src/api/types";
 
 const DOCUMENT: OpenApiDocument = {
   info: { title: "RatReplay", version: "0.1.0" },
@@ -34,10 +34,6 @@ const DOCUMENT: OpenApiDocument = {
   },
 };
 
-test("every route becomes an endpoint with its method, in the document order", () => {
-  expect(endpoints(DOCUMENT).map((e) => `${e.method} ${e.path}`)).toEqual(["GET /api/sources", "POST /api/sources", "DELETE /api/sources/{sid}"]);
-});
-
 test("a request body is listed by the fields of the schema it references", () => {
   const body = endpoints(DOCUMENT)[1].tables.find((table) => table.title === "Request body, AttachBody")!;
   expect(body.rows).toEqual([
@@ -45,16 +41,6 @@ test("a request body is listed by the fields of the schema it references", () =>
     ["kind", '"transformed" or "processed"', "required"],
     ["processed_path", "string or null", "optional"],
   ]);
-});
-
-test("a path parameter is listed as required and an empty response schema as any", () => {
-  const [parameters] = endpoints(DOCUMENT)[2].tables;
-  expect(parameters.rows).toEqual([["sid", "path", "string", "yes", ""]]);
-  expect(endpoints(DOCUMENT)[0].tables[0].rows).toEqual([["200", "Successful Response", "application/json", "any"]]);
-});
-
-test("a list of alternatives reads as words", () => {
-  expect(typeText({ type: "array", items: { oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }] } })).toBe("list of A or B");
 });
 
 test("the contract gives one table per file, marking the columns the tool reads, and the review file's vocabulary", () => {

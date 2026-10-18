@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { belongsToTarget, commandOf } from "./keys";
+import { belongsToTarget, commandOf } from "../../src/ui/keys";
 
 const press = (key: string, extra = {}) => commandOf({ key, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...extra });
 

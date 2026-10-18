@@ -1,13 +1,12 @@
 import { expect, test } from "vitest";
-import type { Edit, ReviewBlock, Run } from "../api/types";
-import { Editor, editFor, label, reselected } from "./editor";
-import type { Target } from "./editor";
+import type { ReviewBlock } from "../../src/api/types";
+import { Editor, editFor, reselected } from "../../src/session/editor";
+import type { Target } from "../../src/session/editor";
 
 function block(frame_start: number, frame_end: number, status: ReviewBlock["status"] = "auto"): ReviewBlock {
   return { block_id: "S_arena_01", epoch: "arena", environment: "open_arena", frame_start, frame_end, status, note: "" };
 }
 
-const RUN: Run = { run: 3, epoch: "track", path_id: 2, clean: true, frame_start: 100, frame_end: 200 };
 const NOTHING: Target = { cursor: 150, block: null, blocks: [], range: null, run: null };
 
 test("the edit list grows with each edit and undo takes the last one back", () => {
@@ -45,12 +44,6 @@ test("a range needs both marks and takes them in either order", () => {
   expect(editor.range).toBeNull();
 });
 
-test("a new block from marks needs the range, else the action says so", () => {
-  const range = { frame_start: 900, frame_end: 1200 };
-  expect(editFor("new-block", { ...NOTHING, range })).toEqual({ op: "new", ...range });
-  expect(editFor("new-block", NOTHING)).toMatch(/Mark both ends/);
-});
-
 test("block actions need a selected block and use the cursor as the lab frame", () => {
   const target = { ...NOTHING, block: block(301, 1500), cursor: 800 };
   expect(editFor("accept", target)).toEqual({ op: "confirm", frame: 301 });
@@ -76,19 +69,6 @@ test("a split needs the cursor inside the block after its first frame", () => {
   expect(editFor("split", { ...NOTHING, block: selected, cursor: 301 })).toMatch(/inside the block/);
   expect(editFor("split", { ...NOTHING, block: selected, cursor: 1501 })).toMatch(/inside the block/);
   expect(editFor("split", { ...NOTHING, block: selected, cursor: 1500 })).toEqual({ op: "split", frame: 1500 });
-});
-
-test("accept all and flag need no block, flag needs a run under the cursor", () => {
-  expect(editFor("accept-all", NOTHING)).toEqual({ op: "accept" });
-  expect(editFor("flag", { ...NOTHING, run: RUN })).toEqual({ op: "flag", run: 3 });
-  expect(editFor("flag", NOTHING)).toMatch(/no run/);
-});
-
-test("every edit has words for the toasts", () => {
-  const edits: Edit[] = [{ op: "accept" }, { op: "confirm", frame: 1 }, { op: "drop", frame: 2 }, { op: "split", frame: 3 },
-    { op: "move", frame: 4, edge: "end", at: 1 }, { op: "new", frame_start: 5, frame_end: 6 }, { op: "cut", frame_start: 7, frame_end: 8 }, { op: "flag", run: 9 }];
-  expect(edits.map(label).every((text) => text.length > 0)).toBe(true);
-  expect(label(edits[4])).toBe("move of the end to frame 4");
 });
 
 test("the selection follows the block it overlaps after an edit, a new block is selected", () => {

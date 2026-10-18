@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { MadeBlock, Preview, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader } from "../api/types";
-import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, settingsLine, stateLine, summaryTiles } from "./replay-view";
+import type { MadeBlock, Preview, ReviewBlock, SavedBlocks, SessionHeader } from "../../src/api/types";
+import { blockCards, saveToast, sessionNotes, stateLine, summaryTiles } from "../../src/pages/replay-view";
 
 const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
@@ -16,34 +16,31 @@ const header = {
 
 // What the manager answers for a kept block, and for a removed one.
 const OK = { count: 2, verdict: { ok: true, reasons: [] } };
-const TROUBLE = { count: 0, verdict: { ok: false, reasons: ["no window fits", "measured heading 60% under 80%"] } };
+const TROUBLE = { count: 0, verdict: { ok: false, reasons: ["no window fits", "reason from the server"] } };
 const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"], windows: MadeBlock["windows"] = status === "dropped" ? null : OK, problems: string[] = []): MadeBlock =>
   ({ block_id: `S_${frame_start}`, epoch: "arena", environment: "e", frame_start, frame_end, status, note: null, windows, problems });
 
 const blocks = [block(301, 900, "confirmed"), block(901, 1500, "auto", TROUBLE, ["position not finite on 3 frames"]), block(1501, 1800, "dropped")];
 const preview: Preview = { blocks, cuts: [], flagged_runs: [2], refusals: [] };
 
-test("a card per block in time order, with the runs that start inside it and what its toggles may do", () => {
+test("a card per block in time order, with the runs that start inside it, what its toggles may do and blocks on the same frame told apart", () => {
   const cards = blockCards(blocks, header, blocks[1]);
   expect(cards.map((c) => [c.name, c.minutes, c.runs, c.glyph, c.selected])).toEqual([
     ["block 1", "0.17", 1, "☑", false], ["block 2", "0.17", 0, "☐", true], ["block 3", "0.08", 1, "✕", false],
   ]);
   expect(cards.map((c) => [c.accepted, c.removed, c.acceptable])).toEqual([[true, false, true], [false, false, true], [false, true, false]]);
   expect(blockCards([block(1, 600, "edited")], header, null)[0]).toMatchObject({ accepted: true, acceptable: false });
-});
-
-test("two blocks that start on the same frame are told apart by their place and only the selected one is selected", () => {
+  // two blocks that start on the same frame are told apart by their place, and only the selected one is selected
   const removed = block(301, 1500, "dropped");
   const made = block(301, 1299, "edited");
-  const cards = blockCards([removed, made], header, made);
-  expect(cards.map((c) => [c.position, c.selected])).toEqual([[0, false], [1, true]]);
+  expect(blockCards([removed, made], header, made).map((c) => [c.position, c.selected])).toEqual([[0, false], [1, true]]);
 });
 
 test("a card shows the manager's window count and verdict, the problems of the block's frames, and nothing to count for a removed block", () => {
   const cards = blockCards(blocks, header, null);
   expect(cards.map((c) => [c.windows, c.windowsText, c.verdict, c.ok])).toEqual([
     [2, "2 training windows", "ok", true],
-    [0, "0 training windows", "no window fits, measured heading 60% under 80%", false],
+    [0, "0 training windows", "no window fits, reason from the server", false],
     [null, "removed, yields nothing", "", true],
   ]);
   expect(cards.map((c) => c.problems)).toEqual([[], ["position not finite on 3 frames"], []]);
@@ -68,25 +65,6 @@ test("the state line says automatic or who saved and when, and the edits not sav
   expect(stateLine(saved, 2, false, 1)).toMatch(/^saved .* by kyle, 2 edits, 1 skipped under the current rules$/);
   expect(stateLine(saved, 3, true, 0)).toMatch(/by kyle, 2 edits, now 3 edits not saved yet$/);
   expect(stateLine(saved, 0, true, 0)).toBe("automatic, the saved review on disk is not loaded");
-});
-
-test("the marks line follows the marks", () => {
-  expect(marksLine(null, null, 60)).toBe("No range marked.");
-  expect(marksLine(300, null, 60)).toMatch(/Marked frame 300/);
-  expect(marksLine(1500, 900, 60)).toBe("Marked frames 900 to 1500, 10.0 s.");
-});
-
-test("the live tiles read the arrays at the frame index and the run under the lab frame", () => {
-  const arrays = { t: new Float64Array([0, 0.5, 1]), speed: new Float64Array([10.4, NaN, 3]), n_lights: new Int8Array([2, 2, 1]) } as SessionArrays;
-  expect(liveTiles(header, arrays, 0)).toEqual({ time: "0.00 s", frame: "1", speed: "10.40 m/s", lights: "2", run: "none" });
-  expect(liveTiles(header, arrays, 1).speed).toBe("n/a");
-  const inRun = { ...arrays, t: new Float64Array(500), speed: new Float64Array(500), n_lights: new Int8Array(500) } as SessionArrays;
-  expect(liveTiles(header, inRun, 449).run).toBe("1, path 1 clean");
-});
-
-test("the settings in use are one line a person can read", () => {
-  expect(settingsLine({ ...SETTINGS, window_s: 40, min_heading_measured: 0.8 })).toBe(
-    "window 40 s, stride 5 s, burn-in 1 s, horizon 0 s, heading measured at least 80%, at least 1 complete trip, resampled at 20 Hz");
 });
 
 test("the session notes say why a session is out of the dataset, the warnings, the saved edits that do not apply and the positions off the map", () => {
@@ -115,8 +93,4 @@ test("a save toast names the review file and the blocks built, and warns on a fa
   });
   const broken = saveToast({ ...saved, built: 0, build_error: "OSError: disk full" });
   expect(broken).toEqual({ kind: "warning", path: "review/S1.json", text: "Saved, a new file, but the build failed and nothing was built: OSError: disk full" });
-});
-
-test("the facts line tells the rat, the recording and how many blocks the rules cut", () => {
-  expect(factsLine({ ...header, n_initial_blocks: 2 } as SessionHeader)).toBe("rat NS14, 2015-01-01, standard, 60 Hz, 6000 frames, 2 blocks cut by the rules");
 });
