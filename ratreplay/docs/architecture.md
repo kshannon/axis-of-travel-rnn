@@ -164,9 +164,9 @@ flowchart TB
 
 One contract, six operations, every rule and threshold a parameter (`rules`, `settings`).
 
-- `funnel(tables, rules)`: from the sessions, epochs and annotations tables alone, per session whether
-  it is in the dataset and why not (protocol, condition, excluded group, annotation), and the epochs the
-  rules select. What the index shows without reading frames.
+- `funnel(tables, rules)`: from the sessions, epochs and annotations tables and the ids with frames,
+  per session whether it is in the dataset and why not (protocol, condition, excluded group,
+  annotation, no frames), and the epochs the rules select. What the index shows without reading frames.
 - `session(arrays, environment, rules)`: kinematics in metres, heading offset and fills (interpolated up
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
   margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and

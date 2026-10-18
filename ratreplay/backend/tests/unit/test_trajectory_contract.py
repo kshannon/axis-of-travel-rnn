@@ -4,6 +4,7 @@ The engines' contract: the default rules and settings are today's constants, the
 
 import inspect
 
+import process_lab_data.__main__ as processor
 import pytest
 from axis_of_travel_rnn import trajectory, windows
 from process_lab_data import frame, labels, select
@@ -12,7 +13,8 @@ from ratreplay_api.engines import edits
 from ratreplay_api.engines.generator import GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
 
-# Each rule key and the project constant it comes from (snap_s from the old tool's edit rules, which E2 ports).
+# Each rule key and the project constant it comes from (snap_s from the old tool's edit rules, which E2 ports, led_separation_m
+# from the processor's checks).
 SOURCES = {
     "protocol": (select, "PROTOCOL"), "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"),
     "excluded_groups": (select, "EXCLUDED_GROUPS"), "pause_step_s": (select, "PAUSE_STEP_S"),
@@ -24,7 +26,8 @@ SOURCES = {
     "peak_prominence": (frame, "PEAK_PROMINENCE"), "axis_agree": (frame, "AXIS_AGREE"),
     "camera_height_m": (frame, "CAMERA_HEIGHT_M"), "track_height_m": (frame, "TRACK_HEIGHT_M"),
     "arena_height_m": (frame, "ARENA_HEIGHT_M"), "nominal_led_separation_m": (frame, "NOMINAL_LED_SEPARATION_M"),
-    "extent_percentiles": (frame, "EXTENT_PERCENTILES"), "speed_smooth_frames": (frame, "SPEED_SMOOTH_FRAMES"),
+    "extent_percentiles": (frame, "EXTENT_PERCENTILES"), "led_separation_m": (processor, "LED_SEPARATION_M"),
+    "speed_smooth_frames": (frame, "SPEED_SMOOTH_FRAMES"),
     "running_px_per_s": (frame, "RUNNING_PX_PER_S"), "offset_warn_deg": (frame, "OFFSET_WARN_DEG"),
     "smooth_window_s": (trajectory, "SMOOTH_WINDOW_S"), "smooth_order": (trajectory, "SMOOTH_ORDER"),
     "kinematics_version": (trajectory, "KINEMATICS_VERSION"),
@@ -39,6 +42,7 @@ TRAJECTORY = {
 }
 GENERATOR = {"session": (("recipe", "environment", "seed", "length"), "E6")}
 ENGINES = ((TrajectoryEngine, TRAJECTORY), (GeneratorEngine, GENERATOR))
+DONE = ("E1",)
 
 
 def test_every_rule_equals_the_project_constant_it_comes_from():
@@ -62,8 +66,10 @@ def test_an_engine_has_exactly_its_named_operations_and_no_state():
         assert vars(engine()) == {}
 
 
-def test_every_operation_raises_not_implemented_naming_its_task():
+def test_every_operation_not_yet_built_raises_not_implemented_naming_its_task():
     for engine, contract in ENGINES:
         for name, (parameters, task) in contract.items():
+            if task in DONE:
+                continue
             with pytest.raises(NotImplementedError, match=f"^task {task}$"):
                 getattr(engine(), name)(*[None] * len(parameters))

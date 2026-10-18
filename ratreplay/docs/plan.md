@@ -118,3 +118,15 @@ client.
   rules it used and `apply` reads `min_block_s` and `snap_s` from there. `VERSION` is an int, M1 forms
   the metadata's `code_version` string from it and the commit. PHASES and KINDS are output vocabulary,
   E3 defines them in its labels module. Each E task removes its case from the stub test.
+- E1: `session()` takes the environments as a dict by name, since a session spans arena and track.
+  Positions, heading and occupancy are in room metres (the old page drew camera pixels), so F2 draws in
+  metres and the occupancy grid (80 bins) reports the positions that fell outside the room. The still
+  gate runs over the selected epochs only, as the processor does. Kinematics are smoothed over whole
+  stretches here, the processor per block, so four frames at each block edge differ and E3 computes per
+  block for parquet parity, and E3 leaves `motion` (travel direction) out of the blocks. `stops` is a
+  whole session display quantity (speed under the running floor for longer than the pause minimum),
+  distinct from the pause phase and from `still`. The LED swap warning needs the rat's median offset over
+  other sessions, so it becomes a seventh operation over stored offsets, run by the managers on rebuild
+  and on the validation pages, not inside `session()`. For Kyle: an arena only session passes the
+  funnel today but cannot be registered (no track epoch), the processor crashes on it too, decide
+  whether the funnel should mark it out. INITIAL_NOTE None here, "" in the old tool, E2 settles it.

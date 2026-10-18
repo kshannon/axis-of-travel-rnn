@@ -2,6 +2,8 @@
 TrajectoryEngine: the one contract for selecting, cutting, labelling and windowing trajectories, six operations over arrays with every rule a parameter.
 """
 
+from . import funnel, session
+
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
 # beside the rules and settings it used.
 VERSION = 1
@@ -51,6 +53,9 @@ RULES = {
     "nominal_led_separation_m": 0.05,
     "extent_percentiles": (1, 99),
 
+    # Frame, the range in metres a kind's LED separation must fall in, else a warning.
+    "led_separation_m": (0.04, 0.08),
+
     # Frame, motion: frames averaged for speed and direction, the speed in pixels per second that is running, and the
     # offset in degrees from a rat's median over which its LEDs are reported swapped.
     "speed_smooth_frames": 6,
@@ -85,13 +90,13 @@ class TrajectoryEngine:
         """
         Per session whether it is in the dataset and why not, and the epochs the rules select, from the sessions, epochs and annotations tables alone.
         """
-        raise NotImplementedError("task E1")
+        return funnel.funnel(tables, rules)
 
     def session(self, arrays, environment, rules):
         """
-        Kinematics in metres, heading offset and fills, stops, cut points, spans, occupancy, the initial blocks and the rules used, what the Replay page draws and what apply reads.
+        Kinematics in metres, heading offset and fills, stops, cut points, spans, occupancy, the initial blocks and the rules used, from a session's arrays and the geometry of its environments by name, what the Replay page draws and what apply reads.
         """
-        raise NotImplementedError("task E1")
+        return session.build(arrays, environment, rules)
 
     def apply(self, blocks, edits, session):
         """

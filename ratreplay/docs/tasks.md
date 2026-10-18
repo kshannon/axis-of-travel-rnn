@@ -27,7 +27,7 @@ anything that touches real data.
 - [x] E0 `engines/trajectory/__init__.py` with the six operation signatures (funnel added for the index), the `rules` and `settings`
       objects with today's constants as defaults, stubs that raise. Test: the layering test sees engines
       importing utilities only. [TrajectoryEngine]
-- [ ] E1 `session`: kinematics, heading offset and fills, stops, cut points, spans, occupancy, initial
+- [x] E1 `funnel` and `session`: kinematics, heading offset and fills, stops, cut points, spans, occupancy, initial
       blocks, moved from `engines/cuts.py`, `heading.py`, `spans.py`, `occupancy.py` and
       `src/process_lab_data/select.py` and `frame.py`. Test: parity with the processor's cuts and fills on
       the synthetic sessions, the held fill fires on lab shaped data. [TrajectoryEngine]
