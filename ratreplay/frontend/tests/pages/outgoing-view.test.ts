@@ -7,12 +7,13 @@ const PROCESSED: Folder = {
   root: "/data/processed", exists: true, problems: [], counts: { reviews: 2, blocks: 3, sessions: 2 }, manifest: { modified: "2026-10-17T09:00:00+00:00" },
 };
 
-test("a processed folder that does not exist yet is ok with a note, an empty one says nothing is saved, a built one shows its counts and when it changed", () => {
+test("a processed folder that does not exist yet is ok with a note, an empty one says nothing is saved and has nothing yet, a built one shows its counts and when it changed", () => {
   const missing = { ...PROCESSED, exists: false, counts: {}, manifest: null };
   expect(writeView(missing)).toMatchObject({ status: "ok", times: [], counts: [] });
   expect(writeView(missing).note).toMatch(/Does not exist yet/);
   const empty = { ...PROCESSED, counts: { reviews: 0, blocks: 0, sessions: 0 }, manifest: null };
   expect(writeView(empty).note).toMatch(/Nothing saved yet/);
+  expect(writeView(empty).status).toBe("nothing yet");
   expect(writeView(PROCESSED)).toMatchObject({
     status: "ok", note: "", counts: [{ label: "reviews", value: 2 }, { label: "blocks", value: 3 }, { label: "built sessions", value: 2 }],
     times: [{ label: "folder last changed", stamp: "2026-10-17T09:00:00+00:00" }],

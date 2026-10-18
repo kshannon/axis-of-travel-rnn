@@ -26,10 +26,10 @@ const LABEL_PAD_PX = 6;
 const MIN_SPAN_S = 5;
 const PAGE_MARGIN = 0.1;
 
-// The paths of the lab's tasks: the outbound runs and the return runs, any other path is neither.
+// The paths of the lab's tasks: the outbound runs and the return runs, any other path is neither. Palette colours: the blue and its paler shade, and the grey.
 const OUTBOUND_PATHS = [1, 2, 3, 4];
 const RETURN_PATHS = [9, 10];
-const RUN_COLOURS = { outbound: "#3b82f6", return: "#93c5fd", other: "#9ca3af" };
+const RUN_COLOURS = { outbound: "accent", return: "soft", other: "neutral" };
 
 const TICK_STEPS_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 const SECONDS_PER_MINUTE = 60;
@@ -67,7 +67,7 @@ export interface Bar {
   pick?: number;
 }
 
-/** What the frames lane draws, in order. Spans and ticks are over lab frames from 1, `from` and `to` are fractions of the lane's height from its top. */
+/** What the frames lane draws, in order. Spans and ticks are over lab frames from 1, `from` and `to` are fractions of the lane's height from its top. A colour is a palette name, `var(--name)` of one, or a CSS colour. */
 export type FrameLayer =
   | { kind: "span"; spans: Span[]; colour: string; alpha: number; from: number; to: number }
   | { kind: "tick"; frames: number[]; colour: string; to: number }
@@ -90,7 +90,7 @@ export function runKind(pathId: number): "outbound" | "return" | "other" {
   return RETURN_PATHS.includes(pathId) ? "return" : "other";
 }
 
-/** The colour of a run's bar by its path. */
+/** The palette colour of a run's bar by its path. */
 export const runFill = (pathId: number): string => RUN_COLOURS[runKind(pathId)];
 
 /** The vertical band of each lane in a canvas of this height. */

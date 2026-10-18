@@ -3,6 +3,8 @@ import type { Folder, Health, MadeBlock, SessionHeader, SessionRow } from "../ap
 import { cutsOf } from "../session/cuts";
 import type { Fact } from "../ui/facts";
 import { degrees } from "../ui/format";
+import { folderStatus, worstStatus } from "../ui/status";
+import type { Status } from "../ui/status";
 import type { Column } from "../ui/table";
 import { counted } from "../ui/text";
 import { formatStamp, stampWithSince } from "../ui/time";
@@ -18,7 +20,7 @@ const TRANSFORMED_FORMAT = "Transformed folder";
 export interface StripLine {
   label: string;
   path: string;
-  status: "ok" | "problem";
+  status: Status;
   problems: string[];
   detail: string;
   /** Whether the line carries the Reload button, which reads the config file again. */
@@ -35,16 +37,18 @@ function transformedDetail(folder: Folder): string {
 /** The three lines of the strip: the lab data, the environment geometry and the config file that names them. */
 export function stripLines(health: Health): StripLine[] {
   const { transformed, environments } = health;
-  const status = (folder: Folder) => (folder.problems.length ? "problem" : "ok");
   return [
-    { label: "lab data read from", path: transformed.root ?? NOT_SET, status: status(transformed), problems: transformed.problems, detail: transformedDetail(transformed), reloads: false },
+    { label: "lab data read from", path: transformed.root ?? NOT_SET, status: folderStatus(transformed, transformed.counts.sessions), problems: transformed.problems, detail: transformedDetail(transformed), reloads: false },
     {
-      label: "environment geometry read from", path: environments.root ?? NOT_SET, status: status(environments), problems: environments.problems,
+      label: "environment geometry read from", path: environments.root ?? NOT_SET, status: environments.problems.length ? "problem" : "ok", problems: environments.problems,
       detail: environments.counts.environments === undefined ? "" : counted(environments.counts.environments, "environment"), reloads: false,
     },
     { label: "config file", path: health.config_path, status: "ok", problems: [], detail: "", reloads: true },
   ];
 }
+
+/** The state of the card holding the strip: the worst of its lines. */
+export const stripStatus = (lines: StripLine[]): Status => worstStatus(lines.map((line) => line.status));
 
 /** The problems found under the strip, each with the line it belongs to. */
 export function stripProblems(lines: StripLine[]): { label: string; text: string }[] {

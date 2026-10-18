@@ -1,6 +1,8 @@
 import type { FormatGroup } from "../api/describe";
 import type { BuiltSession, Folder, Readiness, Rebuilt, SessionRow, WindowSettings } from "../api/types";
 import type { Column } from "../ui/table";
+import { folderStatus } from "../ui/status";
+import type { Status } from "../ui/status";
 import { counted, settingsText } from "../ui/text";
 import { stampWithSince } from "../ui/time";
 import { compareSettings, settingsLine } from "./settings-view";
@@ -15,7 +17,7 @@ const NOT_BUILT = "not built yet";
 /** What the card of the write path shows: where blocks are written, its state, what it holds and when it last changed. */
 export interface WriteView {
   root: string;
-  status: "ok" | "problem";
+  status: Status;
   problems: string[];
   note: string;
   counts: { label: string; value: number }[];
@@ -34,7 +36,7 @@ export function writeView(folder: Folder): WriteView {
   const { reviews, blocks, sessions } = folder.counts;
   const counts = [["reviews", reviews], ["blocks", blocks], ["built sessions", sessions]] as const;
   return {
-    root: folder.root ?? NOT_SET, status: folder.problems.length ? "problem" : "ok", problems: folder.problems, note: noteOf(folder),
+    root: folder.root ?? NOT_SET, status: folderStatus(folder, blocks), problems: folder.problems, note: noteOf(folder),
     counts: counts.flatMap(([label, value]) => (value === undefined ? [] : [{ label, value }])),
     times: folder.manifest ? [{ label: "folder last changed", stamp: folder.manifest.modified }] : [],
   };

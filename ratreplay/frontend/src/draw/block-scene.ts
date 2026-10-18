@@ -7,8 +7,9 @@ export const BLOCK_LANES: readonly LaneSpec[] = [
   { name: "runs", weight: 2 }, { name: FRAMES_LANE, weight: 3 }, { name: "trips", weight: 1.5 }, { name: "windows", weight: 3 },
 ];
 
-const TRIP_COLOUR = "#8c6bb1";
-const ONE_LIGHT_COLOUR = "#9ca3af";
+// Palette colours: the trips in a muted violet, the stretches with one light in the muted silver.
+const TRIP_COLOUR = "trip";
+const ONE_LIGHT_COLOUR = "muted";
 
 // Windows overlap, so they sit in as many rows as overlap, at most this many. A window's burn-in is drawn lighter than
 // the rest of it and its horizon, the future position it predicts, hatched after it.

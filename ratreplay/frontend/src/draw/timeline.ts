@@ -20,9 +20,7 @@ const HATCH_COLOUR = "rgba(255, 255, 255, 0.6)";
 const LINE_PX = 2;
 const SPEED_ALPHA = 0.7;
 
-const CURSOR_COLOUR = "#8b5cf6";
 const CURSOR_HEAD_PX = 5;
-const MARK_COLOUR = "#ef4444";
 const MARK_DASH = [4, 3];
 const MARK_FILL_ALPHA = 0.12;
 const TOOLTIP_PAD_PX = 6;
@@ -359,7 +357,7 @@ export class Timeline {
     const draw = (layer: FrameLayer) => {
       if (layer.kind === "trace") return this.drawSpeed(ctx, scale, layer);
       if (layer.kind === "span") {
-        ctx.fillStyle = withAlpha(layer.colour, layer.alpha);
+        ctx.fillStyle = withAlpha(colourOf(this.colours, layer.colour), layer.alpha);
         for (const [first, last] of layer.spans) {
           const [x0, x1] = barSpan(scale, { first, last }, this.rate);
           ctx.fillRect(x0, top + layer.from * height, x1 - x0, (layer.to - layer.from) * height);
@@ -368,7 +366,7 @@ export class Timeline {
       }
       for (const frame of layer.frames) {
         const x = scale((frame - 1) / this.rate);
-        this.line(ctx, x, top, x, top + layer.to * height, layer.colour, LINE_PX);
+        this.line(ctx, x, top, x, top + layer.to * height, colourOf(this.colours, layer.colour), LINE_PX);
       }
     };
     this.scene!.frames.forEach(draw);
@@ -422,11 +420,11 @@ export class Timeline {
     const x = (frame: number) => scale((frame - 1) / this.rate);
     if (this.markIn !== null && this.markOut !== null) {
       const [first, last] = [this.markIn, this.markOut].sort((a, b) => a - b);
-      ctx.fillStyle = withAlpha(MARK_COLOUR, MARK_FILL_ALPHA);
+      ctx.fillStyle = withAlpha(c.bad, MARK_FILL_ALPHA);
       ctx.fillRect(x(first), PLOT.top, scale(last / this.rate) - x(first), bottom - PLOT.top);
     }
     ctx.setLineDash(MARK_DASH);
-    for (const mark of [this.markIn, this.markOut]) if (mark !== null) this.line(ctx, x(mark), PLOT.top, x(mark), bottom, MARK_COLOUR, LINE_PX);
+    for (const mark of [this.markIn, this.markOut]) if (mark !== null) this.line(ctx, x(mark), PLOT.top, x(mark), bottom, c.bad, LINE_PX);
     ctx.setLineDash([]);
 
     if (this.selected) {
@@ -439,8 +437,8 @@ export class Timeline {
     }
 
     const cursor = scale(this.cursor / this.rate);
-    this.line(ctx, cursor, PLOT.top, cursor, bottom, CURSOR_COLOUR, LINE_PX);
-    ctx.fillStyle = CURSOR_COLOUR;
+    this.line(ctx, cursor, PLOT.top, cursor, bottom, c.cursor, LINE_PX);
+    ctx.fillStyle = c.cursor;
     ctx.beginPath();
     ctx.moveTo(cursor - CURSOR_HEAD_PX, 0);
     ctx.lineTo(cursor + CURSOR_HEAD_PX, 0);

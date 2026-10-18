@@ -1,6 +1,6 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
@@ -17,8 +17,8 @@ const toggle = (pressed: string, on: string, off: string) => `:class="${pressed}
 
 const sessionActions = `
   <button type="button" @click="save()" :disabled="loading || busy || !inDataset || excluded"
-    :title="excluded ? '${EXCLUDED_SAVE}' : inDataset ? '' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
-  <button type="button" @click="changeExclusion()" :disabled="loading || busy" class="${BUTTON}"
+    :title="loading ? 'session still loading' : busy ? 'wait, still working' : excluded ? '${EXCLUDED_SAVE}' : inDataset ? 'Save the blocks and the review' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
+  <button type="button" @click="changeExclusion()" :disabled="loading || busy" :title="loading ? 'session still loading' : busy ? 'wait, still working' : ''" class="${BUTTON}"
     x-text="excluded ? 'Include' : 'Exclude'"></button>`;
 
 // The status header: the session id large, the facts under it, then where the review stands as one strong chip with the warnings beside it, and what is selected.
@@ -49,7 +49,7 @@ const summaryBody = `
       </div>
     </template>
   </div>
-  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Settings page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
+  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
 
 const blockCard = `
   <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
@@ -64,7 +64,7 @@ const blockCard = `
     <p x-show="block.verdict" data-testid="verdict" :class="block.ok ? 'text-ok' : 'text-warn'" x-text="block.verdict"></p>
     <template x-for="problem in block.problems"><p class="text-bad" x-text="problem"></p></template>
     <div class="mt-1.5 flex gap-1.5">
-      <button type="button" @click.stop="act('accept', block.position)" :disabled="!block.acceptable" :aria-pressed="block.accepted"
+      <button type="button" @click.stop="act('accept', block.position)" ${disabledWhy("!block.acceptable", "an edited or removed block cannot be accepted", "Accept this block")} :aria-pressed="block.accepted"
         :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
       <button type="button" @click.stop="act('reject', block.position)" :aria-pressed="block.removed"
         :aria-label="'Reject ' + block.name" ${toggle("block.removed", CHIP_ON, CHIP_OFF)}>Reject</button>
@@ -102,7 +102,7 @@ const mapBody = `
 // Under the playback: the run the flag acts on and the notes of the session.
 const flagAndNotes = `
   <div class="flex items-center gap-2">
-    <button type="button" @click="act('flag')" :disabled="runNow === null" class="${BUTTON}" x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
+    <button type="button" @click="act('flag')" ${disabledWhy("runNow === null", "select or hover a run", "Flag or unflag the run under the cursor")} class="${BUTTON}" x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
     <span class="min-w-0 truncate text-xs text-muted" x-text="runLine"></span>
   </div>
   <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} min-h-10 flex-1 resize-none"></textarea>`;
@@ -110,13 +110,12 @@ const flagAndNotes = `
 const playbackCard = playbackBody([["time", "time"], ["lab frame", "frame"], ["speed", "speed"], ["lights", "lights"]], flagAndNotes, "grid-cols-4");
 
 // The zoom controls as one block of segments.
-const SEGMENT = "px-3 py-1.5 text-sm text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40";
 const zoomBlock = `
-  <div role="group" aria-label="Zoom" class="inline-flex divide-x divide-line overflow-hidden rounded-md border border-line">
-    <button type="button" @click="zoomAll()" :disabled="loading" class="${SEGMENT}">Reset view</button>
-    <button type="button" @click="zoomIn()" :disabled="loading" aria-label="Zoom in" title="Zoom in" class="${SEGMENT}">+</button>
-    <button type="button" @click="zoomOut()" :disabled="loading" aria-label="Zoom out" title="Zoom out" class="${SEGMENT}">-</button>
-    <button type="button" @click="fitBlock()" :disabled="!hasSelection" title="Zoom to the selected block" class="${SEGMENT}">Zoom to block</button>
+  <div role="group" aria-label="Zoom" class="${SEGMENTS}">
+    <button type="button" @click="zoomAll()" ${disabledWhy("loading", "session still loading", "Show the whole session")} class="${SEGMENT}">Reset view</button>
+    <button type="button" @click="zoomIn()" ${disabledWhy("loading", "session still loading", "Zoom in")} aria-label="Zoom in" class="${SEGMENT}">+</button>
+    <button type="button" @click="zoomOut()" ${disabledWhy("loading", "session still loading", "Zoom out")} aria-label="Zoom out" class="${SEGMENT}">-</button>
+    <button type="button" @click="fitBlock()" ${disabledWhy("!hasSelection", "select a block first", "Zoom to the selected block")} class="${SEGMENT}">Zoom to block</button>
   </div>`;
 
 const timelineActions = `
@@ -124,12 +123,9 @@ const timelineActions = `
   ${zoomBlock}
   ${helpPopover("About the timeline", TIMELINE_HELP)}`;
 
-// The buttons of the editing row are a little smaller than the rest so the row stays short.
-const EDIT = "rounded-md border border-line px-2 py-1 text-sm text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40";
-
 const group = (name: string, buttons: string) => `
-  <div role="group" aria-label="${name}" class="flex shrink-0 items-center gap-1.5">
-    <span class="text-xs uppercase tracking-wide text-muted">${name}</span>${buttons}
+  <div role="group" aria-label="${name}" class="flex shrink-0 items-center gap-2">
+    <span class="${GROUP_LABEL}">${name}</span><div class="${SEGMENTS}">${buttons}</div>
   </div>`;
 
 // The editing buttons in one row above the lanes: the marks, the cuts at the cursor, and the status of the selected block with undo and reset.
@@ -138,28 +134,28 @@ const SCROLL_X = "overflow-x-auto [scrollbar-width:thin]";
 const editRow = `
   <div class="flex shrink-0 items-center gap-x-3 pb-1 ${SCROLL_X}">
     ${group("marks", `
-      <button type="button" @click="mark('in')" :disabled="loading" title="Mark the start of a range at the cursor" class="${EDIT}">Mark in</button>
-      <button type="button" @click="mark('out')" :disabled="loading" title="Mark the end of a range at the cursor" class="${EDIT}">Mark out</button>
-      <button type="button" @click="act('new-block')" :disabled="!hasRange" title="Make a block of the marked range" class="${EDIT}">New block from marks</button>`)}
+      <button type="button" @click="mark('in')" ${disabledWhy("loading", "session still loading", "Mark the start of a range at the cursor")} class="${SEGMENT_PRIMARY}">Mark in</button>
+      <button type="button" @click="mark('out')" ${disabledWhy("loading", "session still loading", "Mark the end of a range at the cursor")} class="${SEGMENT}">Mark out</button>
+      <button type="button" @click="act('new-block')" ${disabledWhy("!hasRange", "no range marked", "Make a block of the marked range")} class="${SEGMENT}">New block from marks</button>`)}
     ${group("cuts", `
-      <button type="button" @click="act('split')" :disabled="!hasSelection" title="Split the selected block at the cursor" class="${EDIT}">Split here</button>
-      <button type="button" @click="act('start-to-cursor')" :disabled="!hasSelection" title="Move the start of the selected block to the cursor" class="${EDIT}">Start here</button>
-      <button type="button" @click="act('end-to-cursor')" :disabled="!hasSelection" title="Move the end of the selected block to the cursor" class="${EDIT}">End here</button>`)}
+      <button type="button" @click="act('split')" ${disabledWhy("!hasSelection", "select a block first", "Split the selected block at the cursor")} class="${SEGMENT_PRIMARY}">Split here</button>
+      <button type="button" @click="act('start-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the start of the selected block to the cursor")} class="${SEGMENT}">Start here</button>
+      <button type="button" @click="act('end-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the end of the selected block to the cursor")} class="${SEGMENT}">End here</button>`)}
     ${group("status", `
-      <button type="button" @click="act('accept')" :disabled="!hasSelection" title="Accept the selected block, again to take it back" class="${EDIT}">Accept</button>
-      <button type="button" @click="act('reject')" :disabled="!hasSelection" title="Reject the selected block, which removes it, again to restore it" class="${EDIT}">Reject</button>
-      <button type="button" @click="undo()" :disabled="!editCount" title="Take the last edit back" class="${EDIT}">Undo <kbd class="${KBD}">z</kbd></button>
-      <button type="button" @click="reset()" :disabled="!editCount" title="Clear every edit so the blocks are automatic again. A saved review stays on disk until you save." class="${EDIT}">Reset</button>`)}
+      <button type="button" @click="act('accept')" ${disabledWhy("!hasSelection", "select a block first", "Accept the selected block, again to take it back")} class="${SEGMENT_PRIMARY}">Accept</button>
+      <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject</button>
+      <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}">z</kbd></button>
+      <button type="button" @click="reset()" ${disabledWhy("!editCount", "no edits to clear", "Clear every edit so the blocks are automatic again. A saved review stays on disk until you save.")} class="${SEGMENT}">Reset</button>`)}
     <span x-show="hasMarks" data-testid="marks" :title="marksLine" class="min-w-0 truncate text-xs text-muted" x-text="marksLine"></span>
   </div>`;
 
 // The layers of the frames lane in one row along the bottom, each a checkbox with its name and what it means, with the numbers of the rules the session was cut under, as its hover.
 const layerRow = `
-  <div aria-label="Timeline layers" role="group" class="flex shrink-0 items-center gap-x-4 pb-1 ${SCROLL_X}">
+  <div aria-label="Timeline layers" role="group" class="flex shrink-0 items-center gap-x-2 pb-1 ${SCROLL_X}">
     <template x-for="layer in layerList" :key="layer.key">
-      <label class="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs" :title="meanings[layer.key]">
+      <label class="${LAYER_TOGGLE}" :title="meanings[layer.key]">
         <input type="checkbox" :checked="layers[layer.key]" @change="toggleLayer(layer.key)" class="accent-accent" />
-        <span class="size-2 shrink-0 rounded-full border border-line" :style="{ background: layer.colour }"></span><span x-text="layer.label"></span>
+        <span class="size-2.5 shrink-0 rounded-full" :style="{ background: layer.colour }"></span><span x-text="layer.label"></span>
       </label>
     </template>
   </div>`;
@@ -180,7 +176,7 @@ export const replayGrid = `
     class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,5fr)_minmax(0,6fr)] gap-4">
     ${card("Session", sessionBody, "col-span-5", sessionActions)}
     ${card("Summary", summaryBody, "col-span-7")}
-    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" :disabled="loading" class="${BUTTON}">Accept all</button>`)}
+    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" ${disabledWhy("loading", "session still loading", "Accept every block")} class="${BUTTON}">Accept all</button>`)}
     ${card(mapTitle, mapBody, "col-span-5", helpPopover("About the map", MAP_HELP))}
     ${card("Playback", playbackCard, "col-span-4")}
     ${card("Timeline", timelineBody, "col-span-12", timelineActions)}

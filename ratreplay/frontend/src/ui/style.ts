@@ -1,9 +1,27 @@
 // The class strings the pages share, so a button or a table looks the same everywhere.
 
+// A button has a border and a fill that show on the dark and the light theme alike, the primary one the accent. A
+// disabled primary button gives up the accent, since dark text on a faded blue cannot be read on either theme.
+const PRIMARY_DISABLED = "disabled:bg-ink/10 disabled:font-normal disabled:text-ink";
 const BUTTON_BASE = "rounded-md px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40";
-export const BUTTON = `${BUTTON_BASE} border border-line text-ink hover:bg-ink/5`;
-export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent font-medium text-page hover:opacity-90`;
-export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad hover:bg-bad/10`;
+export const BUTTON = `${BUTTON_BASE} border border-ink/30 bg-ink/5 text-ink enabled:hover:bg-ink/15`;
+export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent font-medium text-page enabled:hover:opacity-90 ${PRIMARY_DISABLED}`;
+export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabled:hover:bg-bad/10`;
+
+// Buttons of one group as one block, such as the zoom controls: SEGMENTS holds the SEGMENT buttons divided by lines, and
+// the primary action of a group is a SEGMENT_PRIMARY in the accent. GROUP_LABEL names a group beside its block, small
+// muted capitals with room between the letters so it reads as a label and not as a button.
+export const SEGMENTS = "inline-flex shrink-0 divide-x divide-ink/25 overflow-hidden rounded-md border border-ink/35 bg-ink/10";
+const SEGMENT_BASE = "px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40";
+export const SEGMENT = `${SEGMENT_BASE} text-ink enabled:hover:bg-ink/15`;
+export const SEGMENT_PRIMARY = `${SEGMENT_BASE} bg-accent font-medium text-page enabled:hover:opacity-90 ${PRIMARY_DISABLED}`;
+export const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted";
+
+// A layer toggle of the timeline as one pill holding its checkbox, colour dot and label, so the three read as one unit.
+// A pill that is off dims its text, a pill that is on has a fill. Put a gap of a few pixels between pills.
+export const LAYER_TOGGLE =
+  "inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-ink/30 px-2.5 py-1 text-xs " +
+  "hover:bg-ink/10 has-checked:border-ink/45 has-checked:bg-ink/10 has-[:not(:checked)]:text-muted";
 
 const CHIP = "rounded-full border px-2 py-0.5 text-xs";
 export const CHIP_MUTED = `${CHIP} border-line text-muted`;
@@ -25,3 +43,13 @@ export const CHIP_OFF = `${CHIP} border-line text-muted hover:text-ink`;
 export const TILE = "rounded-md bg-page px-2 py-1";
 export const TILE_LABEL = "text-xs text-muted";
 export const TILE_VALUE = "font-medium tabular-nums";
+
+/**
+ * The `:disabled` and `:title` attributes of a button that is disabled while the Alpine expression `off` is true. A
+ * disabled button says why on hover (`reason`, plain words such as "select a block first"), an enabled one carries its
+ * usual `title`. Put it where the `:disabled` and `title` attributes were.
+ */
+export function disabledWhy(off: string, reason: string, title = ""): string {
+  const text = (words: string) => words.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+  return `:disabled="${off}" :title="${off} ? '${text(reason)}' : '${text(title)}'"`;
+}

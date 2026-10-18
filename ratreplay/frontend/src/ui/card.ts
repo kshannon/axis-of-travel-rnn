@@ -1,9 +1,9 @@
 export const CARD = "rounded-xl border border-line bg-card p-4";
 
-/** A card in the page grid: a title over a body, spanning the given grid classes, with buttons or chips beside the title when given. */
-export function card(title: string, body: string, span = "col-span-12 row-span-6", actions = ""): string {
+/** A card in the page grid: a title over a body, spanning the given grid classes, with buttons or chips beside the title when given and, for a card that owns a status, the Alpine expression of its edge from `statusEdge`. */
+export function card(title: string, body: string, span = "col-span-12 row-span-6", actions = "", edge = ""): string {
   return `
-    <section class="${span} flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden ${CARD}">
+    <section ${edge ? `:class="${edge}"` : ""} class="${span} flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden ${CARD}">
       <header class="flex items-center justify-between gap-2">
         <h2 class="text-sm font-medium uppercase tracking-wide text-muted">${title}</h2>
         ${actions ? `<div class="flex flex-wrap items-center justify-end gap-2">${actions}</div>` : ""}

@@ -1,4 +1,4 @@
-import { BUTTON_PRIMARY, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON_PRIMARY, disabledWhy, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 
 const liveTile = (label: string, property: string) => `
   <div class="${TILE}"><p class="${TILE_LABEL}">${label}</p><p data-testid="tile-${property}" class="${TILE_VALUE}" x-text="${property}"></p></div>`;
@@ -13,7 +13,7 @@ export function playbackBody(tiles: readonly (readonly [label: string, property:
     <div class="flex h-full flex-col gap-2">
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div class="flex items-center gap-3">
-          <button type="button" @click="togglePlay()" :disabled="loading" class="${BUTTON_PRIMARY} w-24" x-text="playing ? 'Pause' : 'Play'"></button>
+          <button type="button" @click="togglePlay()" ${disabledWhy("loading", "session still loading", "Play or pause")} class="${BUTTON_PRIMARY} w-24" x-text="playing ? 'Pause' : 'Play'"></button>
           <kbd class="${KBD}">space</kbd>
         </div>
         <label class="flex min-w-32 flex-1 items-center gap-2 text-xs text-muted" title="Playback speed">

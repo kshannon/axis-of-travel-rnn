@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { barBox, barSpan, baseScale, fittingLabel, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
+import { barBox, barSpan, baseScale, fittingLabel, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, runFill, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
 import type { Bar, LaneSpec } from "../../src/draw/lanes";
 import { SESSION_LANES } from "../../src/draw/session-scene";
 
@@ -122,4 +122,8 @@ test("a height falls in the lane it is in, and in none over the gap between lane
   expect(laneAt(bands, middle("frames"))).toBe("frames");
   expect(laneAt(bands, (bands.runs.bottom + bands.frames.top) / 2)).toBeNull();
   expect(laneAt(bands, HEIGHT - 2)).toBeNull();
+});
+
+test("a run is coloured by its path: the outbound runs, the return runs and any other path each have their own", () => {
+  expect([1, 4, 9, 10, 5].map(runFill)).toEqual(["accent", "accent", "soft", "soft", "neutral"]);
 });

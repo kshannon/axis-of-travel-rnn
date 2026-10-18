@@ -31,6 +31,18 @@ test("blocks are named by their place in time order, can be picked by it and a r
   expect(blockName(2)).toBe("block 3");
 });
 
+test("a block not judged yet is the same blue as a confirmed one but fainter", () => {
+  const [auto, confirmed] = scene([block(1, 100, "auto"), block(200, 300, "confirmed")]).bars.filter((bar) => bar.lane === "blocks");
+  expect(auto.fill).toBe("accent");
+  expect(auto.alpha).toBeLessThan(confirmed.alpha!);
+});
+
+test("the margins are a theme colour drawn fainter than the bars, so the cut under them shows", () => {
+  const margins = scene([]).frames.find((layer) => layer.kind === "span" && layer.colour === "var(--margin)");
+  expect(margins).toMatchObject({ kind: "span", spans: [[21, 30]] });
+  expect((margins as { alpha: number }).alpha).toBeLessThan(0.8);
+});
+
 test("epochs and runs can be picked by their place in the header, as the blocks are by their place in time", () => {
   const bars = scene([block(1, 100, "confirmed")]).bars;
   expect(bars.filter((bar) => bar.lane === "session").map((bar) => bar.pick)).toEqual([0]);

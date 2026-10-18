@@ -13,7 +13,6 @@ const PATH_HZ = 10;
 const POINT_RADIUS_PX = 6;
 const ARROW_FRACTION = 0.08;
 const ARROW_HEAD_PX = 7;
-const ARROW_COLOUR = "#ef4444";
 const LEGEND = { width: 90, height: 8, steps: 18 };
 
 // The slowest colours of the trail are lifted off the darkest end of the scale so they stay visible on a dark card.
@@ -227,7 +226,7 @@ export class MapView {
       const angle = this.backdrop!.yUp ? -heading[i] : heading[i];
       const length = ARROW_FRACTION * (this.project.x.range()[1] - this.project.x.range()[0]);
       const [tx, ty] = [px + length * Math.cos(angle), py + length * Math.sin(angle)];
-      ctx.strokeStyle = ctx.fillStyle = ARROW_COLOUR;
+      ctx.strokeStyle = ctx.fillStyle = this.colours.bad;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(px, py);
@@ -239,7 +238,7 @@ export class MapView {
       for (const side of [-0.45, 0.45]) ctx.lineTo(tx + ARROW_HEAD_PX * Math.cos(back + side), ty + ARROW_HEAD_PX * Math.sin(back + side));
       ctx.fill();
     }
-    ctx.fillStyle = ARROW_COLOUR;
+    ctx.fillStyle = this.colours.bad;
     ctx.strokeStyle = this.colours.ink;
     ctx.lineWidth = 2;
     ctx.beginPath();

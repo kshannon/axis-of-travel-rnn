@@ -11,15 +11,19 @@ export const SESSION_LANES: readonly LaneSpec[] = [
   { name: "session", weight: 1 }, { name: "runs", weight: 1 }, { name: FRAMES_LANE, weight: 3 }, { name: "blocks", weight: 2 },
 ];
 
-const EPOCH_COLOURS: Record<string, string> = { arena: "#38bdf8", track: "#4ade80" };
-const OTHER_EPOCH_COLOUR = "#a1a1aa";
+// Palette colours. A block the person has not judged yet is the accent faint, a confirmed one the same blue strong.
+const EPOCH_COLOURS: Record<string, string> = { arena: "arena", track: "track" };
+const OTHER_EPOCH_COLOUR = "neutral";
 const BLOCK_FILLS: Record<ReviewBlock["status"], string> = { auto: "accent", confirmed: "ok", edited: "warn", dropped: "muted" };
 
 // How strong the bars are drawn, and in the frames lane the band of the heading layers at the bottom (a fraction of the
-// lane) and the length of a pause tick from the top. A margin is a dark band over the cut it trims.
+// lane) and the length of a pause tick from the top. A margin is a band over the cut it trims, light on the dark theme
+// and dark on the light, fainter than the bars so the cut shows through.
 const BAR_ALPHA = 0.8;
-const GAP_ALPHA = 0.35;
-const MARGIN_ALPHA = 0.85;
+const AUTO_ALPHA = 0.45;
+const DROPPED_ALPHA = 0.35;
+const GAP_ALPHA = 0.5;
+const MARGIN_ALPHA = 0.45;
 const HEADING_BAND = 0.14;
 const PAUSE_TICK = 0.3;
 const SECONDS_PER_MINUTE = 60;
@@ -27,6 +31,8 @@ const SECONDS_PER_MINUTE = 60;
 export const blockName = (position: number): string => `block ${position + 1}`;
 /** The number alone, what a block bar writes when its name does not fit. */
 const blockNumber = (position: number): string => String(position + 1);
+
+const BLOCK_ALPHAS: Record<ReviewBlock["status"], number> = { auto: AUTO_ALPHA, confirmed: BAR_ALPHA, edited: BAR_ALPHA, dropped: DROPPED_ALPHA };
 
 const framesOf = (first: number, last: number) => last - first + 1;
 
@@ -54,7 +60,7 @@ export function yieldOf(block: MadeBlock): string {
 
 function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
   return blocks.map((b, position) => ({
-    lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: b.status === "dropped" ? GAP_ALPHA : BAR_ALPHA,
+    lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: BLOCK_ALPHAS[b.status],
     text: blockName(position), short: blockNumber(position), pick: position,
     tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s, ${yieldOf(b)}`,
   }));

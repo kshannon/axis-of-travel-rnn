@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { formatGroups } from "../../src/api/describe";
 import type { FormatContract, Folder, Health, SessionRow } from "../../src/api/types";
-import { COLUMNS, incomingGroups, reviewText, rowTitle, sessionFacts, stripLines, stripProblems, tiles, totalsText } from "../../src/pages/incoming-view";
+import { COLUMNS, incomingGroups, reviewText, rowTitle, sessionFacts, stripLines, stripProblems, stripStatus, tiles, totalsText } from "../../src/pages/incoming-view";
 
 function row(session_id: string, extra: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -69,6 +69,14 @@ test("the strip has a line for the lab data, the environment geometry and the co
   expect(lines[0].detail).toMatch(/^6 sessions, converter run 2026-10-13 /);
   expect(lines[1].detail).toBe("4 environments");
   expect(stripProblems(lines)).toEqual([]);
+});
+
+test("a lab data folder that exists and holds no sessions has nothing yet, and the strip card takes the worst of its lines", () => {
+  const empty = stripLines(health(folder({ counts: { sessions: 0 } })));
+  expect(empty.map((line) => line.status)).toEqual(["nothing yet", "ok", "ok"]);
+  expect(stripStatus(empty)).toBe("nothing yet");
+  expect(stripStatus(stripLines(health(folder())))).toBe("ok");
+  expect(stripStatus(stripLines(health(folder({ counts: { sessions: 0 } }), { ...ENVIRONMENTS, problems: ["no yaml files"] })))).toBe("problem");
 });
 
 test("a folder with problems shows them under the strip with the line they belong to, a key the config lacks shows as not set", () => {

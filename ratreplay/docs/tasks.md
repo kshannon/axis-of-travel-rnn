@@ -111,7 +111,7 @@ anything that touches real data.
       is" carries the rules it follows, a section on what a person can do and what each action writes
       (from the files' point of view), and the main section is the process, the workflow and instructions
       for use, including the data flow. Kyle, 2026-10-18. [Pages 1 and 8]
-- [ ] K9 Status marks and palette: the ok, problem and nothing yet states on the Data page become a strong
+- [x] K9 Status marks and palette: the ok, problem and nothing yet states on the Data page become a strong
       coloured mark with a plain word and a coloured edge on the card, and the palette tries the San Diego
       Gulls colours used sparingly, marine blue #0083BF as the accent and ok, orange #FF4C00 only for a
       problem or a refusal, silver #C0CDD5 for muted text, black and white as the grounds of the two
@@ -156,3 +156,6 @@ anything that touches real data.
       kinematics already uses for speed), handed out by `session()` as display arrays beside the raw x
       and y, never into the blocks, and the trail is drawn a little wider. Kyle, 2026-10-18.
       [TrajectoryEngine.session, Page 3]
+- [ ] K15 Environments page redesign: one environment shown large with its parameters, ranges and its
+      sessions table in a vertically scrolling area, the other environments as a row of thumbnails about
+      the size of today's drawings to pick from, no unused space. Kyle, 2026-10-18. [Page 7]

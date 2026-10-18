@@ -12,7 +12,7 @@ import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
 import { askAndChange } from "./exclusion";
 import { incomingRoot } from "./incoming-html";
-import { blockText, COLUMNS, filterRows, incomingGroups, reviewText, rowTitle, sessionFacts, stripLines, stripProblems, tiles, totalsText } from "./incoming-view";
+import { blockText, COLUMNS, filterRows, incomingGroups, reviewText, rowTitle, sessionFacts, stripLines, stripProblems, stripStatus, tiles, totalsText } from "./incoming-view";
 import type { Page } from "./page";
 
 const REPLAY_HASH = "#/replay";
@@ -31,6 +31,9 @@ function registerIncoming(): void {
     },
     get problems() {
       return stripProblems(this.lines);
+    },
+    get status() {
+      return stripStatus(this.lines);
     },
     /** Why the sessions cannot be listed yet, none when the three folders are usable. */
     get blocked() {

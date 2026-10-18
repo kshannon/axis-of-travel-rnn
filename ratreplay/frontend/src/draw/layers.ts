@@ -6,16 +6,21 @@ export type Layers = Record<LayerKey, boolean>;
 /** What happened to the head direction of a frame, the words saying whose work it is. */
 export const HEAD_DIR = { lost: "missing", filled: "interpolated by RatReplay", held: "held by RatReplay" } as const;
 
-/** The layers of the frames lane that a checkbox toggles, each with the colour it is drawn in. The words say whose work it is. */
+/**
+ * The layers of the frames lane that a checkbox toggles, each with the colour it is drawn in and its toggle dot shows. A
+ * colour is a CSS variable of the theme, so the dot and the lane follow the theme: orange for what is wrong with the
+ * tracking, amber for a pause, blue for what RatReplay filled in, grey for what the lab lost, the margins in silver on
+ * the dark theme and black on the light. The words say whose work it is.
+ */
 export const LAYERS: readonly { key: LayerKey; label: string; colour: string }[] = [
-  { key: "pauses", label: "recording paused", colour: "#ec4899" },
-  { key: "gaps", label: "tracking lost", colour: "#9ca3af" },
-  { key: "jumps", label: "position jumped", colour: "#ef4444" },
-  { key: "margins", label: "margins trimmed", colour: "#000000" },
-  { key: "lost", label: `head dir ${HEAD_DIR.lost}`, colour: "#f97316" },
-  { key: "filled", label: `head dir ${HEAD_DIR.filled}`, colour: "#facc15" },
-  { key: "held", label: `head dir ${HEAD_DIR.held}`, colour: "#2dd4bf" },
-  { key: "speed", label: "speed", colour: "#94a3b8" },
+  { key: "pauses", label: "recording paused", colour: "var(--warn)" },
+  { key: "gaps", label: "tracking lost", colour: "var(--neutral)" },
+  { key: "jumps", label: "position jumped", colour: "var(--bad)" },
+  { key: "margins", label: "margins trimmed", colour: "var(--margin)" },
+  { key: "lost", label: `head dir ${HEAD_DIR.lost}`, colour: "var(--bad)" },
+  { key: "filled", label: `head dir ${HEAD_DIR.filled}`, colour: "var(--accent)" },
+  { key: "held", label: `head dir ${HEAD_DIR.held}`, colour: "var(--soft)" },
+  { key: "speed", label: "speed", colour: "var(--ink)" },
 ];
 
 export const colourOf = (key: LayerKey): string => LAYERS.find((layer) => layer.key === key)!.colour;

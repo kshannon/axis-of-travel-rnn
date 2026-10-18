@@ -1,6 +1,6 @@
 import { card, foldedCard } from "../ui/card";
 import { factsList } from "../ui/facts";
-import { statusMark } from "../ui/status";
+import { statusEdge, statusMark } from "../ui/status";
 import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
 import { ANNOTATED_NOTE } from "./exclusion-view";
@@ -133,7 +133,7 @@ const sessionsGate = `
 /** The Incoming page: the strip of read paths, the sessions of the lab data with their tiles and details, and the transformed files' format folded at the bottom. */
 export const incomingRoot = `
   <div x-data="incomingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
-    ${card("Read from", stripBody, "col-span-12")}
+    ${card("Read from", stripBody, "col-span-12", "", `lines.length ? ${statusEdge("status")} : ''`)}
     ${card("Sessions", sessionsGate, "col-span-12")}
     ${foldedCard("Incoming data format", formatBody, "col-span-12", formatChip)}
   </div>`;

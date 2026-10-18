@@ -1,5 +1,5 @@
 import { card, foldedCard } from "../ui/card";
-import { statusMark } from "../ui/status";
+import { statusEdge, statusMark } from "../ui/status";
 import { BUTTON, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
 import { compareTable, formatBody, formatChip } from "./tables-html";
@@ -92,7 +92,7 @@ const builtBody = `
 /** The Outgoing page: the write path with its state, the selected windows.json, what is built per session with Rebuild all, and the processed files' format folded at the bottom. */
 export const outgoingRoot = `
   <div x-data="outgoingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
-    ${card("Write path", writeBody, "col-span-8")}
+    ${card("Write path", writeBody, "col-span-8", "", `view ? ${statusEdge("view.status")} : ''`)}
     ${card("Selected for export", selectedBody, "col-span-4")}
     ${card("Built", builtBody, "col-span-12")}
     ${foldedCard("Outgoing data format", formatBody, "col-span-12", formatChip)}
