@@ -199,3 +199,11 @@ client.
   (windowChecks goes), the Blocks and Windows gates add environments, the file name of windows.json comes
   from the API, and Rebuild all sends the selected settings when windows.json exists, else the defaults
   (today it sends the defaults, which rewrites every session's informative metadata settings).
+- F2: the save result carries the review file name relative to the processed root (the access names its
+  file, the client never forms a path), the session header carries the environments' geometry, warnings,
+  refusals, in_dataset and reason. The map draws the epoch under the cursor's environment in metres and
+  positions outside the room stay visible (a registration problem the reviewer should see), with the
+  engine's `outside` count shown. `stops` and `stretches` are computed by the engine and drawn by nothing
+  yet, draw them later or drop `stops`. For F3: wire `settingsStore().use()` on the Blocks page and in
+  Rebuild all so the cross page settings path is live, the e2e flow spec expects an absolute review path
+  (S2 decides, the API gives the relative one).

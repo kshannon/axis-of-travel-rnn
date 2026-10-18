@@ -1,8 +1,8 @@
-import type { Preview, Review, ReviewBlock, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
+import type { Edit, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { cutsOf } from "../session/cuts";
-import { windowCount } from "../session/windows";
+import { label as editLabel } from "../session/editor";
 import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
 import { counted } from "../ui/text";
@@ -29,9 +29,14 @@ export interface BlockCard {
   epoch: string;
   minutes: string;
   runs: number;
-  /** The training windows the block yields at the settings, none when it is shorter than one window. */
-  windows: number;
+  /** The windows the manager counted at the settings, none for a removed block. */
+  windows: number | null;
   windowsText: string;
+  /** The manager's verdict on the block: ok, or every rule it breaks. Empty for a removed block. */
+  verdict: string;
+  ok: boolean;
+  /** What is wrong with the block's frames, as the build found it. */
+  problems: string[];
   status: ReviewBlock["status"];
   glyph: string;
   chip: string;
@@ -44,18 +49,20 @@ export interface BlockCard {
 const framesOf = (block: Pick<ReviewBlock, "frame_start" | "frame_end">) => block.frame_end - block.frame_start + 1;
 const minutes = (seconds: number) => (seconds / SECONDS_PER_MINUTE).toFixed(1);
 
-function windowsOf(nFrames: number, rateHz: number, settings: WindowSettings) {
-  const windows = windowCount(nFrames, rateHz, settings);
-  return { windows, windowsText: windows ? counted(windows, "training window") : "shorter than one window" };
+/** What the manager says a block yields: its windows and its verdict, nothing for a removed block. */
+function yieldOf(block: MadeBlock) {
+  if (!block.windows) return { windows: null, windowsText: "removed, yields nothing", verdict: "", ok: true };
+  const { count, verdict } = block.windows;
+  return { windows: count, windowsText: counted(count, "training window"), verdict: verdict.ok ? "ok" : verdict.reasons.join(", "), ok: verdict.ok };
 }
 
 /** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first. */
-export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selected: ReviewBlock | null, settings: WindowSettings): BlockCard[] {
+export function blockCards(blocks: MadeBlock[], header: SessionHeader, selected: MadeBlock | null): BlockCard[] {
   return blocks.map((block, position) => ({
     position, name: blockName(position), epoch: block.epoch,
     minutes: (framesOf(block) / header.rate_hz / SECONDS_PER_MINUTE).toFixed(2),
     runs: header.runs.filter((r) => block.frame_start <= r.frame_start && r.frame_start <= block.frame_end).length,
-    ...windowsOf(framesOf(block), header.rate_hz, settings),
+    ...yieldOf(block), problems: block.problems,
     status: block.status, glyph: STATUS_GLYPHS[block.status], chip: STATUS_CHIPS[block.status],
     selected: block === selected,
     accepted: block.status === "confirmed" || block.status === "edited", removed: block.status === "dropped",
@@ -63,28 +70,75 @@ export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selecte
   }));
 }
 
-/** The stat tiles of the Summary card: the blocks by status, the time kept, the windows at the settings, the cuts and the flagged runs. */
+/** The stat tiles of the Summary card: the blocks by status, the time kept, the windows the manager counted at the settings, the cuts and the flagged runs. */
 export function summaryTiles(preview: Preview, header: SessionHeader, settings: WindowSettings): Tile[] {
   const { blocks } = preview;
   const count = (status: ReviewBlock["status"]) => String(blocks.filter((b) => b.status === status).length);
   const kept = blocks.filter((b) => b.status !== "dropped");
   const keptS = kept.reduce((total, b) => total + framesOf(b), 0) / header.rate_hz;
   const epochS = header.epochs.filter((e) => header.selected_epochs.includes(e.epoch)).reduce((total, e) => total + e.duration_s, 0);
-  const windows = kept.reduce((total, b) => total + windowCount(framesOf(b), header.rate_hz, settings), 0);
+  const windows = kept.reduce((total, b) => total + (b.windows?.count ?? 0), 0);
+  const trouble = kept.filter((b) => b.windows && !b.windows.verdict.ok).length;
   const { pauses, jumps, gaps } = cutsOf(header);
   const byStatus = (label: string, key: ReviewBlock["status"]): Tile => ({ label, value: count(key), note: "", title: "" });
   const keptNote = percent(epochS ? keptS / epochS : 0);
   return [
     byStatus("automatic", "auto"), byStatus("confirmed", "confirmed"), byStatus("edited", "edited"), byStatus("removed", "dropped"),
     { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.selected_epochs.join(" and ")}` },
-    { label: "windows", value: String(windows), note: `${settings.window_s} s each`, title: `${settings.window_s} s windows every ${settings.stride_s} s` },
+    { label: "windows", value: String(windows), note: `${settings.window_s} s each`, title: `${settings.window_s} s windows every ${settings.stride_s} s, ${counted(trouble, "block")} not ok` },
     { label: "flagged", value: String(preview.flagged_runs.length), note: `of ${header.runs.length} runs`, title: "runs flagged as mislabelled" },
     { label: "pauses, jumps, gaps", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "what the processor cuts at", wide: true },
   ];
 }
 
 export function factsLine(header: SessionHeader): string {
-  return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames`;
+  return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames, ${counted(header.n_initial_blocks, "block")} cut by the rules`;
+}
+
+/** The window settings in use as one line, what the counts on the cards and tiles are at. */
+export function settingsLine(s: WindowSettings): string {
+  return `window ${s.window_s} s, stride ${s.stride_s} s, burn-in ${s.burn_in_s} s, horizon ${s.horizon_s} s, heading measured at least ${percent(s.min_heading_measured)}, ` +
+    `at least ${counted(s.min_complete_trips, "complete trip")}, resampled at ${s.rate_hz} Hz`;
+}
+
+export interface Note {
+  text: string;
+  /** The text colour class: warn for what to read before trusting the session, muted for a fact. */
+  tone: string;
+}
+
+const WARN = "text-warn";
+const QUIET = "text-muted";
+
+/** What the Session card says besides the facts: why the rules leave the session out, the header's warnings, the saved edits that no longer apply and the positions off the map. */
+export function sessionNotes(header: SessionHeader, refusals: Refusal[], edits: Edit[]): Note[] {
+  const notes: Note[] = [];
+  if (!header.in_dataset) notes.push({ text: `Not in the dataset: ${header.reason}. It can be viewed and previewed, Save blocks is disabled.`, tone: WARN });
+  for (const warning of header.warnings) notes.push({ text: warning, tone: WARN });
+  for (const { index, op, reason } of refusals) {
+    notes.push({ text: `Edit ${index + 1} (${edits[index] ? editLabel(edits[index]) : op}) is not applied under the current rules: ${reason}`, tone: WARN });
+  }
+  if (header.occupancy.outside) notes.push({ text: `${counted(header.occupancy.outside, "position")} outside the room, drawn outside its outline.`, tone: QUIET });
+  return notes;
+}
+
+export interface SaveToast {
+  kind: "success" | "warning";
+  text: string;
+  /** The review file written, shown apart from the text. */
+  path: string;
+}
+
+/** What a save tells: the review written and how many blocks were built from it, or what went wrong with the build, naming the blocks that failed and why. */
+export function saveToast(saved: SavedBlocks): SaveToast {
+  const wrote = `Saved, ${saved.replaced ? "replacing the earlier review" : "a new file"}`;
+  const built = `built ${counted(saved.built, "block")}`;
+  if (saved.build_error) return { kind: "warning", text: `${wrote}, but the build failed and nothing was built: ${saved.build_error}`, path: saved.file };
+  if (saved.failed.length) {
+    const failed = saved.failed.map((f) => `${f.block_id} (${f.problems.join(", ")})`).join(", ");
+    return { kind: "warning", text: `${wrote}, ${built}, but ${saved.failed.length} failed: ${failed}`, path: saved.file };
+  }
+  return { kind: "success", text: `${wrote}, ${built}`, path: saved.file };
 }
 
 /** Which state is on screen: the automatic blocks, or the saved review with its edit count, then what changed since. */
@@ -116,7 +170,7 @@ export function liveTiles(header: SessionHeader, arrays: SessionArrays, index: n
   const run = runAt(header.runs, index + 1);
   const speed = arrays.speed[index];
   return {
-    time: `${arrays.t[index].toFixed(2)} s`, frame: String(index + 1), speed: Number.isNaN(speed) ? "n/a" : `${Math.round(speed)} px/s`,
+    time: `${arrays.t[index].toFixed(2)} s`, frame: String(index + 1), speed: Number.isNaN(speed) ? "n/a" : `${speed.toFixed(2)} m/s`,
     lights: String(arrays.n_lights[index]), run: run ? `${run.run}, path ${run.path_id} ${run.clean ? "clean" : "dirty"}` : "none",
   };
 }

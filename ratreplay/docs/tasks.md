@@ -63,7 +63,7 @@ anything that touches real data.
 
 - [x] F1 api client for the new routes, `state/health.ts` replacing `state/sources.ts`, Data page with
       Rebuild all, Sessions page. Check: Data page shows three folders. [Pages 1, 2]
-- [ ] F2 Replay page on ReviewManager: block cards show the manager's window counts, Save blocks and its
+- [x] F2 Replay page on ReviewManager: block cards show the manager's window counts, Save blocks and its
       result toast, `session/windows.ts` deleted. [Page 3]
 - [ ] F3 Blocks and Windows pages on ValidationManager: real or set, settings being tried, built settings
       shown, Select these settings. [Pages 4, 5]

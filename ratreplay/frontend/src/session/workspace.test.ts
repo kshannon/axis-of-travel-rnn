@@ -1,9 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import * as client from "../api/client";
-import type { Edit, MadeBlock, Preview, ReviewBlock, SessionArrays, SessionHeader } from "../api/types";
+import type { Edit, MadeBlock, Preview, ReviewBlock, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Workspace } from "./workspace";
 
 vi.mock("../api/client");
+
+const SETTINGS: WindowSettings = { window_s: 40, stride_s: 10, burn_in_s: 1, horizon_s: 0.5, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
+const SHORTER: WindowSettings = { ...SETTINGS, window_s: 5 };
 
 const block = (frame_start: number, status: ReviewBlock["status"]): MadeBlock => ({
   block_id: `S_arena_${frame_start}`, epoch: "arena", environment: "open_arena", frame_start, frame_end: frame_start + 999, status, note: null,
@@ -26,7 +29,7 @@ function serverDropping(nBlocks = 3) {
 function workspace(first = preview(["auto", "auto", "auto"])) {
   const header = { session_id: "S", n_frames: 6000, rate_hz: 60 } as SessionHeader;
   const arrays = { speed: new Float64Array([1, 2, NaN, 3]) } as SessionArrays;
-  return new Workspace({ header, arrays, settings: {} as never, saved: null, preview: first });
+  return new Workspace({ header, arrays, settings: SETTINGS, saved: null, preview: first });
 }
 
 beforeEach(() => vi.resetAllMocks());
@@ -38,7 +41,7 @@ test("an edit the server applies joins the list and the blocks are the server's 
   expect(await ws.edit(() => drop)).toBe(drop);
   expect(ws.editor.edits).toEqual([drop]);
   expect(ws.preview.blocks.map((b) => b.status)).toEqual(["dropped", "auto", "auto"]);
-  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [drop], settings: {} });
+  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [drop], settings: SETTINGS });
 });
 
 test("an edit the server refuses gives back the server's reason and changes nothing", async () => {
@@ -90,25 +93,62 @@ test("a failed preview leaves the edits as they were and the next change still r
   expect(await ws.edit(() => ({ op: "drop", frame: 1 }))).toEqual({ op: "drop", frame: 1 });
 });
 
-test("a save marks the edits as saved and keeps the review the server wrote", async () => {
+test("a save sends the edits, the note and the settings, marks the edits saved and keeps the review and the result the server gave", async () => {
   const review = { edits: [{ op: "accept" }], reviewed_by: "kyle" } as never;
-  vi.mocked(client.saveBlocks).mockResolvedValue({ review, replaced: false, built: 1, failed: [], build_error: null });
+  const result = { review, replaced: false, file: "review/S.json", built: 1, failed: [], build_error: null };
+  vi.mocked(client.saveBlocks).mockResolvedValue(result);
   const ws = workspace();
   ws.editor.push({ op: "accept" });
   expect(ws.editor.dirty).toBe(true);
-  await ws.save("a note");
-  expect(client.saveBlocks).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], notes: "a note", settings: {} });
+  expect(await ws.save("a note")).toBe(result);
+  expect(client.saveBlocks).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], notes: "a note", settings: SETTINGS });
   expect([ws.editor.dirty, ws.saved]).toEqual([false, review]);
 });
 
-test("opening the session already open keeps its edits and reads the window settings again", async () => {
-  vi.mocked(client.getFormat).mockResolvedValue({ settings: { window_s: 5 } } as never);
+test("a save the server refuses leaves the edits unsaved", async () => {
+  vi.mocked(client.saveBlocks).mockRejectedValue(new Error("some blocks are still auto"));
+  const ws = workspace();
+  ws.editor.push({ op: "accept" });
+  await expect(ws.save("")).rejects.toThrow("still auto");
+  expect([ws.editor.dirty, ws.saved]).toEqual([true, null]);
+});
+
+test("a session not open yet is loaded at the settings with its saved review's edits and the blocks the header gives", async () => {
+  const saved = { edits: [{ op: "accept" }], notes: "shaky" } as never;
+  const blocks = [block(1, "confirmed")];
+  const header = { session_id: "S", n_frames: 6000, rate_hz: 60, review: saved, blocks, refusals: [], cuts: [], flagged_runs: [3] } as unknown as SessionHeader;
+  vi.mocked(client.getSession).mockResolvedValue(header);
+  vi.mocked(client.getSessionArrays).mockResolvedValue({ speed: new Float64Array([1]) } as SessionArrays);
+  Workspace.current = null;
+  const ws = await Workspace.open("S", SETTINGS);
+  expect(client.getSession).toHaveBeenCalledWith("S", SETTINGS);
+  expect([ws.settings, ws.saved, ws.editor.edits, ws.editor.dirty]).toEqual([SETTINGS, saved, [{ op: "accept" }], false]);
+  expect(ws.preview).toEqual({ blocks, refusals: [], cuts: [], flagged_runs: [3] });
+  expect(Workspace.current).toBe(ws);
+  Workspace.current = null;
+});
+
+test("opening the session already open keeps its edits and previews them again at other settings, at the same settings it asks nothing", async () => {
+  vi.mocked(client.previewEdits).mockResolvedValue(preview(["confirmed", "auto", "auto"]));
   const ws = workspace();
   Workspace.current = ws;
   ws.editor.push({ op: "accept" });
-  expect(await Workspace.open("S")).toBe(ws);
-  expect([ws.settings.window_s, ws.editor.edits.length]).toEqual([5, 1]);
+  expect(await Workspace.open("S", { ...SETTINGS })).toBe(ws);
+  expect(client.previewEdits).not.toHaveBeenCalled();
+  expect(await Workspace.open("S", SHORTER)).toBe(ws);
+  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], settings: SHORTER });
+  expect([ws.settings, ws.editor.edits.length, ws.preview.blocks[0].status]).toEqual([SHORTER, 1, "confirmed"]);
   Workspace.current = null;
+});
+
+test("settings the server cannot preview at are not taken, and edits made after use them", async () => {
+  vi.mocked(client.previewEdits).mockRejectedValueOnce(new Error("down")).mockImplementation(serverDropping());
+  const ws = workspace();
+  await expect(ws.useSettings(SHORTER)).rejects.toThrow("down");
+  expect(ws.settings).toBe(SETTINGS);
+  await ws.useSettings(SHORTER);
+  await ws.edit(() => ({ op: "drop", frame: 1 }));
+  expect(client.previewEdits).toHaveBeenLastCalledWith("S", { edits: [{ op: "drop", frame: 1 }], settings: SHORTER });
 });
 
 test("opening another session drops the open one's edits only while they are unsaved", () => {

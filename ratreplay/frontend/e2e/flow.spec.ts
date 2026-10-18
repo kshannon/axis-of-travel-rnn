@@ -118,7 +118,7 @@ test("read the data folders, review a session, test the blocks and inspect their
     await expect(page.getByTestId("state")).toContainText(/now [45] edits not saved yet/);
 
     await page.getByLabel("Notes on the session").fill("the whole story");
-    await page.getByRole("button", { name: "Save session" }).click();
+    await page.getByRole("button", { name: "Save blocks" }).click();
     await expect(toast("Saved, a new file")).toContainText(`${realpathSync(PROCESSED)}/review/${S1}.json`);
     await expect(toast(`Opened the next session to review, ${S6}`)).toBeVisible();
     const saved = JSON.parse(readFileSync(join(PROCESSED, "review", `${S1}.json`), "utf8"));

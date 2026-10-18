@@ -25,7 +25,7 @@ def session_index(manager=Depends(review_manager)):
 @router.get("/sessions/{session_id}")
 def session_header(session_id: str, settings: SettingsQuery, manager=Depends(review_manager)):
     """
-    A session's facts, epochs, runs, cut points, spans, occupancy, review and blocks with their window counts at the settings in the query.
+    A session's facts, epochs, runs, the geometry of its environments, cut points, spans, occupancy, review and blocks with their window counts at the settings in the query.
     """
     return manager.load(session_id, settings.model_dump())
 
@@ -49,7 +49,7 @@ def preview_edits(session_id: str, body: EditsBody, manager=Depends(review_manag
 @router.put("/sessions/{session_id}/blocks")
 def save_blocks(session_id: str, body: ReviewBody, manager=Depends(review_manager)):
     """
-    Apply the edits, write the review whole and build the session's blocks, returning the review, whether it replaced one and the build's outcome.
+    Apply the edits, write the review whole and build the session's blocks, returning the review, the file written and whether it replaced one, and the build's outcome.
     """
     return manager.save_blocks(session_id, [edit.model_dump() for edit in body.edits], body.notes, body.settings.model_dump())
 

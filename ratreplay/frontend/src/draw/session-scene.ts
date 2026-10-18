@@ -1,5 +1,6 @@
-import type { ReviewBlock, SessionHeader, Span } from "../api/types";
+import type { MadeBlock, ReviewBlock, SessionHeader, Span } from "../api/types";
 import { cutsOf } from "../session/cuts";
+import { counted } from "../ui/text";
 import { colourOf } from "./layers";
 import type { LayerKey, Layers } from "./layers";
 import { FRAMES_LANE, runFill, runKind } from "./lanes";
@@ -41,11 +42,18 @@ function runBars(header: SessionHeader, flagged: Set<number>): Bar[] {
   }));
 }
 
-function blockBars(blocks: ReviewBlock[], rateHz: number): Bar[] {
+/** What a block yields at the settings, as the manager counted it: its windows and its verdict, or that it is removed. */
+export function yieldOf(block: MadeBlock): string {
+  if (!block.windows) return "removed";
+  const { count, verdict } = block.windows;
+  return `${counted(count, "window")}, ${verdict.ok ? "ok" : verdict.reasons.join(", ")}`;
+}
+
+function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
   return blocks.map((b, position) => ({
     lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: b.status === "dropped" ? GAP_ALPHA : BAR_ALPHA,
     text: blockName(position), pick: position,
-    tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s`,
+    tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s, ${yieldOf(b)}`,
   }));
 }
 
@@ -66,7 +74,7 @@ function frameLayers(header: SessionHeader, layers: Layers, speed: Float64Array,
 
 /** The session's timeline: its epochs, runs and the blocks as they stand after the edits, and the frames lane with the layers that are on. */
 export function sessionScene(
-  header: SessionHeader, blocks: ReviewBlock[], flaggedRuns: number[], layers: Layers, speed: Float64Array, speedTop: number,
+  header: SessionHeader, blocks: MadeBlock[], flaggedRuns: number[], layers: Layers, speed: Float64Array, speedTop: number,
 ): Scene {
   return {
     lanes: SESSION_LANES, rateHz: header.rate_hz, nFrames: header.n_frames,

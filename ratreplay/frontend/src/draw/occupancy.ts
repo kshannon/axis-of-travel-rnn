@@ -1,7 +1,8 @@
 import { rgb } from "d3";
-import type { SessionHeader } from "../api/types";
+import type { Epoch, SessionHeader } from "../api/types";
 import { epochAt } from "../session/at";
 import type { Palette } from "../ui/palette";
+import { EnvironmentBackdrop } from "./environment";
 import type { Backdrop, Extent, Projection } from "./map";
 
 const OCCUPANCY_ALPHA = 0.55;
@@ -9,19 +10,36 @@ const OCCUPANCY_ALPHA = 0.55;
 export const CURRENT = "current";
 export const ALL = "all";
 
-/** Where the animal spent time in the session's epochs, behind its map in camera pixels, y down: the epoch under the cursor, every epoch, or one by name. */
+type Drawn = Pick<SessionHeader, "occupancy" | "epochs" | "selected_epochs" | "environments">;
+
+/** The epoch kinds a choice shows at a frame index: the epoch under the cursor, every epoch the rules cut, or one by name. */
+export function epochsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs">, choice: string, index: number): string[] {
+  if (choice === ALL) return header.selected_epochs;
+  return [choice === CURRENT ? epochAt(header.epochs, index + 1) : choice];
+}
+
+/** The environments of the epochs a choice shows at a frame index, each once, an epoch the rules do not cut having none. */
+export function environmentsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs" | "environments">, choice: string, index: number): string[] {
+  const frame = index + 1;
+  const shown = (e: Epoch) => (choice === CURRENT ? e.frame_start <= frame && frame <= e.frame_end : header.selected_epochs.includes(e.epoch) && (choice === ALL || e.epoch === choice));
+  return [...new Set(header.epochs.filter(shown).map((e) => e.environment).filter((name) => header.environments[name]))];
+}
+
+/** The room in metres, y up, behind the map: the occupancy of the epochs shown with the geometry of their environments over it. */
 export class OccupancyBackdrop implements Backdrop {
-  readonly yUp = false;
+  readonly yUp = true;
   readonly extent: Extent;
   choice = CURRENT;
   private images = new Map<string, HTMLCanvasElement>();
+  private environments = new Map<string, EnvironmentBackdrop>();
 
-  constructor(private readonly header: Pick<SessionHeader, "occupancy" | "epochs">) {
+  constructor(private readonly header: Drawn) {
     this.extent = { x: header.occupancy.x, y: header.occupancy.y };
+    for (const [name, geometry] of Object.entries(header.environments)) this.environments.set(name, new EnvironmentBackdrop(geometry, this.extent));
   }
 
   speedText(top: number): string {
-    return `0 to ${Math.round(top)} px/s`;
+    return `0 to ${top.toFixed(2)} m/s`;
   }
 
   refresh(): void {
@@ -29,15 +47,15 @@ export class OccupancyBackdrop implements Backdrop {
   }
 
   draw(ctx: CanvasRenderingContext2D, project: Projection, colours: Palette, index: number): void {
-    const { counts } = this.header.occupancy;
-    const names = this.choice === ALL ? Object.keys(counts) : [this.choice === CURRENT ? epochAt(this.header.epochs, index + 1) : this.choice];
+    const kinds = epochsShown(this.header, this.choice, index);
     const [left, right] = project.x.range();
     const [top, bottom] = project.y.range();
     ctx.imageSmoothingEnabled = false;
-    for (const name of names) {
-      const image = this.image(name, colours.ink);
-      if (image) ctx.drawImage(image, left, top, right - left, bottom - top);
+    for (const kind of kinds) {
+      const image = this.image(kind, colours.ink);
+      if (image) ctx.drawImage(image, left, top, right - left, bottom - top); // the room's y runs up the screen, so the height is negative and flips the image
     }
+    for (const name of environmentsShown(this.header, this.choice, index)) this.environments.get(name)!.draw(ctx, project, colours);
   }
 
   /** The counts of an epoch as a small image, one pixel per bin and the row of the lowest y first, drawn in the ink of the theme. */

@@ -55,10 +55,10 @@ export function label(edit: Edit): string {
 }
 
 /** The block that stands for the selected one after an edit: a new block is selected, otherwise the overlapping block with the edges nearest the old ones, so a removed block around the selected one does not take the selection. */
-export function reselected(old: ReviewBlock | null, blocks: ReviewBlock[], edit: Edit): ReviewBlock | null {
+export function reselected<B extends ReviewBlock>(old: B | null, blocks: B[], edit: Edit): B | null {
   if (edit.op === "new") return blocks.find((b) => b.frame_start === edit.frame_start && b.frame_end === edit.frame_end) ?? null;
   if (!old) return null;
-  const apart = (b: ReviewBlock) => Math.abs(b.frame_start - old.frame_start) + Math.abs(b.frame_end - old.frame_end);
+  const apart = (b: B) => Math.abs(b.frame_start - old.frame_start) + Math.abs(b.frame_end - old.frame_end);
   const overlapping = blocks.filter((b) => b.frame_start <= old.frame_end && b.frame_end >= old.frame_start);
   return overlapping.sort((a, b) => apart(a) - apart(b))[0] ?? null;
 }

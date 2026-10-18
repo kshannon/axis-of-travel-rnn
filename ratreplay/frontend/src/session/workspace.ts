@@ -1,4 +1,4 @@
-import { getFormat, getSession, getSessionArrays, previewEdits, saveBlocks } from "../api/client";
+import { getSession, getSessionArrays, previewEdits, saveBlocks } from "../api/client";
 import type { Edit, Preview, Review, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Clock } from "./clock";
 import { Editor } from "./editor";
@@ -46,14 +46,13 @@ export class Workspace {
     this.speedTop = speedTop(loaded.arrays.speed);
   }
 
-  /** The session loaded with its saved review, or the one already open with the window settings read again. */
-  static async open(sessionId: string): Promise<Workspace> {
+  /** The session loaded with its saved review at the settings, or the one already open with its blocks counted at the settings. */
+  static async open(sessionId: string, settings: WindowSettings): Promise<Workspace> {
     const kept = Workspace.current;
     if (kept?.holds(sessionId)) {
-      kept.settings = (await getFormat()).settings; // F2 takes the settings from the settings state
+      await kept.useSettings(settings);
       return kept;
     }
-    const { settings } = await getFormat();
     const [header, arrays] = await Promise.all([getSession(sessionId, settings), getSessionArrays(sessionId)]);
     const { review: saved, blocks, refusals, cuts, flagged_runs } = header;
     return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview: { blocks, refusals, cuts, flagged_runs } }));
@@ -76,8 +75,17 @@ export class Workspace {
     return next;
   }
 
-  private previewOf(edits: Edit[]): Promise<Preview> {
-    return previewEdits(this.header.session_id, { edits, settings: this.settings });
+  private previewOf(edits: Edit[], settings = this.settings): Promise<Preview> {
+    return previewEdits(this.header.session_id, { edits, settings });
+  }
+
+  /** Count the blocks' windows at other settings: the whole edit list is previewed again, and the settings change only if that works. */
+  useSettings(settings: WindowSettings): Promise<void> {
+    return this.serially(async () => {
+      if (JSON.stringify(settings) === JSON.stringify(this.settings)) return;
+      this.preview = await this.previewOf(this.editor.edits, settings);
+      this.settings = settings;
+    });
   }
 
   /** Add the edit made when the server applies it and it changes something. Gives back the edit added, or the reason it was not. */

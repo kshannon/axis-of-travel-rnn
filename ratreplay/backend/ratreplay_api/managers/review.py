@@ -105,7 +105,7 @@ class ReviewManager:
 
     def load(self, sid, settings):
         """
-        A session for the replay as a header: its facts, epochs, runs, whether the rules keep it, what the engine draws, its review and its blocks with their window counts.
+        A session for the replay as a header: its facts, epochs, runs, whether the rules keep it, the geometry of its environments by name, what the engine draws, its review and its blocks with their window counts.
         """
         arrays, environments, found = self._session(sid)
         review = self.processed.review(sid)
@@ -117,7 +117,8 @@ class ReviewManager:
         return {**picked(row, SESSION_KEYS), "date": str(row["date"]), "n_frames": found["n_frames"], "in_dataset": funnel["in_dataset"],
                 "reason": funnel["reason"], "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
                 "runs": [picked(r, RUN_KEYS) for r in arrays["runs"]], "selected_epochs": [e["epoch"] for e in found["epochs"]],
-                "n_initial_blocks": len(found["initial_blocks"]), **picked(found, DRAWN_KEYS), "warnings": warnings, "review": review, **made}
+                "n_initial_blocks": len(found["initial_blocks"]), "environments": environments, **picked(found, DRAWN_KEYS), "warnings": warnings,
+                "review": review, **made}
 
     def arrays(self, sid):
         """
@@ -134,7 +135,7 @@ class ReviewManager:
 
     def save_blocks(self, sid, edits, notes, settings):
         """
-        Apply the edits and write the review whole, refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error.
+        Apply the edits and write the review whole, refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
         """
         self._require_in_dataset(sid)
         arrays, _, found = self._session(sid)
@@ -147,8 +148,8 @@ class ReviewManager:
         review = {"session_id": sid, "reviewed_by": getpass.getuser(), "reviewed_at": clock.iso_now(), "converter_manifest_timestamp": arrays["stamp"],
                   "rules": found["rules"], "blocks": applied["blocks"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"],
                   "notes": notes, "edits": edits}
-        replaced = self.processed.write_review(sid, review)["replaced"]
-        return {"review": review, "replaced": replaced, **self._built(sid, settings)}
+        written = self.processed.write_review(sid, review)
+        return {"review": review, "replaced": written["replaced"], "file": written["file"], **self._built(sid, settings)}
 
     def rebuild_all(self, settings):
         """

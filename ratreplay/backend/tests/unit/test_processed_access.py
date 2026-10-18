@@ -156,9 +156,9 @@ def test_the_built_sessions_are_listed_by_their_metadata_whether_or_not_they_hol
 
 def test_a_review_round_trips_and_the_reviewed_sessions_are_listed(access):
     assert access.review(S1) is None and access.reviews() == []
-    assert access.write_review(S6, review_of(S6)) == {"replaced": False}
-    assert access.write_review(S1, review_of(S1)) == {"replaced": False}
-    assert access.write_review(S1, review_of(S1, "edited")) == {"replaced": True}
+    assert access.write_review(S6, review_of(S6)) == {"replaced": False, "file": f"review/{S6}.json"}
+    assert access.write_review(S1, review_of(S1)) == {"replaced": False, "file": f"review/{S1}.json"}
+    assert access.write_review(S1, review_of(S1, "edited")) == {"replaced": True, "file": f"review/{S1}.json"}
     assert access.review(S1) == review_of(S1, "edited")
     assert access.reviews() == [S1, S6]
 

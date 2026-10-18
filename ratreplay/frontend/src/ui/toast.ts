@@ -12,7 +12,7 @@ function queue(): ToastQueue {
 /** Tell the person what an action did, every action ends in one. */
 export const toast = {
   success: (text: string, path = "") => queue().push("success", text, path),
-  warning: (text: string) => queue().push("warning", text),
+  warning: (text: string, path = "") => queue().push("warning", text, path),
   error: (text: string) => queue().push("error", text),
 };
 

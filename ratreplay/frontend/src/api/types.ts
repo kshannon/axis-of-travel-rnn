@@ -108,6 +108,7 @@ export interface Stretch {
   frame_end: number;
 }
 
+/** Where the session spent its frames: a grid of bins by bins over the room in metres (x and y give its extent), the counts of each epoch kind row by row from the lowest y. */
 export interface Occupancy {
   bins: number;
   x: [number, number];
@@ -207,6 +208,8 @@ export interface SessionHeader {
   /** The epochs the rules cut into blocks. */
   selected_epochs: string[];
   n_initial_blocks: number;
+  /** The geometry in metres of each environment of the session's epochs, by name. */
+  environments: Record<string, Geometry>;
   frame: SessionFrame;
   heading_spans: { lost: Span[]; filled: Span[]; held: Span[] };
   cut_points: CutPoint[];
@@ -214,6 +217,7 @@ export interface SessionHeader {
   stretches: Stretch[];
   occupancy: Occupancy;
   stops: Span[];
+  /** What to know before trusting the session, including a review made under other rules and saved blocks that differ from today's. */
   warnings: string[];
   review: Review | null;
   blocks: MadeBlock[];
@@ -275,6 +279,8 @@ export interface SavedBlocks extends Build {
   review: Review;
   /** Whether the save replaced an earlier review. */
   replaced: boolean;
+  /** The review file the save wrote, relative to the processed folder. */
+  file: string;
 }
 
 export interface Rebuilt {

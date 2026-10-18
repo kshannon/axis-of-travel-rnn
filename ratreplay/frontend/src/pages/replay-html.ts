@@ -4,18 +4,18 @@ import { BUTTON, BUTTON_PRIMARY, CHIP_OFF, CHIP_ON, INPUT, KBD, TILE, TILE_LABEL
 import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
-  <p>The positions are the lab's mashup light in camera pixels, y down. The grey shading is where the animal spent time in the epoch chosen under occupancy, darker is more. The epochs are drawn apart because the arena, the track and a rotated track overlap in the camera frame.</p>
-  <p class="mt-2">The dots are the last 2 s of the path coloured by speed. The red dot is the current position and the red arrow the heading after the processor's fill and the LED offset. The thin line is the whole path of the selected block.</p>`;
+  <p>The room in metres, north up, the same frame for every epoch. The outlines are the environment of the epoch chosen under occupancy: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. The grey shading is where the animal spent time in that epoch, darker is more.</p>
+  <p class="mt-2">The trail is the last 2 s of the path coloured by speed in m/s. The red dot is the current position and the red arrow the heading after the fill and the LED offset. The thin line is the whole path of the selected block. Positions outside the room are drawn outside the outline, where a registration problem shows, and are counted in the Session card.</p>`;
 
 const TIMELINE_HELP = `
-  <p>One time axis in minutes of recording, a pause is a mark and not a stretch. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a chip above. Blocks: the blocks as they stand after the edits, coloured by status.</p>
-  <p class="mt-2">A block is cut at every pause, jump, gap and epoch bound, a margin is trimmed beside each cut and a piece that is too short is dropped. The cuts, margins and fills come from the processor's own code, so a confirmed block is the block it builds.</p>
+  <p>One time axis in minutes of recording, a pause is a mark and not a stretch. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a chip above (pauses, gaps, jumps, margins, heading lost, filled and held, speed). Blocks: the blocks as they stand after the edits, coloured by status, a hover tells their windows and verdict.</p>
+  <p class="mt-2">A block is cut at every pause, jump, gap and epoch bound, a margin is trimmed beside each cut and a piece that is too short is dropped. The cuts, margins and fills are the engine's, the same call that builds the blocks, so a confirmed block is the block it builds.</p>
   <p class="mt-2">Click a lane to move the cursor, click a block bar to select it. The wheel zooms and a drag pans.</p>`;
 
 const toggle = (pressed: string, on: string, off: string) => `:class="${pressed} ? '${on}' : '${off}'"`;
 
 const sessionActions = `
-  <button type="button" @click="save()" :disabled="loading || busy" class="${BUTTON_PRIMARY}">Save session</button>
+  <button type="button" @click="save()" :disabled="loading || busy || !inDataset" :title="inDataset ? '' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
   <button type="button" @click="undo()" :disabled="!editCount" class="${BUTTON}">Undo <kbd class="${KBD}">z</kbd></button>
   <button type="button" @click="reset()" :disabled="!editCount" class="${BUTTON}">Reset to automatic</button>`;
 
@@ -25,6 +25,9 @@ const sessionBody = `
       <p data-testid="session-id" class="truncate font-mono text-sm" x-text="sessionId"></p>
       <p class="text-xs" x-text="facts"></p>
       <p data-testid="state" class="text-xs text-muted" x-text="stateLine"></p>
+      <ul data-testid="notices" x-show="notices.length" class="max-h-14 space-y-0.5 overflow-auto text-xs">
+        <template x-for="notice in notices"><li :class="notice.tone" x-text="notice.text"></li></template>
+      </ul>
       <p x-show="error" x-text="error" role="alert" class="text-xs text-bad"></p>
     </div>
     <button type="button" @click="wholeSession()" :disabled="loading" class="${BUTTON} shrink-0">Whole session</button>
@@ -39,17 +42,20 @@ const summaryBody = `
         <p class="truncate text-xs text-muted" x-text="tile.note"></p>
       </div>
     </template>
-  </div>`;
+  </div>
+  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
 
 const blockCard = `
   <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
-    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed || !block.windows ? 'opacity-60' : '']">
+    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed || block.windows === 0 ? 'opacity-60' : '']">
     <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-medium" x-text="block.name"></h3>
       <span :class="block.chip" x-text="block.glyph + ' ' + block.status"></span>
     </div>
     <p class="mt-0.5 text-muted" x-text="block.epoch + ', ' + block.minutes + ' min, ' + block.runs + ' runs'"></p>
     <p class="text-muted" x-text="block.windowsText"></p>
+    <p x-show="block.verdict" data-testid="verdict" :class="block.ok ? 'text-ok' : 'text-warn'" x-text="block.verdict"></p>
+    <template x-for="problem in block.problems"><p class="text-bad" x-text="problem"></p></template>
     <div class="mt-1.5 flex gap-1.5">
       <button type="button" @click.stop="act('accept', block.position)" :disabled="!block.acceptable" :aria-pressed="block.accepted"
         :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
@@ -59,12 +65,12 @@ const blockCard = `
   </article>`;
 
 const blocksBody = `
-  <p x-show="!loading && !blocks.length" class="text-sm text-muted">The processor builds no block from this session.</p>
+  <p x-show="!loading && !blocks.length" class="text-sm text-muted">The rules cut no block from this session.</p>
   <div class="flex flex-col gap-2">
     <template x-for="block in blocks" :key="block.position">${blockCard}</template>
   </div>`;
 
-const mapBody = `<div x-ref="map" class="relative h-full min-h-0"></div>`;
+const mapBody = `<div x-ref="map" data-testid="map" class="relative h-full min-h-0"></div>`;
 
 const occupancyChips = `
   <div class="flex flex-wrap items-center gap-1.5">

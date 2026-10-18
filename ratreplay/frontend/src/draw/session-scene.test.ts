@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
-import type { ReviewBlock, SessionHeader } from "../api/types";
+import type { MadeBlock, ReviewBlock, SessionHeader } from "../api/types";
 import { allLayers } from "./layers";
-import { blockName, sessionScene } from "./session-scene";
+import { blockName, sessionScene, yieldOf } from "./session-scene";
 
 const header = {
   rate_hz: 60, n_frames: 36_000,
@@ -11,11 +11,12 @@ const header = {
   heading_spans: { lost: [[1, 60]], filled: [[100, 129]], held: [] },
 } as unknown as SessionHeader;
 
-const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"]): ReviewBlock =>
-  ({ block_id: `S_${frame_start}`, epoch: "track", environment: "triple_t", frame_start, frame_end, status, note: null });
+const OK = { count: 3, verdict: { ok: true, reasons: [] } };
+const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"], windows: MadeBlock["windows"] = status === "dropped" ? null : OK): MadeBlock =>
+  ({ block_id: `S_${frame_start}`, epoch: "track", environment: "triple_t", frame_start, frame_end, status, note: null, windows, problems: [] });
 
 const speed = new Float64Array(10);
-const scene = (blocks: ReviewBlock[], flagged: number[] = [], layers = allLayers()) => sessionScene(header, blocks, flagged, layers, speed, 1);
+const scene = (blocks: MadeBlock[], flagged: number[] = [], layers = allLayers()) => sessionScene(header, blocks, flagged, layers, speed, 1);
 
 test("the bars say what a hover tells of an epoch, a run and a block", () => {
   const bars = scene([block(3001, 9000, "auto")]).bars;
@@ -23,7 +24,7 @@ test("the bars say what a hover tells of an epoch, a run and a block", () => {
     "track, triple_t, baseline, frames 1 to 36000, 10.0 min",
     "run 1, path 1 outbound, clean, 600 frames (6001 to 6600)",
     "run 2, path 9 return, dirty, 100 frames (7001 to 7100)",
-    "block 1, auto, frames 3001 to 9000, 100.0 s",
+    "block 1, auto, frames 3001 to 9000, 100.0 s, 3 windows, ok",
   ]);
 });
 
@@ -44,4 +45,11 @@ test("the frames lane holds the layers that are on, the speed trace between the 
   const kinds = (layers = allLayers()) => scene([], [], layers).frames.map((layer) => layer.kind);
   expect(kinds()).toEqual(["span", "span", "span", "span", "span", "trace", "tick", "tick"]);
   expect(kinds({ ...allLayers(), speed: false, pauses: false, jumps: false, gaps: false })).toEqual(["span", "span", "span", "span"]);
+});
+
+test("what a block yields is the manager's count and verdict, the reasons when it is not ok and removed when it has no windows", () => {
+  expect(yieldOf(block(1, 100, "confirmed"))).toBe("3 windows, ok");
+  expect(yieldOf(block(1, 100, "auto", { count: 1, verdict: { ok: true, reasons: [] } }))).toBe("1 window, ok");
+  expect(yieldOf(block(1, 100, "auto", { count: 0, verdict: { ok: false, reasons: ["no window fits", "0 complete trips under 1"] } }))).toBe("0 windows, no window fits, 0 complete trips under 1");
+  expect(yieldOf(block(1, 100, "dropped"))).toBe("removed");
 });

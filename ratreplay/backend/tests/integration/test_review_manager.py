@@ -33,7 +33,7 @@ SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op"
 SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited"), (f"{S1}_track_02", "dropped")]
 ACCEPT = [{"op": "accept"}]
 HEADER_KEYS = {"session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap", "date", "n_frames", "in_dataset", "reason", "epochs", "runs",
-               "selected_epochs", "n_initial_blocks", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
+               "selected_epochs", "n_initial_blocks", "environments", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
                "warnings", "review", "blocks", "refusals", "cuts", "flagged_runs"}
 ARRAY_KEYS = ["t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights"]
 
@@ -102,6 +102,7 @@ def test_load_gives_the_header_with_the_initial_blocks_and_their_window_counts_a
     assert set(header) == HEADER_KEYS and header["date"] == "2015-01-01" and header["review"] is None and header["n_initial_blocks"] == 2
     assert header["in_dataset"] is True and header["reason"] is None and header["selected_epochs"] == ["arena", "track"]
     assert [r["run"] for r in header["runs"]] == [1, 2, 3, 4] and len(header["epochs"]) == 2
+    assert set(header["environments"]) == {e["environment"] for e in header["epochs"]} and all(g["room"] and "walls" in g for g in header["environments"].values())
     assert [(b["status"], b["problems"], set(b["windows"])) for b in header["blocks"]] == [("auto", [], {"count", "verdict"})] * 2
     assert all(b["windows"]["count"] > 0 and set(b["windows"]["verdict"]) == {"ok", "reasons"} for b in header["blocks"])
     assert list(arrays) == ARRAY_KEYS and all(len(values) == 5400 for values in arrays.values()) and arrays["n_lights"].dtype == np.int8
@@ -132,8 +133,8 @@ def test_a_preview_of_an_illegal_split_returns_the_refusal_and_writes_nothing(fo
 
 def test_save_writes_the_review_and_the_blocks_and_load_gives_them_back(folders, manager):
     saved = manager.save_blocks(S1, SAVED, "shaky", SHORT)
-    assert set(saved) == {"review", "replaced", "built", "failed", "build_error"}
-    assert (saved["replaced"], saved["built"], saved["failed"], saved["build_error"]) == (False, 2, [], None)
+    assert set(saved) == {"review", "replaced", "file", "built", "failed", "build_error"}
+    assert (saved["replaced"], saved["file"], saved["built"], saved["failed"], saved["build_error"]) == (False, f"review/{S1}.json", 2, [], None)
     review, access = saved["review"], ProcessedAccess(folders[1])
     assert review["reviewed_by"] == getpass.getuser() and review["converter_manifest_timestamp"] == STAMP and review["notes"] == "shaky"
     assert [(b["block_id"], b["status"]) for b in review["blocks"]] == SAVED_BLOCKS and review["edits"] == SAVED

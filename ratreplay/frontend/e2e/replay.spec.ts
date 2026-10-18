@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { baseScale, laneBands } from "../src/draw/lanes";
 import { SESSION_LANES } from "../src/draw/session-scene";
-import { openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings, S1, S6, SESSION_S } from "./synthetic";
+import { environmentPixels, openReplay, PROCESSED, pageScrolls, removeReviews, removeSettings, S1, S6, SESSION_S, WALL_PIXELS } from "./synthetic";
 
 test.afterEach(() => {
   removeReviews();
@@ -105,7 +105,7 @@ test("the edges of a new block over a removed block move the new block and the r
   await expect(cards.nth(1)).toHaveAttribute("aria-current", "true");
 
   await page.getByRole("button", { name: "Accept all" }).click();
-  await page.getByRole("button", { name: "Save session" }).click();
+  await page.getByRole("button", { name: "Save blocks" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved, a new file" }).filter({ hasText: `review/${S1}.json` })).toBeVisible();
   const saved = JSON.parse(readFileSync(join(PROCESSED, "review", `${S1}.json`), "utf8"));
   const arena = saved.blocks.filter((b: { epoch: string }) => b.epoch === "arena");
@@ -170,12 +170,12 @@ test("the keys step, jump and clear, and a letter typed in the notes stays a let
 
 test("a save is refused while a block is auto, names its file, advances to the next session and shows as saved after a reload", async ({ page }) => {
   await openReplay(page, S1);
-  await page.getByRole("button", { name: "Save session" }).click();
+  await page.getByRole("button", { name: "Save blocks" }).click();
   await expect(page.getByRole("status").filter({ hasText: "some blocks are still auto" })).toBeVisible();
 
   await page.getByRole("button", { name: "Accept all" }).click();
   await page.getByLabel("Notes on the session").fill("shaky tracking");
-  await page.getByRole("button", { name: "Save session" }).click();
+  await page.getByRole("button", { name: "Save blocks" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved, a new file" }).filter({ hasText: `review/${S1}.json` })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: `Opened the next session to review, ${S6}` })).toBeVisible();
   await expect(page.getByTestId("session-id")).toHaveText(S6);
@@ -192,7 +192,7 @@ test("a save is refused while a block is auto, names its file, advances to the n
   await expect(page.getByLabel("Notes on the session")).toHaveValue("shaky tracking");
   await expect(page.getByRole("article").first()).toContainText("confirmed");
 
-  await page.getByRole("button", { name: "Save session" }).click();
+  await page.getByRole("button", { name: "Save blocks" }).click();
   await expect(page.getByRole("status").filter({ hasText: "replacing the earlier review" })).toBeVisible();
 });
 
@@ -206,16 +206,58 @@ test("reset to automatic clears the edits in memory and says so", async ({ page 
   await expect(page.getByTestId("state")).toHaveText("automatic");
 });
 
-test("the block cards tell the training windows at the saved settings and grey a block shorter than one window", async ({ page }) => {
+test("the block cards show the manager's window count and verdict at the settings in use, and the settings are shown", async ({ page }) => {
   await openReplay(page, S6);
-  const cards = page.getByRole("article");
-  await expect(cards.first()).toContainText("shorter than one window"); // 20 s blocks under the default 40 s window
+  const card = page.getByRole("article").first();
+  await expect(card).toContainText("0 training windows"); // 20 s blocks under the default 40 s window
+  await expect(card.getByTestId("verdict")).toContainText("no window fits");
+  await expect(page.getByTestId("settings")).toContainText("window 40 s, stride 10 s");
+  await expect(card).toHaveClass(/opacity-60/);
+});
 
-  await page.getByRole("link", { name: "Blocks", exact: true }).click();
-  await page.getByLabel("window (s)").fill("5");
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
-  await page.getByRole("link", { name: "Replay", exact: true }).click();
-  await expect(cards.first()).toContainText("2 training windows");
-  await expect(cards.first()).not.toHaveClass(/opacity-60/);
+test("the room is drawn in metres, a split changes the windows counted, a save names the review file and the blocks built, a reload shows them", async ({ page }) => {
+  // The synthetic blocks last 20 s, so the settings in use are shortened to give windows: the API's defaults, read once by the page, are changed on the way.
+  await page.route("**/api/format", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, settings: { ...body.settings, window_s: 5, stride_s: 5 } } });
+  });
+  await openReplay(page, S1);
+  const cards = page.getByRole("article");
+  await expect(cards.nth(1)).toContainText("3 training windows");
+  await expect(page.getByTestId("notices")).toContainText("positions outside the room");
+  for (let i = 0; i < 45; i++) await page.keyboard.press("Shift+ArrowRight");
+  await expect(page.getByTestId("tile-frame")).toHaveText("2701"); // the middle of the track block, the only split that leaves two blocks of 10 s
+  expect(await environmentPixels(page)).toBeGreaterThan(WALL_PIXELS);
+
+  await cards.nth(1).click();
+  await page.getByRole("button", { name: "Split at cursor" }).click();
+  await expect(cards).toHaveCount(3);
+  await expect(cards.nth(1)).toContainText("1 training window");
+  await expect(cards.nth(2)).toContainText("0 complete trips under 1");
+  await expect(page.getByRole("status").filter({ hasText: "Added split at frame 2701" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Accept all" }).click();
+  await page.getByRole("button", { name: "Save blocks" }).click();
+  const saved = page.getByRole("status").filter({ hasText: "Saved, a new file, built 3 blocks" });
+  await expect(saved).toBeVisible();
+  await expect(saved).toContainText(`review/${S1}.json`);
+  await expect(page.getByTestId("session-id")).toHaveText(S6);
+
+  await openReplay(page, S1);
+  await expect(page.getByTestId("state")).toContainText(/^saved .* by \S+, 2 edits$/);
+  await expect(cards).toHaveCount(3);
+  await expect(cards.nth(2)).toContainText("edited");
+  await expect(page.getByTestId("notices")).not.toContainText("saved blocks differ");
+});
+
+test("a session the rules leave out can be replayed but not saved, and its reason is shown", async ({ page }) => {
+  await page.route(new RegExp(`/api/sessions/${S6}\\?`), async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, in_dataset: false, reason: "protocol rotation, not standard" } });
+  });
+  await openReplay(page, S6);
+  await expect(page.getByRole("button", { name: "Save blocks" })).toBeDisabled();
+  await expect(page.getByTestId("notices")).toContainText("Not in the dataset: protocol rotation, not standard");
 });

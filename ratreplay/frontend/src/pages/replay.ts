@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 import { errorText, listSessions } from "../api/client";
-import type { ReviewBlock } from "../api/types";
+import type { MadeBlock } from "../api/types";
 import { allLayers, LAYERS } from "../draw/layers";
 import type { LayerKey } from "../draw/layers";
 import { timeLabel } from "../draw/lanes";
@@ -15,6 +15,7 @@ import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { Workspace } from "../session/workspace";
 import { healthStore } from "../state/health";
+import { settingsStore } from "../state/settings";
 import { card } from "../ui/card";
 import type { Command } from "../ui/keys";
 import { BUTTON_PRIMARY } from "../ui/style";
@@ -22,11 +23,11 @@ import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
 import type { Page } from "./page";
 import { replayGrid } from "./replay-html";
-import { blockCards, factsLine, liveTiles, marksLine, stateLine, summaryTiles } from "./replay-view";
-import type { BlockCard, Tile } from "./replay-view";
+import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, settingsLine, stateLine, summaryTiles } from "./replay-view";
+import type { BlockCard, Note, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Sessions page.";
-const PROBLEM = "$store.health.problem('transformed', 'processed')";
+const PROBLEM = "$store.health.problem('transformed', 'processed', 'environments')";
 
 // The chips of the timeline keep their state when the person visits another page and comes back.
 const layers = allLayers();
@@ -38,7 +39,7 @@ function registerReplay(): void {
     let timeline!: Timeline;
     let map!: MapView;
     let occupancy!: OccupancyBackdrop;
-    let selected: ReviewBlock | null = null;
+    let selected: MadeBlock | null = null;
     let alive = true;
     let stopPlayback = () => {};
     const targetOf = (position?: number) => {
@@ -54,6 +55,10 @@ function registerReplay(): void {
       sessionId: "",
       facts: "",
       stateLine: "",
+      inDataset: true,
+      reason: "",
+      notices: [] as Note[],
+      settingsLine: "",
       blocks: [] as BlockCard[],
       summary: [] as Tile[],
       playing: false,
@@ -101,6 +106,7 @@ function registerReplay(): void {
           timeline.refresh();
           map.refresh();
         });
+        this.$watch("$store.settings.current", () => void this.settingsChanged());
         await this.load(healthStore().sessionId);
       },
 
@@ -117,7 +123,7 @@ function registerReplay(): void {
         this.sessionId = sessionId;
         this.error = "";
         try {
-          ws = await Workspace.open(sessionId);
+          ws = await Workspace.open(sessionId, { ...(await settingsStore().load()) });
         } catch (error) {
           this.error = errorText(error);
           return;
@@ -130,13 +136,16 @@ function registerReplay(): void {
         map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
         this.sessionId = header.session_id;
         this.facts = factsLine(header);
+        this.inDataset = header.in_dataset;
+        this.reason = header.reason ?? "";
         this.notes = ws.saved?.notes ?? "";
-        this.occupancyChoices = [CURRENT, ALL, ...new Set(header.epochs.map((e) => e.epoch))];
+        this.occupancyChoices = [CURRENT, ALL, ...header.selected_epochs];
         this.occupancy = CURRENT;
         this.speedIndex = (SPEEDS as readonly number[]).indexOf(ws.clock.speed);
         this.loading = false;
         this.sync();
         this.show();
+        await this.settingsChanged(); // a change made while the session was loading
       },
 
       /** The timeline's bars and layers for the blocks as they stand, the flagged runs and the layers that are on. */
@@ -171,8 +180,10 @@ function registerReplay(): void {
       /** Redraw everything that follows the edits: the cards, the summary, the lanes' blocks, the selection and the marks. */
       sync() {
         const { preview, editor, header } = ws;
-        this.blocks = blockCards(preview.blocks, header, selected, ws.settings);
+        this.blocks = blockCards(preview.blocks, header, selected);
         this.summary = summaryTiles(preview, header, ws.settings);
+        this.settingsLine = settingsLine(ws.settings);
+        this.notices = sessionNotes(header, preview.refusals, editor.edits);
         this.stateLine = stateLine(ws.saved, editor.edits.length, editor.dirty, preview.refusals.length);
         this.editCount = editor.edits.length;
         this.marksLine = marksLine(editor.markIn, editor.markOut, header.rate_hz);
@@ -226,7 +237,7 @@ function registerReplay(): void {
         timeline.fitSelected();
       },
 
-      selectBlock(block: ReviewBlock | null) {
+      selectBlock(block: MadeBlock | null) {
         selected = block;
         this.sync();
       },
@@ -246,6 +257,19 @@ function registerReplay(): void {
       mark(which: "in" | "out") {
         ws.editor[which === "in" ? "markIn" : "markOut"] = ws.clock.index + 1;
         this.sync();
+      },
+
+      /** Count the blocks again at the settings now in use: the whole edit list is previewed and the cards, tiles and bar tips follow. */
+      async settingsChanged() {
+        const next = settingsStore().current;
+        if (this.loading || !next || JSON.stringify(next) === JSON.stringify(ws.settings)) return;
+        try {
+          await ws.useSettings({ ...next });
+          selected = reselected(selected, ws.preview.blocks, { op: "accept" });
+          this.sync();
+        } catch (error) {
+          toast.error(errorText(error));
+        }
       },
 
       /** Make an action's edit, which the server applies or refuses with its reason. */
@@ -289,14 +313,13 @@ function registerReplay(): void {
         }
       },
 
-      /** Write the review, then open the next session still to review. */
+      /** Write the review and build the blocks, then open the next session still to review. */
       async save() {
         this.busy = true;
         try {
-          const saved = await ws.save(this.notes);
-          const saveText = `Saved, ${saved.replaced ? "replacing the earlier review" : "a new file"}`;
-          if (saved.build_error || saved.failed.length) toast.warning(`${saveText}, but the build had trouble: ${saved.build_error ?? saved.failed.map((f) => f.block_id).join(", ")}`);
-          else toast.success(saveText);
+          const done = saveToast(await ws.save(this.notes));
+          if (done.kind === "warning") toast.warning(done.text, done.path);
+          else toast.success(done.text, done.path);
           this.sync();
           await this.openNext();
         } catch (error) {
@@ -309,7 +332,9 @@ function registerReplay(): void {
         const rows = await listSessions();
         const next = rows.find((row) => !row.reviewed && row.in_dataset && row.session_id !== ws.header.session_id);
         if (!next) {
-          toast.success("Every session with frames has a review now.");
+          toast.success("Every session in the dataset has a review now.");
+          Workspace.current = null;
+          await this.load(ws.header.session_id); // read again, so the page shows the session as saved
           return;
         }
         healthStore().openSession(next.session_id);

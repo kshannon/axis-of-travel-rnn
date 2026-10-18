@@ -171,14 +171,14 @@ class ProcessedAccess:
 
     def write_review(self, sid, review):
         """
-        Write the review whole as the session's file after checking it, and say whether one was replaced.
+        Write the review whole as the session's file after checking it, and say which file, relative to the root, and whether it replaced one.
         """
         check_review(sid, review)
         path = self._path(REVIEW_DIR, sid, JSON)
         replaced = path.is_file()
         write_json(review, temp_of(path))
         temp_of(path).replace(path)
-        return {"replaced": replaced}
+        return {"replaced": replaced, "file": path.relative_to(self.root).as_posix()}
 
     def blocks(self):
         """

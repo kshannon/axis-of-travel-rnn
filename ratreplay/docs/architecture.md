@@ -430,7 +430,8 @@ query parameters on GET and in the body otherwise.
                                              (?reload=true reads the config again first)
     GET  /api/format                         the schemas each access declares (files, columns, dtypes)
     GET  /api/sessions                       index rows (rat, date, protocol, epochs, runs, initial blocks, review facts)
-    GET  /api/sessions/{sid}                 header: epochs, runs, cuts, spans, blocks with window counts, offset, review
+    GET  /api/sessions/{sid}                 header: epochs, runs, cuts, spans, blocks with window counts, offset, review,
+                                             the environments geometry, warnings, refusals, in_dataset and reason
     GET  /api/sessions/{sid}/arrays          the arrays as an Arrow IPC stream
     POST /api/sessions/{sid}/preview         body edits and settings, returns blocks and refusals, writes nothing
     PUT  /api/sessions/{sid}/blocks          body edits, notes, settings, saves the review and builds the blocks
