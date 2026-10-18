@@ -33,11 +33,11 @@ def processed(tmp_path, transformed):
 @pytest.fixture
 def client_on(tmp_path):
     """
-    A function making a test client on an app whose local.yaml under tmp_path holds the given config and whose window settings file is there too.
+    A function making a test client on an app whose local.yaml under tmp_path holds the given config.
     """
     def make(config):
         (tmp_path / "local.yaml").write_text(yaml.safe_dump(config))
-        return TestClient(create_app(config_path=tmp_path / "local.yaml", settings_path=tmp_path / "lab_blocks.yaml"))
+        return TestClient(create_app(config_path=tmp_path / "local.yaml"))
     return make
 
 
@@ -47,11 +47,3 @@ def client(client_on, transformed, processed):
     A test client on an app whose config names the synthetic folders.
     """
     return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)})
-
-
-@pytest.fixture
-def data_sources(client):
-    """
-    The DataSources of that app, naming the synthetic folders.
-    """
-    return client.app.state.sources

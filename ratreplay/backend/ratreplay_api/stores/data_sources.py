@@ -1,10 +1,7 @@
 """
-Where the data is: the two folders the config file names and the window settings file.
+Where the data is: the two folders the config file names.
 """
 
-from pathlib import Path
-
-from axis_of_travel_rnn.windows import CONFIG
 from proj_helpers import paths
 
 from ..utilities.config import Config
@@ -16,13 +13,12 @@ KEYS = {"transformed": "TRANSFORMED_LAB_DATA", "processed": "PROCESSED_LAB_DATA"
 
 class DataSources:
     """
-    The one place that knows how the folders are chosen: the config file at config_path, read with the config utility, and the window settings file at settings_path.
+    The one place that knows how the folders are chosen: the config file at config_path, read with the config utility.
     """
 
-    def __init__(self, config_path=None, settings_path=None):
+    def __init__(self, config_path=None):
         self.config = Config(config_path or paths.repo_root() / paths.LOCAL_CONFIG)
         self.config_path = self.config.path
-        self.settings_path = Path(settings_path or CONFIG)
 
     def reload(self):
         """

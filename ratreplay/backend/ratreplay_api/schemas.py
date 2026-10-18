@@ -24,6 +24,14 @@ class WindowSettings(BaseModel):
     min_complete_trips: int = Field(SETTINGS["min_complete_trips"], ge=0)
 
 
+class ReadinessQuery(WindowSettings):
+    """
+    The query of readiness: the window settings and the dataset they are tried on, real or a synthetic set. A query model must be the only query parameter, so which is a field of it.
+    """
+
+    which: str = "real"
+
+
 class SettingsBody(BaseModel):
     """
     The window settings a request works at: the ones to save, or the ones a rebuild computes its window counts at.

@@ -150,6 +150,13 @@ def test_a_build_that_breaks_the_format_is_refused_and_writes_nothing(access):
     assert not access.root.exists()
 
 
+def test_the_built_sessions_are_listed_by_their_metadata_whether_or_not_they_hold_blocks(built):
+    assert built.built() == [S1, S6]
+    built.write_blocks(S1, [], METADATA)
+    assert built.built() == [S1, S6] and [row["session_id"] for row in built.blocks()] == [S6, S6]
+    assert ProcessedAccess(built.root / "nowhere").built() == []
+
+
 def test_a_review_round_trips_and_the_reviewed_sessions_are_listed(access):
     assert access.review(S1) is None and access.reviews() == []
     assert access.write_review(S6, review_of(S6)) == {"replaced": False}
@@ -171,8 +178,8 @@ def test_a_review_with_a_bad_status_or_a_missing_key_is_refused_by_name(access):
 
 def test_window_settings_round_trip_with_the_replaced_flag(access):
     assert access.window_settings() is None
-    assert access.write_window_settings(WINDOWS) == {"replaced": False}
-    assert access.write_window_settings({**WINDOWS, "selected_by": "yuki"}) == {"replaced": True}
+    assert access.write_window_settings(WINDOWS) == {"replaced": False, "file": "windows.json"}
+    assert access.write_window_settings({**WINDOWS, "selected_by": "yuki"}) == {"replaced": True, "file": "windows.json"}
     assert access.window_settings()["selected_by"] == "yuki"
     with pytest.raises(Invalid, match="window settings lacks totals"):
         access.write_window_settings({key: value for key, value in WINDOWS.items() if key != "totals"})

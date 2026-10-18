@@ -196,6 +196,12 @@ class ProcessedAccess:
             raise NotFound(f"no block {block_id}")
         return {"row": row, "arrays": tables.read_parquet(self._path(BLOCKS_DIR, block_id, PARQUET))}
 
+    def built(self):
+        """
+        The ids of the sessions with a build, sorted, a session whose blocks were all dropped among them.
+        """
+        return self._ids(METADATA_DIR)
+
     def metadata(self, sid):
         """
         What the session's build used, none when it was not built.
@@ -238,14 +244,14 @@ class ProcessedAccess:
 
     def write_window_settings(self, settings):
         """
-        Write the selected window settings whole after checking them, and say whether a file was replaced.
+        Write the selected window settings whole after checking them, and say which file and whether it replaced one.
         """
         require("window settings", WINDOWS_KEYS, settings)
         path = self.root / WINDOWS
         replaced = path.is_file()
         write_json(settings, temp_of(path))
         temp_of(path).replace(path)
-        return {"replaced": replaced}
+        return {"replaced": replaced, "file": WINDOWS}
 
     def _path(self, folder, stem, suffix):
         """

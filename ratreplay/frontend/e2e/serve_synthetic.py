@@ -20,7 +20,7 @@ HOST = "127.0.0.1"
 
 def main(argv=None):
     """
-    Rebuild the synthetic transformed and processed folders under --root with a local.yaml there naming them, then serve the app on that config and a window settings file there too, so nothing outside --root is touched and the repository's configs/local.yaml is never read.
+    Rebuild the synthetic transformed and processed folders under --root with a local.yaml there naming them, then serve the app on that config, so nothing outside --root is touched and the repository's configs/local.yaml is never read.
     """
     parser = argparse.ArgumentParser(description="Serve RatReplay on synthetic data.")
     parser.add_argument("--root", type=Path, required=True, help="the folder rebuilt on every start")
@@ -32,7 +32,7 @@ def main(argv=None):
     write_processed(transformed, processed)
     local = args.root / "local.yaml"
     local.write_text(yaml.safe_dump({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)}))
-    app = create_app(config_path=local, settings_path=args.root / "lab_blocks.yaml")
+    app = create_app(config_path=local)
     uvicorn.run(app, host=HOST, port=args.port)
 
 

@@ -212,10 +212,12 @@ seed, rules, settings, code version).
 
 ### ValidationManager
 
-`health()`, `format()`, `readiness(which, settings)`, `block(block id)`, `windows(block id,
-settings)`, `select_settings(settings)`. Health and format come from the accesses alone, no engine.
-Readiness reads built blocks (real, or one synthetic set) and calls `windows` on each, it never re cuts
-a session. Select settings writes `windows.json` whole, the one thing this manager writes.
+`health()`, `format()`, `readiness(which, settings)`, `block(block id)`, `arrays(block id)`,
+`windows(block id, settings)`, `select_settings(settings)`, `selected()`. Health and format come from
+the accesses alone, no engine. Readiness reads built blocks (real, or one synthetic set) and calls
+`windows` on each under the rules the block's session was built with (from its metadata), it never re
+cuts a session. Select settings writes `windows.json` whole, the one thing this manager writes, and is
+refused while nothing is built. Selected reads it back.
 
 ### Accesses
 
@@ -420,7 +422,7 @@ moved into `engines/trajectory/` and they are removed once a real dataset has be
 JSON unless noted, errors as `{"error": text}` with 4xx, results as objects. Window settings travel as
 query parameters on GET and in the body otherwise.
 
-    GET  /api/health                         the three folders: root, status, problems, counts, times, the config file
+    GET  /api/health                         the three folders: root, exists, problems, counts, times, the config file
                                              (?reload=true reads the config again first)
     GET  /api/format                         the schemas each access declares (files, columns, dtypes)
     GET  /api/sessions                       index rows (rat, date, protocol, epochs, runs, initial blocks, review facts)

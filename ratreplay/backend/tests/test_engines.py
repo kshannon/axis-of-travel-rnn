@@ -1,16 +1,10 @@
 """
-The algorithms the tool adds to the project's: run length spans and the occupancy grid. The checks of each window are the project's, tested in tests/unit/test_windows.py.
+The algorithm the tool adds to the project's: the occupancy grid.
 """
 
 import numpy as np
 
-from ratreplay_api.engines import occupancy, spans
-
-
-def test_value_spans_split_at_every_change_and_skip_zero_runs():
-    block = {"run": np.array([0, 0, 1, 1, 1, 0, 2, 2]), "path_id": np.arange(8), "clean": np.ones(8, bool)}
-    assert spans.value_spans(block["run"]) == [(0, 0, 1), (1, 2, 4), (0, 5, 5), (2, 6, 7)]
-    assert [(r["run"], r["first"], r["last"]) for r in spans.run_spans(block)] == [(1, 2, 4), (2, 6, 7)]
+from ratreplay_api.engines import occupancy
 
 
 def test_occupancy_counts_each_epoch_over_one_shared_grid():

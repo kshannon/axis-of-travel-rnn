@@ -49,7 +49,7 @@ anything that touches real data.
 - [x] M1 `managers/review.py`, ReviewManager (index, load, preview, save_blocks, rebuild_all) and
       `routers/review.py`. Integration test: load, preview a refusal, save, load again gets the blocks back,
       rebuild all rebuilds two sessions, an illegal edit refuses the whole save. [ReviewManager, API]
-- [ ] M2 `managers/validation.py`, ValidationManager (health, format, readiness, block, windows,
+- [x] M2 `managers/validation.py`, ValidationManager (health, format, readiness, block, windows,
       select_settings) and `routers/validation.py`. Integration test: health names the problem, readiness
       on real and on a set, select writes windows.json whole. [ValidationManager, API]
 - [ ] M3 `managers/synthesis.py`, SynthesisManager (index, generate, delete_set) and

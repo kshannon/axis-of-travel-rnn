@@ -17,14 +17,15 @@ from .access.processed import ProcessedAccess
 from .access.transformed import TransformedAccess
 from .engines.trajectory import TrajectoryEngine
 from .managers.review import ReviewManager
+from .managers.validation import ValidationManager
 from .utilities import version
 from .utilities.errors import Invalid, NotFound
-from .routers import blocks, data_format, review, sources, windows
+from .routers import review, validation
 from .stores.data_sources import DataSources
 
 # The frontend is served once it has been built.
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-ROUTERS = (data_format.router, sources.router, review.router, blocks.router, windows.router)
+ROUTERS = (review.router, validation.router)
 INVALID = 400
 UNPROCESSABLE = 422
 
@@ -37,14 +38,64 @@ def review_manager(data_sources, code_version):
                          EnvironmentAccess(paths.environments_dir()), code_version)
 
 
-def create_app(config_path=None, settings_path=None):
+class UnsetAccess:
     """
-    The app with its routers mounted and the built frontend at /, the data folders from the config file at config_path (configs/local.yaml when none is given, read at start and on reload) and the window settings file at settings_path.
+    Stands in for the access of a folder the config does not name: its health says so, its schema is its format's as ever, and every verb that reads or writes the folder refuses with the problem.
+    """
+
+    def __init__(self, problem, access):
+        self.problem, self.access = problem, access
+
+    def health(self):
+        """
+        The health of a folder that is not named: the problem alone.
+        """
+        return {"root": None, "exists": False, "problems": [self.problem], "counts": {}, "manifest": None}
+
+    def schema(self):
+        """
+        The schema of the access class, a fact of its format that needs no folder.
+        """
+        return self.access(None).schema()
+
+    def refused(self, *args):
+        """
+        A verb that needs the folder, refused with the problem.
+        """
+        raise Invalid(self.problem)
+
+    # The verbs of TransformedAccess and ProcessedAccess that need their folder.
+    sessions = session = refused
+    reviews = review = write_review = refused
+    blocks = block = built = metadata = write_blocks = refused
+    window_settings = write_window_settings = refused
+
+
+def access_over(data_sources, kind, access):
+    """
+    The access over the folder the config names for the kind, or the stand-in that says the key is not set.
+    """
+    root = data_sources.root(kind)
+    return UnsetAccess(data_sources.not_set(kind), access) if root is None else access(root)
+
+
+def validation_manager(data_sources):
+    """
+    The ValidationManager over the folders the config names now, a folder whose key is not set answering with the problem instead of refusing the manager. Built for each request like the ReviewManager.
+    """
+    return ValidationManager(TrajectoryEngine(), access_over(data_sources, "transformed", TransformedAccess),
+                             access_over(data_sources, "processed", ProcessedAccess), EnvironmentAccess(paths.environments_dir()))
+
+
+def create_app(config_path=None):
+    """
+    The app with its routers mounted and the built frontend at /, the data folders from the config file at config_path (configs/local.yaml when none is given, read at start and on reload).
     """
     app = FastAPI(title="RatReplay", openapi_url="/api/openapi.json", docs_url=None, redoc_url=None)
-    app.state.sources = DataSources(config_path, settings_path)
+    app.state.sources = DataSources(config_path)
     code_version = version.git_commit(paths.repo_root())
     app.state.review = lambda: review_manager(app.state.sources, code_version)
+    app.state.validation = lambda: validation_manager(app.state.sources)
 
     @app.exception_handler(HTTPException)
     def http_error(request, error):

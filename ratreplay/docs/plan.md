@@ -167,3 +167,13 @@ client.
   rename in schemas.py also reaches the old blocks and windows routes, which M2 replaces, and the old
   frontend's training rate field is blank until F3. Timing on a 216,000 frame session: load 184 ms,
   preview 179 ms, so no engine contract change is needed for live window counts.
+- M2: ValidationManager gained `arrays(bid)` (the Arrow operation) and `selected()` (reads windows.json
+  back for GET /api/windows). Readiness judges every block under the rules its session was built with,
+  read from the metadata, never today's RULES. Totals carry `windows` over all blocks and `windows_ok`
+  over the ok blocks. Select is refused while nothing is built. A missing config key is an `UnsetAccess`
+  built at the composition root whose health names the key and whose schema still answers, so the
+  manager knows no key. The run, trip and phase spans for the block player are shaped in the manager
+  (run length encoding of stored labels, presentation, not a rule). `ReadinessQuery` is a WindowSettings
+  subclass with `which`, because FastAPI flattens a query model only when it is the sole query parameter.
+  For S1: reload through /api/health, 422 on bad query settings, routes refusing a missing folder. For
+  K: time readiness on the real dataset before adding an arrays only read.

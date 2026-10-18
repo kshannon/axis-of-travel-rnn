@@ -37,7 +37,7 @@ NEW_ENGINES_EXTERNAL = ("numpy", "scipy", *sys.stdlib_module_names)
 # The managers of the rebuild, by their files under ratreplay_api: the new engine and the accesses and utilities, no store,
 # no contract, no old flat engine, and the standard library alone outside the package. Their engines and accesses are handed
 # in at the composition root. The old managers keep the looser rule above until task L.
-NEW_MANAGERS = {"managers/review.py": ("engines.trajectory", "access", *UTILITIES)}
+NEW_MANAGERS = {"managers/review.py": ("engines.trajectory", "access", *UTILITIES), "managers/validation.py": ("engines.trajectory", "access", *UTILITIES)}
 NEW_MANAGERS_EXTERNAL = sys.stdlib_module_names
 ACCESS_EXTERNAL = ("numpy", "pyarrow", "yaml", *sys.stdlib_module_names)
 PATHS_USERS = ("data_sources.py", "app.py")
