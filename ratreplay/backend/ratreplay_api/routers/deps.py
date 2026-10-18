@@ -1,35 +1,37 @@
 """
-What the routes share: the DataSources of the app and the managers built over them.
+What the routes share: the two managers the composition root built, kept on the app, and the config file they were built from.
 """
 
 from fastapi import Request
 
 
-def data_sources(request: Request):
-    """
-    The DataSources of the app, which tell the routes the config file the folders come from.
-    """
-    return request.app.state.sources
-
-
 def review_manager(request: Request):
     """
-    The ReviewManager over the folders the config names now.
+    The ReviewManager the app was built with.
     """
-    return request.app.state.review()
+    return request.app.state.review
 
 
 def validation_manager(request: Request):
     """
-    The ValidationManager over the folders the config names now.
+    The ValidationManager the app was built with.
     """
-    return request.app.state.validation()
+    return request.app.state.validation
+
+
+def config_path(request: Request):
+    """
+    The config file the folders come from.
+    """
+    return request.app.state.config.path
 
 
 def reread_validation_manager(request: Request, reload: bool = False):
     """
-    The ValidationManager, with the config file read again first when the query says reload=true.
+    The ValidationManager, rebuilt with the rest from the config file read again first when the query says reload=true.
     """
+    state = request.app.state
     if reload:
-        request.app.state.sources.reload()
-    return request.app.state.validation()
+        state.config.reload()
+        state.build(state.config)
+    return state.validation

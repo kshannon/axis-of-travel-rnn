@@ -1,5 +1,5 @@
 """
-The layering of docs/architecture.md, checked on the imports of every module under ratreplay_api.
+The layering of docs/architecture.md (Static architecture), checked on the imports of every module under ratreplay_api.
 """
 
 import ast
@@ -7,45 +7,51 @@ import sys
 from importlib.util import resolve_name
 from pathlib import Path
 
-import pytest
-
-PACKAGE = Path(__file__).resolve().parents[2] / "ratreplay_api"
+ROOT = "ratreplay_api"
+PACKAGE = Path(__file__).resolve().parents[2] / ROOT
 UTILITIES = ("utilities",)
-PROJECT = ("axis_of_travel_rnn", "process_lab_data", "environments", "proj_helpers")
+STDLIB = tuple(sys.stdlib_module_names)
+EVERYTHING = None
 
-# The modules of ratreplay_api each layer may import, by prefix. The old flat engine modules may use each other, stores no
-# other store, and environment.py its private builders, the one module of access an access may import. The old managers
-# keep contract and stores until task L deletes them.
-ALLOWED = {
-    "managers": ("access", "contract", "engines", "stores", *UTILITIES),
-    "engines": ("engines", *UTILITIES),
-    "access": ("access.environment_builders", *UTILITIES),
-    "stores": UTILITIES,
-    "routers": ("contract", "managers", "routers.deps", "schemas", *UTILITIES),
-}
-ENGINES_EXTERNAL = ("numpy", *PROJECT, *sys.stdlib_module_names)
+# The chart, one row per file or folder under ratreplay_api, the first row a file falls under being its rule: the modules of
+# ratreplay_api it may import by prefix and the outside packages it may import by prefix. A project package (axis_of_travel_rnn,
+# process_lab_data, environments, proj_helpers) is in no list, so none can be imported.
+# Routers call managers, read the request models and share routers.deps, never each other. Managers call engines and accesses.
+# An engine calls its own package and utilities, never another engine, an access calls utilities, never another access, and
+# environment.py its private builders. Utilities call utilities. The request models read two constants, the engine's default
+# settings and the access's edit fields. The composition root builds the lot, and the entry point starts it.
+LAYERS = [
+    ("routers", ("managers", "schemas", "routers.deps", *UTILITIES), ("fastapi", *STDLIB)),
+    ("schemas.py", ("access.processed", "engines.trajectory", *UTILITIES), ("pydantic", *STDLIB)),
+    ("managers", ("engines", "access", *UTILITIES), STDLIB),
+    ("engines/trajectory", ("engines.trajectory", *UTILITIES), ("numpy", "scipy", *STDLIB)),
+    ("engines", UTILITIES, ("numpy", "scipy", *STDLIB)),
+    ("access/environment.py", ("access.environment_builders", *UTILITIES), ("numpy", "pyarrow", "yaml", *STDLIB)),
+    ("access", UTILITIES, ("numpy", "pyarrow", "yaml", *STDLIB)),
+    ("utilities", UTILITIES, ("fastapi", "pyarrow", "yaml", *STDLIB)),
+    ("app.py", EVERYTHING, ("fastapi", "starlette", *STDLIB)),
+    ("__main__.py", ("app",), ("uvicorn", *STDLIB)),
+    ("__init__.py", (), ()),
+]
 
-# The engines of the rebuild, by their files under ratreplay_api and what each may import from it: utilities and, for a
-# package, itself. Engines never call engines. Outside ratreplay_api they use numpy, scipy and the standard library alone.
-# The old flat engine modules, every other file of engines, keep the looser rule above until task L deletes them.
-NEW_ENGINES = {
-    "engines/trajectory/**/*.py": ("engines.trajectory", *UTILITIES),
-    "engines/generator.py": UTILITIES,
-}
-NEW_ENGINES_EXTERNAL = ("numpy", "scipy", *sys.stdlib_module_names)
+# The private helper modules of a component, by module prefix, and the files that may import them: the component's own.
+PRIVATE = {"engines.trajectory.": "engines/trajectory", "access.environment_builders": "access/environment.py"}
+MODULES = sorted(PACKAGE.rglob("*.py"))
 
-# The managers of the rebuild, by their files under ratreplay_api: the new engine and the accesses and utilities, no store,
-# no contract, no old flat engine, and the standard library alone outside the package. Their engines and accesses are handed
-# in at the composition root. The old managers keep the looser rule above until task L.
-NEW_MANAGERS = {"managers/review.py": ("engines.trajectory", "access", *UTILITIES), "managers/validation.py": ("engines.trajectory", "access", *UTILITIES)}
-NEW_MANAGERS_EXTERNAL = sys.stdlib_module_names
-ACCESS_EXTERNAL = ("numpy", "pyarrow", "yaml", *sys.stdlib_module_names)
-PATHS_USERS = ("data_sources.py", "app.py")
+
+def is_module(name):
+    """
+    Whether the dotted name may be a module: any outside name, and a name of ratreplay_api only when it is a module or a package of it.
+    """
+    if not name.startswith(f"{ROOT}."):
+        return True
+    path = PACKAGE / name.removeprefix(f"{ROOT}.").replace(".", "/")
+    return path.is_dir() or path.with_suffix(".py").is_file()
 
 
 def imports_of(path):
     """
-    The modules a file imports, made absolute, a name of a from import also tried as a module.
+    The modules a file imports, made absolute, as two sets: those of ratreplay_api named relative to it, and the outside ones. A name of a from import counts when it is a module.
     """
     package = ".".join(path.relative_to(PACKAGE.parent).parts[:-1])
     found = set()
@@ -54,15 +60,9 @@ def imports_of(path):
             found.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             base = resolve_name("." * node.level + (node.module or ""), package) if node.level else node.module
-            found.update([base, *(f"{base}.{alias.name}" for alias in node.names)])
-    return found
-
-
-def modules_of(layer):
-    """
-    The top level files of a layer's folder, for engines the old flat modules alone since the new ones have their own rule.
-    """
-    return [path for path in (PACKAGE / layer).glob("*.py") if not (layer == "engines" and path.name == "generator.py")]
+            found.update([base, *(name for name in (f"{base}.{alias.name}" for alias in node.names) if is_module(name))])
+    inside = {name.removeprefix(f"{ROOT}.") for name in found if name.startswith(f"{ROOT}.")}
+    return inside, {name for name in found if name != ROOT and not name.startswith(f"{ROOT}.")}
 
 
 def within(name, prefixes):
@@ -72,66 +72,41 @@ def within(name, prefixes):
     return any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes)
 
 
-def may_import(name, internal, external):
+def under(relative, row):
     """
-    Whether a name is inside the ratreplay_api prefixes in internal, or for any other module inside the prefixes in external.
+    Whether the file, relative to ratreplay_api, is the row's file or inside its folder.
     """
-    if name.startswith("ratreplay_api."):
-        return within(name.removeprefix("ratreplay_api."), internal)
-    return within(name, external)
+    return relative == row or relative.startswith(f"{row}/")
 
 
-@pytest.mark.parametrize("layer", ALLOWED)
-def test_a_layer_imports_only_the_layers_it_may(layer):
-    for path in modules_of(layer):
-        for name in imports_of(path):
-            if name.startswith("ratreplay_api."):
-                assert within(name.removeprefix("ratreplay_api."), ALLOWED[layer]), f"{layer}/{path.name} imports {name}"
+def layer_of(path):
+    """
+    The row of LAYERS the file falls under, none when no row covers it.
+    """
+    relative = path.relative_to(PACKAGE).as_posix()
+    return next((layer for layer in LAYERS if under(relative, layer[0])), None)
 
 
-def test_the_old_flat_engines_import_only_numpy_and_the_project_packages_until_task_l():
-    for path in modules_of("engines"):
-        for name in imports_of(path):
-            assert name.startswith("ratreplay_api") or within(name, ENGINES_EXTERNAL), f"{path.name} imports {name}"
+
+def test_every_module_of_the_package_falls_under_a_layer_and_every_layer_covers_a_module():
+    assert [path for path in MODULES if layer_of(path) is None] == []
+    assert {layer_of(path)[0] for path in MODULES} == {row[0] for row in LAYERS}
 
 
-@pytest.mark.parametrize("pattern", NEW_ENGINES)
-def test_the_new_engines_import_only_utilities_themselves_numpy_scipy_and_the_standard_library(pattern):
-    files = list(PACKAGE.glob(pattern))
-    assert files, f"no file matches {pattern}"
-    for path in files:
-        for name in imports_of(path) - {"ratreplay_api"}:
-            assert may_import(name, NEW_ENGINES[pattern], NEW_ENGINES_EXTERNAL), f"{path.relative_to(PACKAGE)} imports {name}"
+def test_every_module_imports_only_what_its_layer_may():
+    broken = []
+    for path in [path for path in MODULES if layer_of(path)]:
+        _, internal, external = layer_of(path)
+        inside, outside = imports_of(path)
+        broken += [f"{path.relative_to(PACKAGE)} imports {name}" for name in sorted(inside) if internal is not EVERYTHING and not within(name, internal)]
+        broken += [f"{path.relative_to(PACKAGE)} imports {name}" for name in sorted(outside) if not within(name, external)]
+    assert broken == []
 
 
-@pytest.mark.parametrize("pattern", NEW_MANAGERS)
-def test_the_new_managers_import_only_the_new_engine_access_utilities_and_the_standard_library(pattern):
-    files = list(PACKAGE.glob(pattern))
-    assert files, f"no file matches {pattern}"
-    for path in files:
-        for name in imports_of(path) - {"ratreplay_api"}:
-            assert may_import(name, NEW_MANAGERS[pattern], NEW_MANAGERS_EXTERNAL), f"{path.relative_to(PACKAGE)} imports {name}"
-
-
-def test_access_imports_only_numpy_pyarrow_yaml_and_the_standard_library_never_a_project_package():
-    for path in (PACKAGE / "access").glob("*.py"):
-        for name in imports_of(path):
-            assert name.startswith("ratreplay_api") or within(name, ACCESS_EXTERNAL), f"access/{path.name} imports {name}"
-
-
-def test_an_access_imports_no_other_access_except_environment_its_private_builders():
-    for path in (PACKAGE / "access").glob("*.py"):
-        allowed = ("ratreplay_api.access.environment_builders",) if path.name == "environment.py" else ()
-        for name in imports_of(path):
-            assert not name.startswith("ratreplay_api.access.") or within(name, allowed), f"access/{path.name} imports {name}"
-
-
-def test_only_the_data_sources_and_the_composition_root_import_the_paths_helper():
-    for path in PACKAGE.rglob("*.py"):
-        assert path.name in PATHS_USERS or "proj_helpers.paths" not in imports_of(path), f"{path.name} imports proj_helpers.paths"
-
-
-def test_utilities_import_nothing_from_the_package_outside_utilities():
-    for path in (PACKAGE / "utilities").glob("*.py"):
-        for name in imports_of(path):
-            assert not name.startswith("ratreplay_api") or within(name, ("ratreplay_api.utilities",)), f"utilities/{path.name} imports {name}"
+def test_a_private_helper_module_is_imported_by_its_component_alone():
+    broken = []
+    for path in MODULES:
+        relative = path.relative_to(PACKAGE).as_posix()
+        broken += [f"{relative} imports {name}, private to {owner}" for name in sorted(imports_of(path)[0]) for prefix, owner in PRIVATE.items()
+                   if name.startswith(prefix) and not under(relative, owner)]
+    assert broken == []

@@ -8,18 +8,18 @@ from fastapi import APIRouter, Depends, Query
 
 from ..schemas import ReadinessQuery, SettingsBody, WindowSettings
 from ..utilities import arrow
-from .deps import data_sources, reread_validation_manager, validation_manager
+from .deps import config_path, reread_validation_manager, validation_manager
 
 router = APIRouter(prefix="/api")
 SettingsQuery = Annotated[WindowSettings, Query()]
 
 
 @router.get("/health")
-def get_health(manager=Depends(reread_validation_manager), sources=Depends(data_sources)):
+def get_health(manager=Depends(reread_validation_manager), config=Depends(config_path)):
     """
     The three folders each with its root, problems, counts and times, and the config file they come from. reload=true reads that file again first.
     """
-    return manager.health(sources.config_path)
+    return manager.health(config)
 
 
 @router.get("/format")

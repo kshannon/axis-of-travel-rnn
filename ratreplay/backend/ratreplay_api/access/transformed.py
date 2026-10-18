@@ -104,8 +104,10 @@ class TransformedAccess:
 
     def sessions(self):
         """
-        The sessions, epochs, runs and annotations tables as row dicts (annotations empty when absent) and the ids of the sessions with frames.
+        The sessions, epochs, runs and annotations tables as row dicts (annotations empty when absent) and the ids of the sessions with frames, NotFound when the folder is not there.
         """
+        if not self.root.is_dir():
+            raise NotFound(f"{self.root} does not exist")
         found = {}
         for name in TABLES:
             absent = name in OPTIONAL_TABLES and not (self.root / name).is_file()

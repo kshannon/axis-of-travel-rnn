@@ -55,7 +55,7 @@ anything that touches real data.
 - [ ] M3 `managers/synthesis.py`, SynthesisManager (index, generate, delete_set) and
       `routers/synthesis.py`. Integration test: generate from two source sessions writes a set with its
       provenance and both recipes, delete removes it. [SynthesisManager, API]
-- [ ] L `app.py` composition root wiring the real classes, `tests/unit/test_layering.py` asserting the
+- [x] L `app.py` composition root wiring the real classes, `tests/unit/test_layering.py` asserting the
       import graph of the chart, the old routers, managers, stores and engines deleted. Check:
       `pixi run ratreplay-api` serves. [Rules, Backend]
 

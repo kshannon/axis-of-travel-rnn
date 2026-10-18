@@ -1,5 +1,5 @@
 """
-TrajectoryEngine.funnel and session over the synthetic fixtures, in parity with the processor and the old tool, which are imported here as the oracle and nowhere else in the engine.
+TrajectoryEngine.funnel and session over the synthetic fixtures, in parity with the processor, which is imported here as the oracle and nowhere else in the engine.
 """
 
 from pathlib import Path
@@ -14,8 +14,6 @@ from process_lab_data import select
 
 from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import TransformedAccess
-from ratreplay_api.engines import cuts as old_cuts
-from ratreplay_api.engines import heading as old_heading
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
 from ratreplay_api.engines.trajectory import heading as new_heading
 from ratreplay_api.utilities.errors import Invalid
@@ -25,6 +23,7 @@ SESSION_KEYS = {"rules", "session_id", "rate_hz", "n_frames", "epochs", "runs", 
                 "cut_points", "margins", "stretches", "initial_blocks", "occupancy", "stops"}
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end")
 STILL_FRAMES, LOST_FRAMES = slice(2999, 3399), slice(3049, 3299)
+CUT_KEYS = ("pauses", "jumps", "gaps", "margins")
 
 
 def loaded(transformed, sid):
@@ -42,6 +41,32 @@ def processor_epochs(transformed, sid):
     """
     epochs, _ = select.funnel(TransformedAccess(transformed).sessions(), None)
     return [e for e in epochs if e["session_id"] == sid]
+
+
+def processor_selected(epochs):
+    """
+    The epochs the processor cuts into blocks: the arena and track ones under its condition.
+    """
+    return [e for e in epochs if e["epoch"] in select.EPOCHS and e["condition"] == select.CONDITION]
+
+
+def processor_cuts(frames, epochs, max_gap, rate_hz):
+    """
+    The processor's pause and jump frames, gap spans and margins over the selected epochs, merged.
+    """
+    merged = {key: [] for key in CUT_KEYS}
+    for e in processor_selected(epochs):
+        for key, values in select.cut_points(frames, e, max_gap, rate_hz).items():
+            merged[key] += values
+    return merged
+
+
+def processor_stretches(frames, epochs, max_gap, rate_hz):
+    """
+    Every stretch the processor's cut_at draws in the selected epochs, short ones included, with its epoch.
+    """
+    return [{"epoch": e["epoch"], "frame_start": first, "frame_end": last}
+            for e in processor_selected(epochs) for first, last in select.cut_at(frames, e, max_gap, rate_hz)]
 
 
 def lab_shaped(frames):
@@ -102,27 +127,28 @@ def test_cut_points_stretches_and_initial_blocks_equal_the_processors(transforme
         monkeypatch.setattr(select, key.upper(), value)
     session = TrajectoryEngine().session(found, environment, {**RULES, **overrides})
     frames, row, epochs = found["arrays"], found["session"], found["epochs"]
-    old = old_cuts.cut_points(frames, epochs, row["max_gap"], row["rate_hz"])
+    old = processor_cuts(frames, epochs, row["max_gap"], row["rate_hz"])
     points = session["cut_points"]
     assert [p["frame"] for p in points if p["reason"] == "pause"] == old["pauses"]
     assert [p["frame"] for p in points if p["reason"] == "jump"] == old["jumps"]
     assert [(p["frame"], p["frame_end"]) for p in points if p["reason"] == "gap"] == old["gaps"]
-    assert [p["frame"] for p in points if p["reason"] == "epoch"] == [e["frame_start"] for e in old_cuts.selected(epochs)]
+    assert [p["frame"] for p in points if p["reason"] == "epoch"] == [e["frame_start"] for e in processor_selected(epochs)]
     assert session["margins"] == old["margins"]
-    assert session["stretches"] == old_cuts.stretches(frames, epochs, row["max_gap"], row["rate_hz"])
+    assert session["stretches"] == processor_stretches(frames, epochs, row["max_gap"], row["rate_hz"])
     blocks, _ = select.blocks_in(frames, row, processor_epochs(transformed, sid))
     assert [{k: b[k] for k in BLOCK_KEYS} for b in session["initial_blocks"]] == [{k: b[k] for k in BLOCK_KEYS} for b in blocks]
     assert all(b["status"] == "auto" and b["note"] is None for b in session["initial_blocks"])
     assert any(p["reason"] == reason for p in points) and session["stretches"] and session["initial_blocks"]
 
 
-def test_the_heading_fills_equal_the_old_engine_and_the_processor(transformed):
+def test_the_heading_fills_equal_the_processors(transformed):
     found, environment = loaded(transformed, S1)
     frames, rate_hz = found["arrays"], found["session"]["rate_hz"]
     session = TrajectoryEngine().session(found, environment, RULES)
-    assert session["heading_spans"] == old_heading.track(frames, found["epochs"], rate_hz)["spans"]
+    filled, kind = select.fill_heading(frames["head_dir"], frames["t"], old_frame.still(frames, found["epochs"]), rate_hz)
+    assert session["heading_spans"] == {"lost": select.spans(frames["frame"], np.isnan(filled)), "filled": select.spans(frames["frame"], kind == select.INTERPOLATED),
+                                        "held": select.spans(frames["frame"], kind == select.HELD)}
     assert session["heading_spans"] == {"lost": [], "filled": [(2800, 2919)], "held": []}
-    filled, _ = select.fill_heading(frames["head_dir"], frames["t"], old_frame.still(frames, found["epochs"]), rate_hz)
     parameters = old_frame.frame_parameters(frames, found["epochs"], found["runs"])
     expected = old_frame.heading_to_room(filled, parameters["led_offset_rad"], parameters["track"]["rotation_rad"])
     np.testing.assert_array_equal(session["kinematics"]["heading"], expected)

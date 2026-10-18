@@ -1,3 +1,3 @@
 """
-Engines: pure functions over arrays, thin wrappers naming the project functions used.
+Engines: stateless classes over arrays, each its own module or package, none calling another.
 """

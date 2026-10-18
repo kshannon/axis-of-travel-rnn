@@ -1,5 +1,7 @@
 # RatReplay backend
 
+This file describes the old API and is rewritten in task R1, see [../docs/architecture.md](../docs/architecture.md) for the current design.
+
 FastAPI on 127.0.0.1, one process, no database, the files are the state. The layering and the rules it follows are in
 [../docs/architecture.md](../docs/architecture.md). This file is the API as built, the contract a client builds against.
 `GET /api/openapi.json` is FastAPI's schema of the same routes and `GET /api/format` is the data format.

@@ -6,14 +6,16 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
-from .contract import EDIT_FIELDS
+from .access.processed import EDIT_FIELDS
 from .engines.trajectory import SETTINGS
 
 
 class WindowSettings(BaseModel):
     """
-    The training window settings, the engine's defaults where a field is left out.
+    The training window settings, the engine's defaults where a field is left out, a key it does not know refused.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     window_s: float = Field(SETTINGS["window_s"], gt=0)
     stride_s: float = Field(SETTINGS["stride_s"], gt=0)
@@ -56,7 +58,7 @@ def starts_before_it_ends(edit):
 
 def edit_model(op, fields):
     """
-    The model of one op: exactly the fields the contract lists for it, each typed, and a range in order.
+    The model of one op: exactly the fields EDIT_FIELDS lists for it, each typed, and a range in order.
     """
     types = {field: (FIELD_TYPES.get(field, COUNT), ...) for field in fields}
     checks = {"range_in_order": model_validator(mode="after")(starts_before_it_ends)} if "frame_start" in fields else {}

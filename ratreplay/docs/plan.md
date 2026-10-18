@@ -177,3 +177,11 @@ client.
   subclass with `which`, because FastAPI flattens a query model only when it is the sole query parameter.
   For S1: reload through /api/health, 422 on bad query settings, routes refusing a missing folder. For
   K: time readiness on the real dataset before adding an arrays only read.
+- L: the composition root builds every component once and again only on Reload, the config keys live in
+  app.py alone, UnsetAccess stays in app.py as composition root code. The environments folder is the
+  repository's configs/environments found from app.py's location, a config key once the tool leaves the
+  repository. schemas.py is the one named exception to the arrows (recorded in Rules). A frozen fixture
+  of apply's outputs on seeded edit lists is committed, since the old engine is gone and the Dash tool
+  goes in R2. For Kyle and F3: the old frontend sends `train_rate_hz`, the API now refuses unknown keys
+  with 422, so until F3 the Blocks page cannot set settings (it was already broken by M2's route change).
+  For R1: backend/README.md and ratreplay/README.md still describe DataSources, stores and /api/sources.

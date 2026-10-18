@@ -9,8 +9,8 @@ from .edits import apply_edits
 # beside the rules and settings it used.
 VERSION = 1
 
-# The default of every rule, today's constants of src/process_lab_data and src/axis_of_travel_rnn.trajectory under
-# snake_case names. A caller passes its own dict to session and blocks. The tuples stay tuples here.
+# The default of every rule, the constants the engine moved in from the lab data processor and the project's trajectory
+# module under snake_case names. A caller passes its own dict to session and blocks. The tuples stay tuples here.
 RULES = {
     # Which sessions and epochs are cut: the protocol and condition kept, the epoch kinds cut, the groups left out.
     "protocol": "standard",

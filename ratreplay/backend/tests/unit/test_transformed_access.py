@@ -6,12 +6,8 @@ import pyarrow.csv as pacsv
 import pytest
 from fixtures import EPOCHS, N_FRAMES, RUNS, S1, S2, S6, STAMP
 
-from ratreplay_api import contract
 from ratreplay_api.access.transformed import FRAMES, TransformedAccess
 from ratreplay_api.utilities.errors import NotFound
-
-# The frames columns TrajectoryEngine.blocks copies into a block, required here though contract.py lists them as optional.
-READ_BY_BLOCKS = ("filled_front", "filled_back")
 
 
 def test_health_of_the_synthetic_folder_has_no_problem_and_the_fixtures_counts(transformed):
@@ -40,6 +36,13 @@ def test_a_root_that_does_not_exist_is_reported(tmp_path):
                       "counts": {}, "manifest": None}
 
 
+def test_the_verbs_of_a_root_that_does_not_exist_are_not_found_by_name(tmp_path):
+    access = TransformedAccess(tmp_path / "nope")
+    for verb, arguments in ((access.sessions, ()), (access.session, (S1,))):
+        with pytest.raises(NotFound, match=f"{tmp_path / 'nope'} does not exist"):
+            verb(*arguments)
+
+
 def test_a_session_with_frames_comes_with_its_epochs_runs_and_arrays(transformed):
     found = TransformedAccess(transformed).session(S1)
     assert found["session"]["session_id"] == S1
@@ -63,13 +66,4 @@ def test_the_annotations_are_empty_when_the_file_is_absent(transformed):
     assert len(found["annotations"]) == 2 and found["frames"] == sorted([S1, S6])
     (transformed / "annotations.csv").unlink()
     assert access.sessions()["annotations"] == [] and access.health()["problems"] == []
-
-
-def test_the_schema_is_the_contracts_transformed_part_with_the_two_columns_the_blocks_read_also_required():
-    # Goes with contract.py when task L deletes it.
-    expected = contract.build()["transformed"]
-    frames = next(f for f in expected["files"] if f["path"].startswith("frames/"))
-    for column in frames["columns"]:
-        column["required"] = column["required"] or column["name"] in READ_BY_BLOCKS
-    assert TransformedAccess("unused").schema() == expected
 

@@ -2,14 +2,11 @@
 ProcessedAccess over small hand made blocks: a build is replaced whole and idempotent, a session never touches another, a failed write leaves the previous build, and health names what is wrong.
 """
 
-import json
-
 import numpy as np
 import pyarrow as pa
 import pytest
 from fixtures import S1, S6
 
-from ratreplay_api import contract
 from ratreplay_api.access.processed import BLOCK_SCHEMA, BLOCKS_CSV_SCHEMA, ProcessedAccess
 from ratreplay_api.utilities import tables
 from ratreplay_api.utilities.errors import Invalid, NotFound
@@ -217,13 +214,3 @@ def test_health_names_a_missing_block_file_a_bad_json_file_and_a_csv_lacking_a_c
     tables.write_csv(built.blocks(), index, pa.schema([field for field in BLOCKS_CSV_SCHEMA if field.name != "kind"]))
     assert built.health()["problems"][0] == "blocks.csv lacks kind"
 
-
-def test_the_schema_is_the_contracts_processed_part_in_the_new_layout():
-    # Goes with contract.py when task L deletes it.
-    files = {file["path"]: file for file in ProcessedAccess("unused").schema()["files"]}
-    old = contract.build()
-    assert list(files) == ["blocks.csv", "blocks/<block_id>.parquet", "review/<session_id>.json", "metadata/<session_id>.json", "windows.json"]
-    assert files["blocks/<block_id>.parquet"]["columns"] == old["processed"]["files"][1]["columns"]
-    assert [column for column in files["blocks.csv"]["columns"] if column["name"] != "kind"] == old["processed"]["files"][0]["columns"]
-    assert {key: value for key, value in files["review/<session_id>.json"].items() if key != "optional"} == old["review"]
-    json.dumps(files)

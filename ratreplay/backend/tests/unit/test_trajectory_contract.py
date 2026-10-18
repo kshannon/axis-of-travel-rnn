@@ -8,18 +8,18 @@ import process_lab_data.__main__ as processor
 import pytest
 from axis_of_travel_rnn import trajectory, windows
 from process_lab_data import frame, labels, select
+from ratreplay import data as dash
 
-from ratreplay_api.engines import edits
 from ratreplay_api.engines.generator import GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
 
-# Each rule key and the project constant it comes from (snap_s from the old tool's edit rules, which E2 ports, led_separation_m
+# Each rule key and the project constant it comes from (snap_s from the old Dash tool, led_separation_m
 # from the processor's checks, as t_step_tolerance_s is).
 SOURCES = {
     "protocol": (select, "PROTOCOL"), "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"),
     "excluded_groups": (select, "EXCLUDED_GROUPS"), "pause_step_s": (select, "PAUSE_STEP_S"),
     "gap_lights": (select, "GAP_LIGHTS"), "jump_px": (select, "JUMP_PX"), "pause_margin_s": (select, "PAUSE_MARGIN_SEC"),
-    "min_block_s": (select, "MIN_BLOCK_S"), "snap_s": (edits, "SNAP_S"), "heading_fill_s": (select, "HEADING_FILL_SEC"),
+    "min_block_s": (select, "MIN_BLOCK_S"), "snap_s": (dash, "SNAP_S"), "heading_fill_s": (select, "HEADING_FILL_SEC"),
     "running_floor_m_per_s": (select, "RUNNING_FLOOR_M_PER_S"),
     "outbound_paths": (labels, "OUTBOUND_PATHS"), "return_paths": (labels, "RETURN_PATHS"), "pause_min_s": (labels, "PAUSE_MIN_S"),
     "histogram_bin_px": (frame, "HISTOGRAM_BIN_PX"), "peak_smooth_bins": (frame, "PEAK_SMOOTH_BINS"),

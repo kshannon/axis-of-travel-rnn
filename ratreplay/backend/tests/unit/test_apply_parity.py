@@ -1,7 +1,8 @@
 """
-Parity of TrajectoryEngine.apply with the old edit rules: 3,200 random edit lists over the synthetic sessions S1 and S6 give the old engine's blocks, refusals, cuts and flagged runs exactly, and the old Dash tool's until a documented difference. This file imports the old tool and engine on purpose, it is the parity oracle and goes with them.
+Parity of TrajectoryEngine.apply with the old Dash tool: 3,200 random edit lists over the synthetic sessions S1 and S6 give the tool's cuts and flagged runs exactly and its blocks until a documented difference. This file imports the old tool on purpose, it is the parity oracle and goes with it. The frozen record beside it holds 180 edit lists per session with what apply returned for them at task L, and stays when the tool goes as the only exact record.
 """
 
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -12,12 +13,12 @@ from fixtures import S1, S6
 from ratreplay import data as dash
 from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import TransformedAccess
-from ratreplay_api.engines import edits as old_engine
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
 from ratreplay_api.engines.trajectory import edits as rules_of
 
-ENVIRONMENTS = Path(__file__).resolve().parents[3] / "configs" / "environments"
+ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 LISTS, LONGEST = 1600, 8
+FROZEN = Path(__file__).resolve().parent / "frozen" / "apply_expected.json"
 
 # What a random list is drawn from: the ops with their weights, how far from an interesting frame (a block, stretch or run
 # edge) a frame lies, the lengths of a new block or a cut around the 600 frames of the minimum block, and how often a list
@@ -101,7 +102,7 @@ def cause(initial, session, edits, k):
 
 def compare(session, old, seed):
     """
-    Random edit lists through the new rules, the old engine and the Dash tool: the first two agree on every list, the Dash tool until a documented cause, and the lists counted by that cause, the refusal reasons by their text.
+    Random edit lists through the new rules and the Dash tool: the cuts and flagged runs agree on every list, the blocks until a documented cause, and the lists counted by that cause, the refusal reasons by their text.
     """
     initial, engine, rng = session["initial_blocks"], TrajectoryEngine(), np.random.default_rng(seed)
     edges = sorted({b[key] + d for b in initial for key in ("frame_start", "frame_end") for d in (0, 1)} |
@@ -111,11 +112,8 @@ def compare(session, old, seed):
     for _ in range(LISTS):
         edits = random_list(rng, initial, edges, session["n_frames"])
         made = engine.apply(initial, edits, session)
-        blocks, skipped = old_engine.apply_edits(old["blocks"], edits, old)
-        assert made["blocks"] == noted(blocks), edits
-        assert [{**edits[r["index"]], "reason": r["reason"]} for r in made["refusals"]] == skipped, edits
-        assert made["cuts"] == old_engine.cuts_of(edits) == dash.cuts_of(edits), edits
-        assert made["flagged_runs"] == old_engine.flagged_runs(edits) == dash.flagged_runs(edits), edits
+        assert made["cuts"] == dash.cuts_of(edits), edits
+        assert made["flagged_runs"] == dash.flagged_runs(edits), edits
         reasons.update("no block" if r["reason"].startswith("no block") else r["reason"] for r in made["refusals"])
         for k in range(1, len(edits) + 1):
             if noted(dash.apply_edits(old["blocks"], edits[:k], old)) != engine.apply(initial, edits[:k], session)["blocks"]:
@@ -129,10 +127,19 @@ def compare(session, old, seed):
 
 
 @pytest.mark.parametrize("sid, seed, offered", SESSIONS)
-def test_random_edit_lists_equal_the_old_engine_and_the_dash_tool_until_a_documented_difference(transformed, sid, seed, offered):
+def test_random_edit_lists_equal_the_dash_tool_until_a_documented_difference(transformed, sid, seed, offered):
     session, old, extra = loaded(transformed, sid)
     assert extra == offered  # S6's arena is under another condition, only the Dash tool offers a block there
     assert [{key: b[key] for key in rules_of.BLOCK_KEYS[:5]} for b in old["blocks"]] == [{key: b[key] for key in rules_of.BLOCK_KEYS[:5]} for b in session["initial_blocks"]]
     causes, reasons = compare(session, old, seed)
     assert sum(causes.values()) == LISTS and set(causes) == {SAME, REACH, *REFUSALS.values()}
     assert set(reasons) == {"no block", rules_of.CROSSES_MESSAGE, rules_of.SHORT_MESSAGE.format(10.0), rules_of.OVERLAPS_MESSAGE, *REFUSALS}
+
+
+@pytest.mark.parametrize("sid", [S1, S6])
+def test_the_frozen_edit_lists_give_the_recorded_blocks_cuts_flagged_runs_and_refusals_exactly(transformed, sid):
+    session, _, _ = loaded(transformed, sid)
+    engine = TrajectoryEngine()
+    for case in json.loads(FROZEN.read_text())[sid]:
+        made = engine.apply(session["initial_blocks"], case["edits"], session)
+        assert json.loads(json.dumps(made)) == {key: case[key] for key in ("blocks", "refusals", "cuts", "flagged_runs")}, case["edits"]
