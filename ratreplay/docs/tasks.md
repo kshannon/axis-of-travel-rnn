@@ -17,7 +17,7 @@ anything that touches real data.
       review, write_review, blocks, block, metadata, write_blocks (temp names and rename, a session's rows
       replaced together), window_settings, write_window_settings. Test: write_blocks twice gives identical
       files, a second session is untouched, an interrupted write leaves the previous build. [Resources on disk]
-- [ ] A3 `access/environment.py`, EnvironmentAccess over `configs/environments/*.yaml`. Test: each kind
+- [x] A3 `access/environment.py`, EnvironmentAccess over `configs/environments/*.yaml`. Test: each kind
       loads with its geometry. [Accesses]
 - [ ] A4 `access/synthetic.py`, SyntheticAccess: sets, blocks, block, write_set, delete_set, provenance
       schema. Test: write then list then delete, provenance round trips. [Accesses]

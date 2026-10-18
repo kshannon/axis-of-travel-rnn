@@ -145,6 +145,8 @@ flowchart TB
 - Every component is a class with no state of its own, named by the book (noun plus Manager, Engine or
   Access), constructed once at the composition root in `app.py` with the components it calls. A manager
   gets its engines and accesses, an access gets its root. Nothing imports a sibling, tests hand in fakes.
+  A component may have private helper modules of its own (`engines/trajectory/`, the environment
+  access's builders), imported by that component alone, which the layering test pins.
 - Managers are workflows, almost expendable: a change to a use case changes a manager's workflow and the
   pages, never the engines or accesses beneath. Each rule and threshold is a parameter of an engine
   operation. Each access owns its resource's schema, layout and validation errors and exposes whole,
@@ -217,7 +219,11 @@ a session. Select settings writes `windows.json` whole, the one thing this manag
   `window_settings()`, `write_window_settings(settings)`.
 - `SyntheticAccess(root)`: `health()`, `sets()`, `blocks(set id)`, `block(set id, block id)`,
   `write_set(set id, blocks, provenance)`, `delete_set(set id)`.
-- `EnvironmentAccess(root)`: `environment(kind)` from `configs/environments/*.yaml`.
+- `EnvironmentAccess(root)`: `health()`, `environments()`, `environment(name)` from
+  `configs/environments/*.yaml`. The yaml is the compact definition (type, room, params, or a base and a
+  transform) and expanding it into walls, centerline, boundary and reward sites is part of reading the
+  resource, done by the access's private `environment_builders.py`. Functions over a geometry (inside,
+  registration, distance to a wall) are engine maths.
 
 Each access reports its root as a fact for the Data page, never its layout.
 
@@ -241,7 +247,7 @@ sequenceDiagram
     participant TE as TrajectoryEngine
     P->>RM: load(sid, settings)
     RM->>TA: session(sid): arrays, epochs, runs
-    RM->>EA: environment(kind)
+    RM->>EA: environment(name)
     RM->>PA: review(sid): review or none
     RM->>TE: session(arrays, environment, rules): kinematics, fills, cut points, spans, occupancy, initial blocks
     RM->>TE: apply(initial blocks, review.edits, session) when a review exists
@@ -278,7 +284,7 @@ sequenceDiagram
     P->>SM: generate(source sessions, generator params, seed, length, settings)
     SM->>PA: blocks(source sessions)
     SM->>TE: recipe(real blocks)
-    SM->>EA: environment(kind)
+    SM->>EA: environment(name)
     SM->>GE: session(recipe, environment, seed, length): arrays in the transformed schema
     SM->>TE: blocks(arrays, no review, environment, rules): same call as real data
     SM->>TE: windows(block, settings) for each block
@@ -369,7 +375,7 @@ file in tests). Edit the file and press Reload on the Data page to change a fold
                                                 block the window count and verdict at those settings (informative)
                    windows.json                 the selected window settings, readiness totals, when, by whom
     synthetic/     sets/{set_id}/blocks/{block_id}.parquet, blocks.csv, provenance.json
-    configs/environments/{kind}.yaml            geometry and registration of each environment
+    configs/environments/{name}.yaml            the compact definition of each environment
 
 A session's processed files are staged under temporary names and renamed into place in one short pass,
 so a failure while building leaves the previous build whole. A crash inside the rename pass itself can
@@ -395,7 +401,7 @@ FastAPI on 127.0.0.1, one process, no database.
     access/transformed.py     TransformedAccess, with the transformed schema
     access/processed.py       ProcessedAccess, with the review, block, metadata and windows.json schemas
     access/synthetic.py       SyntheticAccess, with the set and provenance schemas
-    access/environment.py     EnvironmentAccess
+    access/environment.py     EnvironmentAccess, with environment_builders.py as its private helper
     utilities/                config, tables, arrow, clock, paths, ids, errors (the error shape)
 
 The old `src/process_lab_data` and `src/axis_of_travel_rnn.windows` are not imported: their science is

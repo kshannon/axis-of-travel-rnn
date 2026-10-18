@@ -109,3 +109,7 @@ client.
   The access does not check edits (EDIT_FIELDS is description only), `TrajectoryEngine.apply` refuses
   unknown ops (E2). For M2: add a `built()` verb (sessions with metadata, including those with zero
   blocks) and an arrays-only read if readiness over all blocks is slow.
+- A3: the yaml is expanded into geometry inside the access (private `environment_builders.py`), routes and
+  returns were dropped (nothing on the registration path uses them, a generator derives them from the
+  centerline). The old EnvSpec hash is gone, so A4 decides how a synthetic set's provenance names its
+  exact geometry (store the geometry whole or hash it in the access).
