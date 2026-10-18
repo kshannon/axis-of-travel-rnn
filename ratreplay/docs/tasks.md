@@ -76,8 +76,8 @@ anything that touches real data.
 - [x] S1 `backend/tests/system/`: save blocks, rebuild all, health, readiness, the session header with
       query settings, the Arrow arrays, preview, and a 422 on a malformed edit, through the HTTP client
       over the synthetic folders. [Testing]
-- [ ] S2 `frontend/e2e/`: two or three flows (review and save, readiness and select, generate a set), the
-      other specs removed. [Testing]
+- [x] S2 `frontend/e2e/`: three flows (review and save, readiness and select, data and rebuild all), the
+      other specs removed. A generate flow arrives with F4. [Testing]
 - [x] R1 README and `backend/README.md` rewritten for the new tool, pixi tasks checked, `SYNTHETIC_DATA`
       in `configs/local.example.yaml`. Check: links resolve, a fresh checkout runs. [Resources on disk]
 - [ ] K Kyle builds the first real dataset with the tool and reports the counts and anything wrong.
