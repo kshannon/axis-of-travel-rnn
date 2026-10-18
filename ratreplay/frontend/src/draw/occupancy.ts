@@ -25,6 +25,17 @@ export function environmentsShown(header: Pick<SessionHeader, "epochs" | "select
   return [...new Set(header.epochs.filter(shown).map((e) => e.environment).filter((name) => header.environments[name]))];
 }
 
+/** The room's rectangle on the canvas where the projection puts it, the extent of the occupancy through the same scales as the path, so it does not depend on what else the projection fits. */
+export function roomRect({ x, y }: Projection, extent: Extent): { left: number; top: number; width: number; height: number } {
+  const top = y(extent.y[1]);
+  return { left: x(extent.x[0]), top, width: x(extent.x[1]) - x(extent.x[0]), height: y(extent.y[0]) - top };
+}
+
+/** The counts row by row from the highest y, as the pixels of an image run from its top, the engine's rows are from the lowest y. */
+export function rowsFromTop(counts: number[], bins: number): number[] {
+  return Array.from({ length: bins }, (_, row) => counts.slice((bins - 1 - row) * bins, (bins - row) * bins)).flat();
+}
+
 /** The room in metres, y up, behind the map: the occupancy of the epochs shown with the geometry of their environments over it. */
 export class OccupancyBackdrop implements Backdrop {
   readonly yUp = true;
@@ -48,17 +59,16 @@ export class OccupancyBackdrop implements Backdrop {
 
   draw(ctx: CanvasRenderingContext2D, project: Projection, colours: Palette, index: number): void {
     const kinds = epochsShown(this.header, this.choice, index);
-    const [left, right] = project.x.range();
-    const [top, bottom] = project.y.range();
+    const { left, top, width, height } = roomRect(project, this.extent);
     ctx.imageSmoothingEnabled = false;
     for (const kind of kinds) {
       const image = this.image(kind, colours.ink);
-      if (image) ctx.drawImage(image, left, top, right - left, bottom - top); // the room's y runs up the screen, so the height is negative and flips the image
+      if (image) ctx.drawImage(image, left, top, width, height);
     }
     for (const name of environmentsShown(this.header, this.choice, index)) this.environments.get(name)!.draw(ctx, project, colours);
   }
 
-  /** The counts of an epoch as a small image, one pixel per bin and the row of the lowest y first, drawn in the ink of the theme. */
+  /** The counts of an epoch as a small image, one pixel per bin and the row of the highest y first, drawn in the ink of the theme. */
   private image(epoch: string, ink: string): HTMLCanvasElement | null {
     const { bins, counts } = this.header.occupancy;
     if (!counts[epoch]) return null;
@@ -69,7 +79,7 @@ export class OccupancyBackdrop implements Backdrop {
       const pixels = ctx.createImageData(bins, bins);
       const top = Math.log1p(Math.max(...counts[epoch]));
       const colour = rgb(ink);
-      counts[epoch].forEach((count, i) => {
+      rowsFromTop(counts[epoch], bins).forEach((count, i) => {
         pixels.data.set([colour.r, colour.g, colour.b, Math.round(255 * OCCUPANCY_ALPHA * (Math.log1p(count) / top))], 4 * i);
       });
       ctx.putImageData(pixels, 0, 0);

@@ -89,20 +89,25 @@ anything that touches real data.
 
 ## K findings, fixed before the synthetic slice
 
-- [ ] K1 Replay map: the occupancy image and the environment geometry are drawn over the canvas range
-      while the trail goes through the projection, so they disagree when positions fall outside the room.
-      Draw both through the one projection in room metres. Vitest on the backdrop placement, a check on
+- [x] K1 Replay map: the occupancy image was drawn mirrored in y (a negative height in drawImage does not
+      flip in Chromium), the trail and the outline were right. The image now lands row by row from the
+      top through the one projection. Vitest on the backdrop placement, a check on
       the synthetic circle. [Page 3]
 - [x] K2 Rebuild all skips the reviews of sessions the funnel leaves out and lists them as skipped with
       the reason, not as errors. The toast says so. [ReviewManager]
 - [ ] K3 Environments page: every environment with its yaml parameters, its geometry drawn, and per built
       session the registration it was given (scale, rotation, LED offset and separation, warnings) from
       the metadata. Read only. [new page, ValidationManager]
-- [ ] K4 The data formats move from the API page to the Data page, the API page keeps the OpenAPI
-      schema. [Pages 1 and 7]
+- [ ] K4 The data formats move from the API page to the Data page, the API page is removed, its OpenAPI
+      schema becomes an "Under the hood" section of About (a cheat sheet of the internal routes, not a
+      public API). Kyle, 2026-10-18. [Pages 1, 7 and 8]
 - [ ] K5 Exclusion is the person's: the funnel drops `protocol` and `excluded_groups` and keeps only "no
       frames" and "no arena or track epoch under the condition", the review file gains `excluded` with a
       note, who and when, ReviewManager gains `exclude(sid, excluded, note)`, an excluded session is not
       built and Rebuild all lists it as excluded, the Sessions index and Replay get Exclude and Include,
       `annotations.csv` exclude shows as a note and is not applied. Decided by Kyle 2026-10-18. [funnel,
       ReviewManager, Pages 2 and 3]
+- [ ] K6 Data page loses the data flow line (room for the cards). About page: no "more" panel, "what this
+      is" carries the rules it follows, a section on what a person can do and what each action writes
+      (from the files' point of view), and the main section is the process, the workflow and instructions
+      for use, including the data flow. Kyle, 2026-10-18. [Pages 1 and 8]

@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import type { Geometry } from "../../src/api/types";
-import { extentOf } from "../../src/draw/environment";
+import { EnvironmentBackdrop, extentOf } from "../../src/draw/environment";
+import { fitScales } from "../../src/draw/map";
+import type { Palette } from "../../src/ui/palette";
 
 const TRACK: Geometry = {
   name: "triple_t", kind: "triple_t", room: [1.8, 1.8], boundary: null, circle: null,
@@ -18,4 +20,19 @@ test("a path that strays off the environment widens the extent and a lost positi
   const x = new Float64Array([0.9, NaN, 2.0]);
   const y = new Float64Array([0.5, 9, -0.2]);
   expect(extentOf(TRACK, x, y)).toEqual({ x: [0.86, 2.0], y: [-0.2, 1.135] });
+});
+
+test("the walls are drawn through the projection it is given, not through a scale of the extent it was built with", () => {
+  const calls: [string, ...number[]][] = [];
+  const ctx = new Proxy({}, {
+    get: (_, name: string) => (name === "measureText" ? () => ({ width: 10 }) : (...args: number[]) => calls.push([name, ...args])),
+    set: () => true,
+  }) as unknown as CanvasRenderingContext2D;
+  const colours = Object.fromEntries(["page", "card", "line", "ink", "muted", "accent", "ok", "warn", "bad"].map((name) => [name, "#888888"])) as Palette;
+  const room = { x: [0, 1.8] as [number, number], y: [0, 1.8] as [number, number] };
+  const wider = fitScales({ x: [-1, 3], y: [-2, 2] }, 400, 300, true); // a map widened to a path that strays off the room
+  new EnvironmentBackdrop(TRACK, room).draw(ctx, wider, colours);
+  const wall = TRACK.walls[0];
+  expect(calls.find(([name]) => name === "moveTo")).toEqual(["moveTo", wider.x(wall[0][0]), wider.y(wall[0][1])]);
+  expect(calls.find(([name]) => name === "lineTo")).toEqual(["lineTo", wider.x(wall[1][0]), wider.y(wall[1][1])]);
 });

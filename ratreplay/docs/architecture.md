@@ -467,9 +467,11 @@ whether it overwrote one. Essential keys only: space, left and right (frame, wit
 
 ## Pages
 
-1. Data: the path the data takes, the three folders as cards (root, status, problems, counts, times),
-   the config file, Reload, and Rebuild all on the processed card with a confirmation. The entry point.
-   The other pages gate on the health of the folder they need.
+1. Data: the three folders as cards (root, exists, problems, counts, times), the config file, Reload,
+   Rebuild all on the processed card with a confirmation, and the data formats the folders must follow
+   (the transformed and processed files, columns, types, the settings defaults). The entry point. The
+   other pages gate on the health of the folder they need. The path the data takes is explained on the
+   About page.
 2. Sessions: a sortable index, a row expands to its details, Open in replay.
 3. Replay: the review. Map, playback, timeline with lanes and feature chips, zoom controls, block cards
    with window counts at the settings being tried, accept, reject, marks, split, remove, flag, notes,
@@ -480,8 +482,9 @@ whether it overwrote one. Essential keys only: space, left and right (frame, wit
 5. Windows: step through the windows of one block, each with its checks and verdict.
 6. Synthetic: the sets with their provenance and comparison, generate (sources, parameters, seed, length),
    delete.
-7. API: `/api/format` and the OpenAPI schema as readable tables.
-8. About: what the tool is, the rules it follows (never edits data, never removes behavior), the glossary.
+7. About: what the tool is and the rules it follows, the process and how to use it, what each action
+   writes, and "Under the hood", the internal routes the browser uses as a cheat sheet (not a public API).
+
 
 ## Testing
 
