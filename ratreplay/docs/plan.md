@@ -95,3 +95,10 @@ recurring problems, commitment to quality.
 
 Training. The converter joining RatReplay. Moving `ratreplay/` under `src/`. The Compare game. A second
 client.
+
+## Notes from the build, for the tasks ahead
+
+- A1: `TransformedAccess.health()` assumes a root. The "key not set in local.yaml" message belongs to the
+  composition root and ValidationManager (tasks L and M2), not to an access. `sessions()` returns the
+  ids of the sessions with frames so ReviewManager.index (M1) does not call `session()` per row. The
+  schema parity test against `contract.py` goes when L deletes `contract.py`.

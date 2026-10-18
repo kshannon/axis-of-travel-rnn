@@ -1,14 +1,16 @@
 """
-The config utility answers a key's path and names the file when it cannot, and the folder time is the newest file's.
+The config utility answers a key's path and names the file when it cannot, the folder time is the newest file's and tables read back what they wrote.
 """
 
 import os
 from datetime import datetime, timezone
 
+import numpy as np
+import pyarrow as pa
 import pytest
 import yaml
 
-from ratreplay_api.utilities import paths
+from ratreplay_api.utilities import paths, tables
 from ratreplay_api.utilities.config import Config
 from ratreplay_api.utilities.errors import Invalid
 
@@ -45,3 +47,16 @@ def test_newest_mtime_is_none_for_an_empty_folder_and_the_newest_file_otherwise(
         (tmp_path / name).write_text("x")
         os.utime(tmp_path / name, (seconds, seconds))
     assert paths.newest_mtime(tmp_path) == datetime.fromtimestamp(NEWEST, timezone.utc).isoformat(timespec="seconds")
+
+
+def test_tables_read_back_what_they_wrote_with_their_columns(tmp_path):
+    schema = pa.schema([("name", pa.string()), ("n", pa.int64()), ("x", pa.float64())])
+    rows = [{"name": "a", "n": 1, "x": 0.5}, {"name": "", "n": None, "x": 2.5}]
+    tables.write_csv(rows, tmp_path / "sub" / "rows.csv", schema)
+    assert tables.read_csv(tmp_path / "sub" / "rows.csv") == rows
+    assert tables.csv_columns(tmp_path / "sub" / "rows.csv") == ["name", "n", "x"]
+    arrays = {"name": np.array(["a", "b"], object), "n": np.array([1, 2]), "x": np.array([0.5, np.nan])}
+    tables.write_parquet(arrays, tmp_path / "sub" / "cols.parquet", schema)
+    read = tables.read_parquet(tmp_path / "sub" / "cols.parquet")
+    assert tables.parquet_columns(tmp_path / "sub" / "cols.parquet") == ["name", "n", "x"]
+    assert read["name"].tolist() == ["a", "b"] and read["n"].tolist() == [1, 2] and np.isnan(read["x"][1])

@@ -17,10 +17,12 @@ PROJECT = ("axis_of_travel_rnn", "process_lab_data", "environments", "proj_helpe
 ALLOWED = {
     "managers": ("contract", "engines", "stores", *UTILITIES),
     "engines": ("engines", *UTILITIES),
+    "access": UTILITIES,
     "stores": UTILITIES,
     "routers": ("contract", "managers", "routers.deps", "schemas", *UTILITIES),
 }
 ENGINES_EXTERNAL = ("numpy", *PROJECT, *sys.stdlib_module_names)
+ACCESS_EXTERNAL = ("numpy", "pyarrow", *sys.stdlib_module_names)
 PATHS_USER = "data_sources.py"
 
 
@@ -58,6 +60,12 @@ def test_engines_import_only_numpy_and_the_project_packages():
     for path in (PACKAGE / "engines").glob("*.py"):
         for name in imports_of(path):
             assert name.startswith("ratreplay_api") or within(name, ENGINES_EXTERNAL), f"{path.name} imports {name}"
+
+
+def test_access_imports_only_numpy_pyarrow_and_the_standard_library_never_a_project_package():
+    for path in (PACKAGE / "access").glob("*.py"):
+        for name in imports_of(path):
+            assert name.startswith("ratreplay_api") or within(name, ACCESS_EXTERNAL), f"access/{path.name} imports {name}"
 
 
 def test_only_the_data_sources_import_the_paths_helper():
