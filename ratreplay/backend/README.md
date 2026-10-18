@@ -19,7 +19,8 @@ On a GET they are query parameters, elsewhere the body's `settings` object (opti
 | Route | Query or body | Answer |
 | --- | --- | --- |
 | `GET /api/health` | `reload=true` | `transformed`, `processed`, `environments`, each `root, exists, problems, counts, manifest`, and `config_path` |
-| `GET /api/format` | | `version`, `transformed` and `processed` (files, columns, keys), `settings` (the defaults) |
+| `GET /api/format` | | `version`, `transformed` and `processed` (files, columns, keys), `settings` (the defaults) and `rules` (the engine's rules and their values) |
+| `GET /api/environments` | | one entry per environment of `configs/environments`, `name, kind, params, geometry, sessions, summary`. `sessions` are the built sessions registered in it, per epoch kind `session_id, kind, scale_px_per_m, led_separation_m, rotation_rad, flip, offset_m` (and `scale_x, scale_y` on a track), `led_offset_rad, led_offset_r, led_offset_n, warnings, built_at`. `summary` is `n_sessions, n_warned`. Read only |
 | `GET /api/sessions` | | rows of the sessions.csv columns plus `epochs, n_runs, n_clean_runs, in_dataset, reason, annotated_exclude, built, reviewed, reviewed_at, reviewed_by, excluded, excluded_by, excluded_at, n_confirmed, confirmed_s, notes` |
 | `GET /api/sessions/{sid}` | settings | the session's facts, `n_frames, in_dataset, reason, annotated_exclude, excluded, epochs, runs, selected_epochs, n_initial_blocks, environments, frame, heading_spans, cut_points, margins, stretches, occupancy, stops, warnings, review, blocks, refusals, cuts, flagged_runs` |
 | `GET /api/sessions/{sid}/arrays` | | Arrow: `t, x, y, heading, speed, turn_rate, motion, n_lights` |
@@ -45,10 +46,11 @@ What the answers hold, beyond their keys:
   session the rules leave out (400), writing nothing. Once the review is written, a failed build comes back as
   `build_error` with the review kept, and `failed` lists the blocks with problems, which are not written.
 - A readiness block is its blocks.csv row with `count` and `verdict {ok, reasons}`, judged under the rules its session
-  was built with. `totals` are `blocks, ok, trouble, windows, windows_ok`. `built` gives per built session the `settings`
-  and `built_at`. A `which` other than `real` is a 400 until the synthetic slice. A window row is `index, first,
-  burn_in_stop, window_stop, stop, start_s, stop_s, position_finite, heading_measured, trips_complete, trips_partial,
-  ok, reason`, where `first` and the three stops are indices into the block's arrays, the stops exclusive.
+  was built with. `totals` are `blocks, ok, trouble, windows, windows_ok`. `built` gives per built session the `settings`,
+  `built_at`, `excluded` and the `failed` blocks with their problems. A `which` other than `real` is a 400 until the
+  synthetic slice. A window row is `index, first, burn_in_stop, window_stop, stop, start_s, stop_s, position_finite,
+  heading_measured, trips_complete, trips_partial, ok, reason`, where `first` and the three stops are indices into the
+  block's arrays, the stops exclusive.
 - Select refuses with 400 while nothing is built. Rebuild builds only the sessions with a review.
 
 Errors leave as `{"error": text}`: 404 for an unknown session, block or route and for a transformed folder that is not

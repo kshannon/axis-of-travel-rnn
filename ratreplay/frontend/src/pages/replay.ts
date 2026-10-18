@@ -30,7 +30,7 @@ import type { Picked } from "./replay-selection";
 import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
 import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
-const NO_SESSION = "No session is open, choose one on the Sessions page.";
+const NO_SESSION = "No session is open, choose one on the Incoming page.";
 const PROBLEM = "$store.health.problem('transformed', 'processed', 'environments')";
 
 // The layers of the timeline and of the map keep their state when the person visits another page and comes back.
@@ -408,7 +408,7 @@ function registerReplay(): void {
 const noSession = `
   <div class="flex flex-col items-start gap-2 text-sm">
     <p x-text="${PROBLEM} || '${NO_SESSION}'"></p>
-    <a href="#/sessions" class="${BUTTON_PRIMARY}">Choose a session</a>
+    <a href="#/incoming" class="${BUTTON_PRIMARY}">Choose a session</a>
   </div>`;
 
 export const replayPage: Page = {

@@ -1,36 +1,37 @@
 import { expect, test } from "@playwright/test";
-import { countTile, environmentPixels, nextHealth, resetProcessed, S1, S6, toast, WALL_PIXELS } from "./synthetic";
+import { countTile, environmentPixels, goTo, nextHealth, resetProcessed, S1, S6, toast, WALL_PIXELS } from "./synthetic";
 
 test.afterEach(resetProcessed);
 
-// The Excluded cell of a row of the Sessions index: rat, date, protocol, in dataset, excluded.
+// The Excluded cell of a row of the sessions index on the Incoming page: rat, date, protocol, in dataset, excluded.
 const EXCLUDED_CELL = 4;
 
-// The story a person lives on the synthetic data: the folders are ok, a session is chosen and reviewed, the review is saved and found saved again,
-// and a session is excluded and included from the Sessions index.
+// The story a person lives on the synthetic data: the Incoming page reads ok, a session is chosen and reviewed, the review is saved and found saved again,
+// the Outgoing page counts it, and a session is excluded and included from the Incoming page.
 // Nothing waits on a timer: each step waits for what it expects to see, and a save for the toast it ends in.
 test("read the folders, review a session, refuse a split, split the track block, save, find the blocks saved, and exclude and include a session", async ({ page }) => {
-  const goTo = (name: string) => page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
   const cards = page.getByRole("article");
   const frame = page.getByTestId("tile-frame");
   const state = page.getByTestId("state");
   const processed = page.getByTestId("processed");
+  const strip = page.getByTestId("strip");
+  const totals = page.getByTestId("totals");
 
-  await test.step("the Data page shows the three folders ok, with no review yet", async () => {
-    await page.goto("/#/data");
-    for (const folder of ["transformed", "processed", "environments"]) await expect(page.getByTestId(folder).getByText("ok", { exact: true })).toBeVisible();
-    await expect(countTile(processed, "reviews")).toHaveText("0");
-    await expect(countTile(processed, "blocks")).toHaveText("0");
+  await test.step("the Incoming page reads the folders ok and counts the sessions, none reviewed yet", async () => {
+    await page.goto("/#/incoming");
+    await expect(strip.getByText("ok", { exact: true })).toHaveCount(3); // the lab data, the environment geometry and the config file
+    await expect(strip.getByText("problem", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("config-path")).toContainText("local.yaml");
+    await expect(totals).toHaveAttribute("aria-label", /2 of 6 sessions in the dataset, 0 reviewed, 0 excluded, 0 blocks confirmed/);
+    await expect(totals.getByText("2 of 6", { exact: true })).toBeVisible();
   });
 
-  await test.step("the Sessions page lists the dataset sessions first and opens one in the Replay", async () => {
-    await goTo("Sessions");
+  await test.step("the sessions list the dataset first and one opens in the Replay", async () => {
     const rows = page.getByRole("row");
     await expect(rows).toHaveCount(7); // the header and six sessions
     await expect(rows.nth(1)).toContainText(/NS14.*yes/);
     await expect(rows.nth(2)).toContainText(/NS16.*yes/);
     await expect(rows.nth(3)).toContainText(/NS14.*rotation.*no/);
-    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 0 reviewed, 0 excluded, 0 blocks confirmed/);
     await rows.nth(1).click();
     await page.getByRole("button", { name: "Open in replay" }).click();
     await expect(page.getByTestId("session-id")).toHaveText(S1);
@@ -101,8 +102,8 @@ test("read the folders, review a session, refuse a split, split the track block,
   });
 
   await test.step("a reload shows the saved blocks", async () => {
-    await goTo("Sessions");
-    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded, 3 blocks confirmed/);
+    await goTo(page, "Incoming");
+    await expect(totals).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded, 3 blocks confirmed/);
     await page.getByLabel("Filter sessions").fill("ns14");
     await page.getByRole("row").nth(1).click();
     await page.getByRole("button", { name: "Open in replay" }).click();
@@ -117,17 +118,18 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(cards.nth(2)).toContainText("edited");
   });
 
-  await test.step("the Data page counts the review and the blocks built from it", async () => {
+  await test.step("the Outgoing page counts the review and the blocks built from it", async () => {
     const read = nextHealth(page);
-    await goTo("Data");
+    await goTo(page, "Outgoing");
     await read; // the counts are the folder's as it is now, not those the page kept from before
     await expect(countTile(processed, "reviews")).toHaveText("1");
     await expect(countTile(processed, "blocks")).toHaveText("3");
     await expect(countTile(processed, "built sessions")).toHaveText("1");
+    await expect(page.getByText("1 session, 3 blocks built, 0 failed", { exact: true })).toBeVisible();
   });
 
-  await test.step("a session is excluded from the Sessions index with a note and shown in the Excluded column", async () => {
-    await goTo("Sessions");
+  await test.step("a session is excluded from the Incoming page with a note and shown in the Excluded column", async () => {
+    await goTo(page, "Incoming");
     await expect(page.getByRole("columnheader", { name: "Excluded" })).toBeVisible();
     await page.getByLabel("Filter sessions").fill("ns16");
     const row = page.getByRole("row").nth(1);
@@ -140,7 +142,7 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(left).toBeVisible();
     await expect(left).toContainText(`review/${S6}.json`);
     await expect(row.getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("yes");
-    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 2 reviewed, 1 excluded/);
+    await expect(totals).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 2 reviewed, 1 excluded/);
     await expect(page.getByRole("paragraph").filter({ hasText: "camera moved" })).toBeVisible(); // the notes of its review, in the open details
   });
 
@@ -154,8 +156,10 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(toast(page, `Included ${S6} again`)).toBeVisible();
     await expect(state).not.toHaveText("excluded");
     await expect(page.getByRole("button", { name: "Save blocks" })).toBeEnabled();
-    await goTo("Sessions");
-    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded/);
+    const read = nextHealth(page);
+    await goTo(page, "Incoming");
+    await read; // the page reads the folders as it opens, and the test must not end, and clear them, while the API is still reading
+    await expect(totals).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded/);
     await expect(page.getByRole("row").nth(1).getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("");
   });
 });

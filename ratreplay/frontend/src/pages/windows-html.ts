@@ -31,7 +31,7 @@ const windowBody = `
       <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="verdict"></span>
     </div>
     <p x-show="count" data-testid="window-span" class="text-xs text-muted" x-text="span"></p>
-    <p x-show="!count" class="text-sm text-muted">Nothing to step through at these settings. Change them on the Blocks page.</p>
+    <p x-show="!count" class="text-sm text-muted">Nothing to step through at these settings. Change them on the Settings page.</p>
   </div>`;
 
 const totalsBody = `

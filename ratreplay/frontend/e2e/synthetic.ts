@@ -40,7 +40,12 @@ export async function saveThroughApi(request: APIRequestContext, sessionId: stri
   expect(response.ok()).toBe(true);
 }
 
-/** The count tile of a folder card on the Data page, such as "reviews" on the processed card. */
+/** The page named in the top bar, by clicking its link as a person does. */
+export function goTo(page: Page, name: string): Promise<void> {
+  return page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
+}
+
+/** The count tile of the write path card on the Outgoing page, such as "reviews". */
 export function countTile(card: Locator, label: string): Locator {
   return card.locator("dl > div").filter({ has: card.page().getByText(label, { exact: true }) }).locator("dd");
 }

@@ -29,27 +29,36 @@ The folders come from `configs/local.yaml`, git-ignored, made by copying `config
 - `SYNTHETIC_DATA`: arrives with the synthetic slice, nothing reads it yet.
 
 The environments are the repository's `configs/environments/*.yaml`, not a key. The API reads the config file when it
-starts. To change a folder, edit the file and press Reload on the Data page.
+starts. To change a folder, edit the file and press Reload on the Incoming page.
 
 ## Using it
 
-The flow is the one the About page explains: Data, Sessions and Replay, Blocks and Windows, then the export. The converter
-runs before all of it, outside the tool (`pixi run transform-lab-data`, see the root README). There is no batch
-processor. A session's blocks are built when a person saves it, or by Rebuild all, so a session with no review has none.
+The flow is the one the About page explains, in the order of the top bar: Incoming, Settings, Replay, Blocks, Windows and
+Outgoing, with Environments and About beside them. The converter runs before all of it, outside the tool
+(`pixi run transform-lab-data`, see the root README). There is no batch processor. A session's blocks are built when a
+person saves it, or by Rebuild all, so a session with no review has none.
 
-**Data.** Cards show the transformed folder, the processed folder and the environments, each with its path, status,
-every problem found, counts and times, and one shows the config file with Reload. Rebuild all, on the processed card,
-builds the blocks of every reviewed session again from its review after a confirmation, for when a rule changed. It
-builds at the selected settings when `windows.json` exists, else at the settings in use, and never changes a review. A
-page that needs a folder shows its problem and a link to this page until the folder is ok.
+**Incoming.** A strip gives where the lab data and the environment geometry are read from and the config file that names
+them, each with a status and any problem found under it, and Reload, which reads the config file again and checks the
+folders. Under it the sessions: a row of tiles (in the dataset, reviewed, excluded, blocks confirmed, confirmed hours per
+kind, built) and one row per session with an arena or track epoch, the sessions of the dataset first. A click on a header
+sorts, a click on a row shows its epochs, blocks and review, and Open in replay loads it. Exclude and Include record your
+decision to leave a session out or take it back, with a note. A session the rules leave out is greyed, with the reason in
+its details. With frames it can be viewed and previewed but not saved: Save blocks is disabled and the API refuses with
+the reason. The format of the transformed files is folded at the bottom. A page that needs a folder shows its problem
+and a link to Incoming, or to Outgoing for the processed folder, until the folder is ok.
 
-**Sessions and Replay.** Sessions lists one row per session with an arena or track epoch, the sessions of the dataset
-first. A click on a header sorts, a click on a row shows its epochs, blocks and review, and Open in replay loads it.
-A session the rules leave out is greyed, with the reason in its details. With frames it can be viewed and previewed but
-not saved: Save blocks is disabled and the API refuses with the reason.
+**Settings.** The seven window settings: window, stride, burn-in, horizon, the rate the RNN project resamples to
+(recorded, not used in the counts), the least measured heading share and the least complete trips on a track block. Each
+has a one line hint of what it protects and its default beside it, and a sentence under them spells out what the verdicts
+are tested at. They start from the selection in `windows.json`, else the defaults, and Blocks, Windows and the Replay
+cards count at the same settings. Select these settings writes `windows.json` whole, and the toast names it and whether it
+replaced one. It is refused while nothing is built. Reset to the defaults puts them back. Under them the engine's rules
+are listed read only, each with its value and meaning. Changing one is a code change, and a Rebuild all makes it reach
+what is built.
 
-Replay plays the session over a timeline with the cuts the rules make. Each block is a card with its window count and
-verdict at the settings being tried. Accept or Reject a block, move its start or end to the cursor, split it at the
+**Replay.** Replay plays the session over a timeline with the cuts the rules make. Each block is a card with its window
+count and verdict at the settings in use. Accept or Reject a block, move its start or end to the cursor, split it at the
 cursor, mark a range and make a block of it, flag a run, write notes, undo, or reset to the automatic blocks. The server
 applies every edit and says why it refused one, and a preview writes nothing. Save blocks is refused while a block is
 still automatic. It writes `review/<session_id>.json` and builds the session's blocks. The toast names the review file
@@ -59,15 +68,23 @@ opens. A saved session loads with its review.
 Keys: space plays, left and right step a frame (with shift a second, on the Windows page a window), `[` and `]` jump a
 run, enter confirms the selected block, escape clears the selection, z undoes. Everything else is a button or a chip.
 
-**Blocks and Windows.** Blocks judges the built blocks at the window settings being tried: window, stride, burn-in,
-horizon, the rate the RNN project resamples to (recorded, not used in the counts), the least measured heading share and
-the least complete trips on a track block. Each block gets a window count and a verdict listing every rule it breaks.
-The totals follow, and a row opens to compare the settings tried with the ones its session was built with. The settings
-start from the selection in `windows.json`, else the defaults, and the Replay cards count at the same settings.
-Select these settings writes `windows.json` whole, and the toast names it and whether it replaced one. It is refused
-while nothing is built. Open a block to play it in metres over its environment, and Step through its windows opens the
-Windows page, one window at a time with its checks. The Data page shows the data format, the About page the process,
-the rules the tool follows and the internal routes. Nothing else is written, the transformed folder and the environments are only read.
+**Blocks and Windows.** Blocks judges the built blocks at the settings in use, a line at the top names them and links to
+Settings. Each block gets a window count and a verdict listing every rule it breaks. The totals follow, and a row opens to
+compare the settings in use with the ones its session was built with. Open a block to play it in metres over its
+environment, and Step through its windows opens the Windows page, one window at a time with its checks.
+
+**Outgoing.** The write path card gives where blocks are written with its status, the counts of reviews, blocks and built
+sessions, and when the folder last changed. The selected card names the settings in `windows.json`. The Built card lists
+per session the blocks built, the failed blocks with their problems, the sessions you excluded or the tool skipped, and
+the settings it was built with, marked when they differ from the ones in use. Rebuild all, on that card, builds the blocks
+of every reviewed session again from its review after a confirmation, for when a rule changed. It builds at the selected
+settings when `windows.json` exists, else at the settings in use, and never changes a review. The format of the processed
+files is folded at the bottom.
+
+**Environments and About.** Environments draws every environment of `configs/environments/*.yaml` at one scale with its
+parameters and, per built session, the registration it was given (scale, rotation, LED separation and offset, warnings).
+It only reads. About gives the process, the rules the tool follows, what each action writes and, under Under the hood, the
+internal routes. Nothing else is written, the transformed folder and the environments are only read.
 
 ## The export
 
@@ -88,8 +105,8 @@ and `selected_by`.
 The RNN project reads these files and cuts the windows itself as `windows.json` says, so windows are never stored here.
 Heading, phase and trip are for validation and analysis, not training inputs. A build writes a session's files under
 temporary names and renames them in one short pass, so a failed build leaves the previous one whole. A block that fails a
-check is not written and is listed under `failed` in the session's metadata. The Data page reports leftover temporary
-files, missing block files and orphan block files as problems. The synthetic folder joins the export with its slice.
+check is not written and is listed under `failed` in the session's metadata. The Outgoing page reports leftover temporary
+files, missing block files and orphan block files as problems of the processed folder. The synthetic folder joins the export with its slice.
 
 ## Testing
 

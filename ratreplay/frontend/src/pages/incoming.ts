@@ -147,7 +147,7 @@ function registerIncoming(): void {
     blocksNote() {
       const { header } = this;
       if (!header) return "";
-      return `${counted(header.n_initial_blocks, "block")} cut by the rules, ${header.review ? "the list is the saved review's" : "not reviewed yet"}`;
+      return `${counted(header.n_initial_blocks, "block")} automatically derived, ${header.review ? "the list is the saved review's" : "not reviewed yet"}`;
     },
     /** Open the session in the replay, asking first when the session open there has edits that are not saved. */
     openInReplay(row: SessionRow, drop = false) {

@@ -49,7 +49,7 @@ const summaryBody = `
       </div>
     </template>
   </div>
-  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
+  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Settings page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
 
 const blockCard = `
   <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
