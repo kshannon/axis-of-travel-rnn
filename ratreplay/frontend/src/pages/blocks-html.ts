@@ -8,7 +8,7 @@ import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
   <p>The positions are the processed dataset's, in the room frame in metres with y up and equal axes. Under them the environment config: the walls as grey lines, the centerline dotted, the start and goal sites as circles, or the arena as a circle.</p>
-  <p class="mt-2">The path lying on the drawn geometry is the check of the registration. The dots are the last 2 s of the path coloured by speed, the red dot is the current position and the red arrow the heading after the processor's fill and the LED offset.</p>`;
+  <p class="mt-2">The path lying on the drawn geometry is the check of the registration. The dots are the last 2 s of the path coloured by speed, the red dot is the current position and the red arrow the heading after the heading fill and the LED offset.</p>`;
 
 const TIMELINE_HELP = `
   <p>One time axis in minutes of the block. Runs: dark blue outbound, light blue return, hatched when dirty. Frames: the speed as a grey trace, the yellow band heading filled, the teal band heading held, the grey band above them one light alone giving the position. Trips: purple, hatched when partial.</p>

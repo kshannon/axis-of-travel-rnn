@@ -4,24 +4,24 @@ import { KEYS } from "../ui/keys";
 import type { Page } from "./page";
 
 const RULES = [
-  "It never edits a position and never interpolates one.",
-  "It never removes behaviour, and it never moves a run window.",
-  "It only writes review files and the window settings file.",
-  "The cuts, heading fills and training windows come from the project's own code, none of the science is rewritten in the browser.",
+  "It never edits the lab data and never removes behavior from it, the transformed folder is only read.",
+  "A review is the only thing a person writes, the blocks are built from it.",
+  "The cuts, heading fills and training windows come from the backend's engine, none of the science is rewritten in the browser.",
   "It listens on localhost only, the data never leaves this machine.",
 ];
 
 const FILES = [
   ["review of a session", "review/&lt;session_id&gt;.json under the processed folder, overwritten whole on each save"],
-  ["window settings", "configs/datasets/lab_blocks.yaml, the file the training pipeline reads"],
+  ["built blocks", "blocks/, blocks.csv and metadata/ under the processed folder, built by Save blocks and Rebuild all"],
+  ["selected window settings", "windows.json in the processed folder, written by Select these settings"],
   ["theme and open session", "kept in this browser only"],
 ];
 
 const intro = `
   <p class="text-sm leading-6">
-    RatReplay is a review tool for rat trajectory data. It reads the converter's folder and the processor's folder, the two that
-    configs/local.yaml names. Replay a session, confirm the blocks the processor will build, then inspect the built blocks and the
-    training windows they give. What it saves is small files that other tools read.
+    RatReplay is a review tool for rat trajectory data. It reads the transformed lab data and writes to the processed folder, the
+    two that configs/local.yaml names. Replay a session and save its blocks, which writes the review and builds the blocks. Then judge
+    the built blocks at window settings and select the settings for export. What it writes is plain files that other tools read.
   </p>`;
 
 const rules = `<ul class="list-disc space-y-1.5 pl-5 text-sm leading-6">${RULES.map((rule) => `<li>${rule}</li>`).join("")}</ul>`;

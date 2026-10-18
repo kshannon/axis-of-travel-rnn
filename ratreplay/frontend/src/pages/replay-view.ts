@@ -87,7 +87,7 @@ export function summaryTiles(preview: Preview, header: SessionHeader, settings: 
     { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.selected_epochs.join(" and ")}` },
     { label: "windows", value: String(windows), note: `${settings.window_s} s each`, title: `${settings.window_s} s windows every ${settings.stride_s} s, ${counted(trouble, "block")} not ok` },
     { label: "flagged", value: String(preview.flagged_runs.length), note: `of ${header.runs.length} runs`, title: "runs flagged as mislabelled" },
-    { label: "pauses, jumps, gaps", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "what the processor cuts at", wide: true },
+    { label: "pauses, jumps, gaps", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "what the rules cut at", wide: true },
   ];
 }
 

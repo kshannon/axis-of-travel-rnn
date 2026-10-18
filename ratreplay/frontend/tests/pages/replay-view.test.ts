@@ -47,7 +47,7 @@ test("a card shows the manager's window count and verdict, the problems of the b
   expect(blockCards([block(1, 600, "auto", { count: 1, verdict: OK.verdict })], header, null)[0].windowsText).toBe("1 training window");
 });
 
-test("the summary counts the blocks by status and the time kept of the epochs the processor cuts", () => {
+test("the summary counts the blocks by status and the time kept of the epochs the rules cut", () => {
   const tiles = Object.fromEntries(summaryTiles(preview, header, SETTINGS).map((t) => [t.label, t]));
   expect([tiles.automatic.value, tiles.confirmed.value, tiles.edited.value, tiles.removed.value]).toEqual(["1", "1", "0", "1"]);
   expect(tiles.kept).toMatchObject({ value: "0.3 min", note: "67%" }); // 20 s kept of the arena's 30 s, the variant epoch is not cut

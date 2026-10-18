@@ -69,13 +69,16 @@ outputs, so `pixi run nbstripout-install` belongs in every clone.
 ## Machine-local paths
 
 `configs/local.yaml` holds the paths that depend on the machine, nothing else:
-`STORE` for the artifact store, `LAB_DATA` for the lab's recordings and
-`TRANSFORMED_LAB_DATA` for the tables made from them. It is git-ignored; copy
-`configs/local.example.yaml` and edit. Every such path is resolved in one order:
-the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
+`STORE` for the artifact store, `LAB_DATA` for the lab's recordings,
+`TRANSFORMED_LAB_DATA` for the tables made from them, `PROCESSED_LAB_DATA` for
+the reviews and blocks RatReplay builds and `SYNTHETIC_DATA` for synthetic sets
+(RatReplay's synthetic slice, not built yet). It is git-ignored; copy
+`configs/local.example.yaml` and edit. The first three paths are resolved in one
+order: the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
 `SUBICULUM_RNN_LAB`, `SUBICULUM_RNN_TRANSFORMED_LAB`), then this file, then the
-built-in default. Nothing in it is ever hashed into a manifest, so two machines
-with different drives produce identical artifacts.
+built-in default. RatReplay reads its keys from this file only. Nothing in it is
+ever hashed into a manifest, so two machines with different drives produce
+identical artifacts.
 
 ## Converting the lab data
 
@@ -105,6 +108,15 @@ written and 1 when any failed. Each run rewrites the tables, so a run with
 `--only` or `--sample` leaves tables for just those sessions; to start clean,
 delete the output folder. Details are in [docs/transform_lab_data/](docs/transform_lab_data/).
 
+## RatReplay
+
+RatReplay, in `ratreplay/`, is the review tool for the converted tables, a localhost app with its own backend and
+frontend. A person replays each session in the browser and confirms or edits its blocks, and saving builds them in
+metres with trip and phase labels into the folder `PROCESSED_LAB_DATA` names, beside the `windows.json` of the window
+settings selected for export, which the RNN training reads as files. Block building has moved from the processor into
+RatReplay, so `pixi run process-lab-data` is retired and removed in task R2, once the first real dataset has been built
+with the tool. How to run and use it is in [ratreplay/README.md](ratreplay/README.md).
+
 ## How synthetic data will be generated
 
 No recorded animal data lives in this repository or its store. Behavior is
@@ -132,6 +144,7 @@ src/
   proj_helpers/        machine-local paths, lab data access, new notebooks and lab notes from the templates
   transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
   notebooks/           the working Jupyter notebooks
+ratreplay/       RatReplay, the review tool: backend, frontend and docs (ratreplay/README.md)
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored; synthetic/
 tests/           unit tests for the store and the CLI

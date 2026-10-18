@@ -17,13 +17,15 @@ new-labnote = 'axis-of-travel-rnn labnote new'
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
 
-# Lab data processor (docs/process_lab_data/): the converter's tables to trajectory blocks in metres
+# Lab data processor, retired by RatReplay (ratreplay/), which builds the blocks from the reviews.
+# Removed in task R2 once the first real dataset is built with RatReplay.
 process-lab-data = "python -m process_lab_data"
 
-# RatReplay (docs/ratreplay/): replay a session in the browser and confirm its blocks
+# The old Dash review tool, retired by RatReplay (ratreplay/).
+# Removed in task R2 once the first real dataset is built with RatReplay.
 ratreplay = "python -m ratreplay"
 
-# RatReplay rebuild (ratreplay/): the API serves the built frontend at http://127.0.0.1:8060
+# RatReplay (ratreplay/README.md): the API serves the built frontend at http://127.0.0.1:8060, --port N for another
 ratreplay-api = "python -m ratreplay_api"
 
 # Testing

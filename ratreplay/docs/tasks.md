@@ -78,7 +78,7 @@ anything that touches real data.
       over the synthetic folders. [Testing]
 - [ ] S2 `frontend/e2e/`: two or three flows (review and save, readiness and select, generate a set), the
       other specs removed. [Testing]
-- [ ] R1 README and `backend/README.md` rewritten for the new tool, pixi tasks checked, `SYNTHETIC_DATA`
+- [x] R1 README and `backend/README.md` rewritten for the new tool, pixi tasks checked, `SYNTHETIC_DATA`
       in `configs/local.example.yaml`. Check: links resolve, a fresh checkout runs. [Resources on disk]
 - [ ] K Kyle builds the first real dataset with the tool and reports the counts and anything wrong.
       No commit. [Core use cases]
