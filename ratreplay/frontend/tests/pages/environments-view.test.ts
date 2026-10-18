@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { Geometry, RegisteredSession } from "../../src/api/types";
-import { circularRange, COLUMNS, paramFacts, rangesLine, registrationFacts, rowTitle, sharedExtent, SORTABLE, WARNINGS } from "../../src/pages/environments-view";
+import type { EnvironmentEntry, Geometry, RegisteredSession } from "../../src/api/types";
+import { circularRange, COLUMNS, defaultSelection, neighbour, paramFacts, rangesLine, registrationFacts, rowTitle, sharedExtent, SORTABLE, startingSelection, thumbnails, WARNINGS } from "../../src/pages/environments-view";
 import { sortRows } from "../../src/ui/table";
 
 const RAD = Math.PI / 180;
@@ -68,4 +68,30 @@ test("the ranges line gives the sessions, the ranges of scale, rotation and LED 
 test("the shared extent holds every geometry so they are drawn at one scale", () => {
   const geometry = (corner: [number, number]) => ({ walls: [[[0, 0], corner]], boundary: null, centerline: [], reward_sites: {}, circle: null }) as unknown as Geometry;
   expect(sharedExtent([geometry([1, 2]), geometry([3, 1])])).toEqual({ x: [0, 3], y: [0, 2] });
+});
+
+const entry = (name: string, kind: string, n_sessions: number) => ({ name, kind, summary: { n_sessions, n_warned: 0 } }) as EnvironmentEntry;
+const strip = [entry("open_arena", "circle", 1), entry("plus_maze", "plus_maze", 0), entry("triple_t", "triple_t", 3), entry("triple_t_rot90", "triple_t", 3)];
+
+test("the environment shown first is the one with the most built sessions, the first of them on a tie, else the first of all, and a remembered choice wins while it still exists", () => {
+  expect(defaultSelection(strip)).toBe("triple_t");
+  expect(defaultSelection([entry("a", "x", 0), entry("b", "x", 0)])).toBe("a");
+  expect(defaultSelection([])).toBe("");
+  expect(startingSelection(strip, "plus_maze")).toBe("plus_maze");
+  expect(startingSelection(strip, "gone")).toBe("triple_t");
+  expect(startingSelection(strip, null)).toBe("triple_t");
+});
+
+test("the strip lists every environment in order with its kind and session count and marks the selected one, and the arrow keys step along it without wrapping", () => {
+  expect(thumbnails(strip, "plus_maze")).toEqual([
+    { name: "open_arena", kind: "circle", sessions: "1 session", selected: false },
+    { name: "plus_maze", kind: "plus_maze", sessions: "0 sessions", selected: true },
+    { name: "triple_t", kind: "triple_t", sessions: "3 sessions", selected: false },
+    { name: "triple_t_rot90", kind: "triple_t", sessions: "3 sessions", selected: false },
+  ]);
+  expect(neighbour(strip, "plus_maze", 1)).toBe("triple_t");
+  expect(neighbour(strip, "plus_maze", -1)).toBe("open_arena");
+  expect(neighbour(strip, "open_arena", -1)).toBe("open_arena");
+  expect(neighbour(strip, "triple_t_rot90", 1)).toBe("triple_t_rot90");
+  expect(neighbour([], "", 1)).toBe("");
 });

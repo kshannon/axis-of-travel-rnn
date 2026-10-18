@@ -91,11 +91,18 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     await expect(page.getByText("1 session, 2 blocks built, 0 failed", { exact: true })).toBeVisible();
   });
 
-  await test.step("the Environments page draws a card with the registration the built session was given", async () => {
+  await test.step("the Environments page shows a strip of the four environments and the selected one large, with its drawing and the registration the built session was given, a choice surviving a reload", async () => {
     await goTo(page, "Environments");
-    await expect(page.getByTestId("environment").first()).toBeVisible();
-    await expect(page.getByTestId("geometry").first().locator("canvas")).toBeVisible();
-    await expect(page.getByTestId("ranges").first()).toContainText("1 session, scale");
+    const large = page.getByTestId("environment");
+    await expect(page.getByTestId("thumbnail")).toHaveCount(4);
+    await expect(large.getByRole("heading")).toHaveText("open_arena"); // the first of the environments with one built session
+    await expect(large.getByTestId("geometry").locator("canvas")).toBeVisible();
+    await expect(large.getByTestId("ranges")).toContainText("1 session, scale");
+    await page.getByTestId("thumbnail").filter({ hasText: "plus_maze" }).click();
+    await expect(large.getByRole("heading")).toHaveText("plus_maze");
+    await expect(large.getByTestId("no-sessions")).toBeVisible();
+    await page.reload();
+    await expect(large.getByRole("heading")).toHaveText("plus_maze");
   });
 
   await test.step("the About page gives the guide and its Under the hood section the routes, and the top bar has the eight pages in order", async () => {

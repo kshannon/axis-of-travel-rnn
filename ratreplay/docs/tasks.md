@@ -156,6 +156,6 @@ anything that touches real data.
       kinematics already uses for speed), handed out by `session()` as display arrays beside the raw x
       and y, never into the blocks, and the trail is drawn a little wider. Kyle, 2026-10-18.
       [TrajectoryEngine.session, Page 3]
-- [ ] K15 Environments page redesign: one environment shown large with its parameters, ranges and its
+- [x] K15 Environments page redesign: one environment shown large with its parameters, ranges and its
       sessions table in a vertically scrolling area, the other environments as a row of thumbnails about
       the size of today's drawings to pick from, no unused space. Kyle, 2026-10-18. [Page 7]

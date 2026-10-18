@@ -33,6 +33,36 @@ export function sharedExtent(geometries: Geometry[]): Extent {
   };
 }
 
+/** What a thumbnail in the strip shows: the environment, how many sessions are built in it, and whether it is the one shown large. */
+export interface Thumbnail {
+  name: string;
+  kind: string;
+  sessions: string;
+  selected: boolean;
+}
+
+/** The environment with the most built sessions, the first of them on a tie, which is the first of all when none has any. */
+export function defaultSelection(environments: EnvironmentEntry[]): string {
+  const most = environments.reduce<EnvironmentEntry | null>((best, e) => (!best || e.summary.n_sessions > best.summary.n_sessions ? e : best), null);
+  return most?.name ?? "";
+}
+
+/** The environment chosen on the last visit while it is still there, else the default. */
+export function startingSelection(environments: EnvironmentEntry[], saved: string | null): string {
+  return environments.find((e) => e.name === saved)?.name ?? defaultSelection(environments);
+}
+
+/** The strip of thumbnails, one per environment in their order. */
+export function thumbnails(environments: EnvironmentEntry[], selected: string): Thumbnail[] {
+  return environments.map((e) => ({ name: e.name, kind: e.kind, sessions: counted(e.summary.n_sessions, "session"), selected: e.name === selected }));
+}
+
+/** The environment a step along the strip from the selected one, the ends of the strip holding. */
+export function neighbour(environments: EnvironmentEntry[], selected: string, step: 1 | -1): string {
+  const at = environments.findIndex((e) => e.name === selected);
+  return environments[Math.min(Math.max(at + step, 0), environments.length - 1)]?.name ?? selected;
+}
+
 export const rowId = (row: RegisteredSession): string => `${row.session_id}/${row.kind}`;
 
 const scaleText = (r: RegisteredSession) =>
