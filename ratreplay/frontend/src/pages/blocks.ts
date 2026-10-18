@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { errorText, getSelected, listBlocks, selectSettings } from "../api/client";
+import { errorText, listBlocks } from "../api/client";
 import type { WindowSettings } from "../api/types";
 import { blockScene } from "../draw/block-scene";
 import { EnvironmentBackdrop, extentOf } from "../draw/environment";
@@ -16,9 +16,10 @@ import { clickHeader, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
 import { toast } from "../ui/toast";
 import { blocksRoot } from "./blocks-html";
-import { blockLine, COLUMNS, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, selectedLine, SETTING_FIELDS, testedLine, totalTiles, WHICH_CHOICES } from "./blocks-view";
+import { blockLine, COLUMNS, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, totalTiles, WHICH_CHOICES } from "./blocks-view";
 import type { IndexRow, TotalTile } from "./blocks-view";
 import type { Page } from "./page";
+import { judgedLine } from "./settings-view";
 
 // The dataset the index judges, kept while the person visits other pages.
 let chosen = REAL;
@@ -40,13 +41,10 @@ function registerBlocks(): void {
       busy: false,
       opening: false,
       error: "",
-      fields: SETTING_FIELDS,
       choices: WHICH_CHOICES,
       which: chosen,
-      draft: {} as WindowSettings,
       tried: null as WindowSettings | null,
-      triedLine: "",
-      selectedLine: "",
+      judgedLine: "",
       totals: [] as TotalTile[],
       rows: [] as IndexRow[],
       columns: COLUMNS,
@@ -65,9 +63,6 @@ function registerBlocks(): void {
       phase: "",
       viewing: "",
 
-      get canSelect() {
-        return !this.busy && !this.loading && this.which === REAL;
-      },
       get shown() {
         return sortRows(this.rows, COLUMNS, this.sort);
       },
@@ -88,6 +83,7 @@ function registerBlocks(): void {
           timeline.refresh();
           map.refresh();
         });
+        this.$watch("$store.settings.current", () => void this.settingsChanged());
         await this.start();
       },
 
@@ -101,8 +97,6 @@ function registerBlocks(): void {
       /** The index at the settings in use, and the block that was open when the person left. */
       async start() {
         try {
-          this.draft = { ...(await settingsStore().load()) };
-          this.selectedLine = selectedLine((await getSelected()).selected);
           await this.judge();
           const open = BlockPlayer.holding();
           if (open) {
@@ -115,23 +109,21 @@ function registerBlocks(): void {
         this.loading = false;
       },
 
-      /** Every block's verdict and the totals at the settings in the inputs, which become the settings in use, the Replay page's too, once the API accepts them. Gives back the settings it judged at, none when a newer change took over. */
-      async judge(): Promise<WindowSettings | null> {
+      /** Every block's verdict and the totals at the settings in use, which the Settings page sets and the Replay page counts at too. */
+      async judge() {
         const mine = ++latest;
-        const index = await listBlocks({ ...this.draft }, this.which);
-        if (mine !== latest) return null;
+        const index = await listBlocks({ ...(await settingsStore().load()) }, this.which);
+        if (mine !== latest) return;
         chosen = this.which;
-        settingsStore().use(index.settings);
         this.tried = index.settings;
         this.rows = indexRows(index);
         this.totals = totalTiles(index.totals);
-        this.triedLine = testedLine(index.settings);
+        this.judgedLine = judgedLine(index.settings);
         this.error = "";
         await BlockPlayer.holding()?.useSettings({ ...index.settings });
-        return { ...index.settings };
       },
 
-      /** An input or the dataset changed: judge again and say so when the API refuses the settings. */
+      /** The dataset changed: judge again and say so when the API refuses. */
       async change() {
         this.busy = true;
         try {
@@ -143,23 +135,11 @@ function registerBlocks(): void {
         }
       },
 
-      /** Judge at the settings in the inputs, then select exactly the settings judged at, whatever changes while that is awaited. */
-      async select() {
-        this.busy = true;
-        try {
-          const judged = await this.judge();
-          if (!judged) {
-            toast.warning("The settings changed while they were being judged, nothing was selected, try again.");
-            return;
-          }
-          const saved = await selectSettings(judged);
-          this.selectedLine = selectedLine((await getSelected()).selected);
-          toast.success(`Selected these settings, ${saved.replaced ? "replacing the earlier selection" : "a new file"}`, saved.file);
-        } catch (error) {
-          toast.error(errorText(error));
-        } finally {
-          this.busy = false;
-        }
+      /** The settings in use changed, which the store is shared for: judge again at them. */
+      async settingsChanged() {
+        const next = settingsStore().current;
+        if (this.loading || !next || JSON.stringify(next) === JSON.stringify(this.tried)) return;
+        await this.change();
       },
 
       sortBy(key: string) {

@@ -1,10 +1,11 @@
 import { card } from "../ui/card";
 import { factsList } from "../ui/facts";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_PRIMARY, CHIP_BAD, CHIP_MUTED, CHIP_OK, FIELD, INPUT, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, CHIP_BAD, CHIP_MUTED, CHIP_OK, INPUT, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
 import { blockLanesBody } from "./block-lanes-html";
 import { playbackBody } from "./playback-html";
+import { compareTable } from "./tables-html";
 
 const MAP_HELP = `
   <p>The positions are the processed dataset's, in the room frame in metres with y up and equal axes. Under them the environment config: the walls as grey lines, the centerline dotted, the start and goal sites as circles, or the arena as a circle.</p>
@@ -14,27 +15,17 @@ const TIMELINE_HELP = `
   <p>One time axis in minutes of the block. Runs: dark blue outbound, light blue return, hatched when dirty. Frames: the speed as a grey trace, the yellow band heading filled, the teal band heading held, the grey band above them one light alone giving the position. Trips: purple, hatched when partial.</p>
   <p class="mt-2">Windows at the settings tested: each window is its burn-in in a lighter shade, the rest of it, and its horizon hatched after it. A window in trouble is red. Windows overlap, so they are staggered in rows. Click a lane to move the cursor. The wheel zooms and a drag pans.</p>`;
 
-const settingsBody = `
-  <div class="flex flex-col gap-2">
-    <div class="flex flex-wrap items-end gap-3">
-      <label class="${FIELD} w-28">
-        <span>dataset</span>
-        <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT}">
-          <template x-for="choice in choices" :key="choice"><option :value="choice" :selected="choice === which" x-text="choice"></option></template>
-        </select>
-      </label>
-      <template x-for="field in fields" :key="field.key">
-        <label class="${FIELD} w-36">
-          <span x-text="field.label"></span>
-          <input type="number" min="0" :step="field.step" x-model.number="draft[field.key]" @change="change()" class="${INPUT}" />
-        </label>
-      </template>
-    </div>
-    <p data-testid="tested" class="text-xs text-muted" x-text="triedLine"></p>
-    <p data-testid="selected" class="text-xs text-muted" x-text="selectedLine"></p>
+const judgedBody = `
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <label class="flex items-center gap-2 text-xs text-muted">
+      <span>dataset</span>
+      <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT} w-28">
+        <template x-for="choice in choices" :key="choice"><option :value="choice" :selected="choice === which" x-text="choice"></option></template>
+      </select>
+    </label>
+    <p data-testid="judged" class="text-sm" x-text="judgedLine"></p>
+    <a href="#/settings" class="text-sm text-accent underline">Change on the Settings page</a>
   </div>`;
-
-const selectButton = `<button type="button" @click="select()" :disabled="!canSelect" :title="which === 'real' ? '' : 'Settings are selected on the real dataset only'" class="${BUTTON_PRIMARY}">Select these settings</button>`;
 
 const totalsBody = `
   <div data-testid="totals" class="grid grid-cols-5 gap-3">
@@ -43,19 +34,7 @@ const totalsBody = `
     </template>
   </div>`;
 
-const compareTable = `
-  <table data-testid="built-with" class="self-start text-xs">
-    <thead><tr><th class="pr-8 text-left font-medium text-muted">setting</th><th class="pr-8 text-left font-medium text-muted">being tried</th><th class="text-left font-medium text-muted">session built with</th></tr></thead>
-    <tbody>
-      <template x-for="setting in row.compare" :key="setting.label">
-        <tr :class="setting.differs ? 'text-warn' : ''">
-          <td class="pr-8" x-text="setting.label"></td><td class="pr-8 tabular-nums" x-text="setting.tried"></td><td class="tabular-nums" x-text="setting.built"></td>
-        </tr>
-      </template>
-    </tbody>
-  </table>`;
-
-const detailsBody = `<div class="flex flex-wrap items-start gap-x-16 gap-y-3">${factsList("facts(row)")}${compareTable}</div>`;
+const detailsBody = `<div class="flex flex-wrap items-start gap-x-16 gap-y-3">${factsList("facts(row)")}${compareTable("row.compare", "being tried", "built-with")}</div>`;
 
 const openColumn = {
   head: `<th class="px-2 py-1.5"></th>`,
@@ -104,7 +83,7 @@ const timelineActions = `
 
 const indexView = `
   <div x-show="view === 'index'" class="grid h-full grid-cols-12 grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
-    ${card("Settings being tried", settingsBody, "col-span-12", selectButton)}
+    ${card("Judged at", judgedBody, "col-span-12")}
     ${card("Totals", totalsBody, "col-span-12")}
     ${card("Index", indexBody, "col-span-12", indexActions)}
   </div>`;

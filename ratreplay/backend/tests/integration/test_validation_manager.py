@@ -174,8 +174,25 @@ def test_readiness_gives_a_row_per_block_with_count_and_verdict_the_totals_and_t
     assert 0 < len(ok) < 3 and done["totals"]["windows"] > done["totals"]["windows_ok"] > 0
     assert done["totals"] == {"blocks": 3, "ok": len(ok), "trouble": 3 - len(ok), "windows": sum(b["count"] for b in rows), "windows_ok": sum(b["count"] for b in ok)}
     assert {sid: b["settings"] for sid, b in done["built"].items()} == {S1: SHORT, S6: LONGER} and all(b["built_at"] for b in done["built"].values())
+    assert all(b["excluded"] is False and b["failed"] == [] for b in done["built"].values())
     assert manager.readiness("real", SETTINGS)["totals"]["windows"] == 0
     json.dumps(done)
+
+
+def test_a_session_built_excluded_and_a_block_that_failed_show_in_the_build_of_its_session(built, manager):
+    review_over(built).exclude(S6, True, "camera moved", SHORT)
+    path = built[1] / "metadata" / f"{S1}.json"
+    problem = {"block_id": ARENA, "problems": ["a step in t differs from one frame"]}
+    path.write_text(json.dumps({**json.loads(path.read_text()), "failed": [problem]}))
+    done = manager.readiness("real", SHORT)["built"]
+    assert (done[S6]["excluded"], done[S6]["failed"]) == (True, []) and (done[S1]["excluded"], done[S1]["failed"]) == (False, [problem])
+
+
+def test_the_format_carries_the_schemas_the_default_settings_and_the_engines_rules(manager):
+    found = manager.format()
+    assert found["transformed"] == manager.transformed.schema() and found["processed"] == manager.processed.schema()
+    assert found["settings"] == SETTINGS and found["rules"] == RULES
+    assert json.loads(json.dumps(found))["rules"]["return_paths"] == list(RULES["return_paths"])
 
 
 def test_a_session_whose_blocks_were_all_dropped_still_shows_the_settings_of_its_build(built, manager):

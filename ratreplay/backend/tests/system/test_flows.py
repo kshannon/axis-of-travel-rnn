@@ -152,7 +152,7 @@ def test_readiness_lists_the_blocks_with_verdicts_and_a_block_gives_its_header_a
     assert found["which"] == "real" and found["settings"]["window_s"] == 5.0 and found["totals"].keys() == TOTALS_KEYS
     assert len(found["blocks"]) == found["totals"]["blocks"] == 3
     assert all({"block_id", "session_id", "count", "verdict"} <= b.keys() and b["verdict"].keys() == {"ok", "reasons"} for b in found["blocks"])
-    assert found["built"].keys() == {S1, S6} and all(b.keys() == {"settings", "built_at"} for b in found["built"].values())
+    assert found["built"].keys() == {S1, S6} and all(b.keys() == {"settings", "built_at", "excluded", "failed"} for b in found["built"].values())
     header = built.get(f"/api/blocks/{TRACK}")
     assert header.status_code == 200 and header.json().keys() == BLOCK_HEADER_KEYS
     assert header.json()["rate_hz"] == header.json()["row"]["rate_hz"] and "walls" in header.json()["geometry"]

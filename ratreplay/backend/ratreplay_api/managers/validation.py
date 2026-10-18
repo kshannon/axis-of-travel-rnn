@@ -5,11 +5,11 @@ ValidationManager: the health of the folders, the data format, the environments 
 import getpass
 from itertools import groupby
 
-from ..engines.trajectory import SETTINGS
+from ..engines.trajectory import RULES, SETTINGS
 from ..utilities import clock
 from ..utilities.errors import Invalid
 
-# The version of the format the API page renders, the one dataset readiness is judged on until SyntheticAccess arrives, and what the manager refuses.
+# The version of the format the pages render, the one dataset readiness is judged on until SyntheticAccess arrives, and what the manager refuses.
 FORMAT_VERSION = 1
 REAL = "real"
 SYNTHETIC_LATER = "synthetic sets arrive with the synthetic slice"
@@ -105,9 +105,9 @@ class ValidationManager:
 
     def format(self):
         """
-        The schemas the accesses declare and the default window settings, what the API page renders.
+        The schemas the accesses declare, the default window settings and the engine's rules, what the Incoming, Settings and Outgoing pages render.
         """
-        return {"version": FORMAT_VERSION, "transformed": self.transformed.schema(), "processed": self.processed.schema(), "settings": SETTINGS}
+        return {"version": FORMAT_VERSION, "transformed": self.transformed.schema(), "processed": self.processed.schema(), "settings": SETTINGS, "rules": RULES}
 
     def environments(self):
         """
@@ -135,7 +135,7 @@ class ValidationManager:
 
     def readiness(self, which, settings):
         """
-        Every built block of the dataset with its window count and verdict at the settings, judged under the rules its session was built with, the totals, and per built session the settings and the time its blocks were built at.
+        Every built block of the dataset with its window count and verdict at the settings, judged under the rules its session was built with, the totals, and per built session the settings and the time its blocks were built at, whether it was built excluded and the blocks that failed with their problems.
         """
         if which != REAL:
             raise Invalid(SYNTHETIC_LATER)
@@ -147,7 +147,9 @@ class ValidationManager:
         ok = [block for block in blocks if block["verdict"]["ok"]]
         totals = {"blocks": len(blocks), "ok": len(ok), "trouble": len(blocks) - len(ok), "windows": sum(block["count"] for block in blocks),
                   "windows_ok": sum(block["count"] for block in ok)}
-        built = {sid: {"settings": made["settings"], "built_at": made["built_at"]} for sid, made in metadata.items()}
+        # A build made before exclusion was the person's decision has no excluded key until the next rebuild.
+        built = {sid: {"settings": made["settings"], "built_at": made["built_at"], "excluded": made.get("excluded", False), "failed": made["failed"]}
+                 for sid, made in metadata.items()}
         return {"which": which, "settings": settings, "blocks": blocks, "totals": totals, "built": built}
 
     def block(self, bid):

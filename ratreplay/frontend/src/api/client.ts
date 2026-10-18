@@ -53,11 +53,11 @@ function withSettings(url: string, settings: Partial<WindowSettings> & { which?:
   return query.size ? `${url}?${query}` : url;
 }
 
-// The Data page: the folders, and rebuilding every reviewed session.
+// The Incoming and Outgoing pages: the folders, and rebuilding every reviewed session.
 export const getHealth = (reload = false) => json<Health>("GET", reload ? `${HEALTH}?reload=true` : HEALTH);
 export const rebuildAll = (settings: WindowSettings) => json<Rebuilt>("POST", REBUILD, { settings });
 
-// The Sessions and Replay pages.
+// The Incoming (sessions) and Replay pages.
 export const listSessions = () => json<SessionRow[]>("GET", SESSIONS);
 export const getSession = (sessionId: string, settings: Partial<WindowSettings> = {}) =>
   json<SessionHeader>("GET", withSettings(`${SESSIONS}/${sessionId}`, settings));

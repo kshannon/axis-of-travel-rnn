@@ -1,11 +1,12 @@
 import type { Page } from "./page";
-import { dataPage } from "./data";
-import { sessionsPage } from "./sessions";
+import { incomingPage } from "./incoming";
+import { settingsPage } from "./settings";
 import { replayPage } from "./replay";
 import { blocksPage } from "./blocks";
 import { windowsPage } from "./windows";
+import { outgoingPage } from "./outgoing";
 import { environmentsPage } from "./environments";
 import { aboutPage } from "./about";
 
-/** The pages in tab order. */
-export const PAGES: readonly Page[] = [dataPage, sessionsPage, replayPage, blocksPage, windowsPage, environmentsPage, aboutPage];
+/** The pages in tab order, which is the order a person walks the flow. A hash that names none of them gives the first. */
+export const PAGES: readonly Page[] = [incomingPage, settingsPage, replayPage, blocksPage, windowsPage, outgoingPage, environmentsPage, aboutPage];

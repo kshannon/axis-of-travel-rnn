@@ -1,9 +1,10 @@
-import type { BlockArrays, BlockHeader, BlockRow, BlockWindows, Readiness, ReadinessBlock, ReadinessTotals, Selected, Verdict, WindowSettings } from "../api/types";
+import type { BlockArrays, BlockHeader, BlockRow, BlockWindows, Readiness, ReadinessBlock, ReadinessTotals, Verdict } from "../api/types";
 import type { Fact } from "../ui/facts";
 import { degrees, percent } from "../ui/format";
 import type { Column } from "../ui/table";
-import { counted, settingsText } from "../ui/text";
 import { stampWithSince } from "../ui/time";
+import { compareSettings } from "./settings-view";
+import type { SettingRow } from "./settings-view";
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -11,27 +12,8 @@ const SECONDS_PER_MINUTE = 60;
 export const REAL = "real";
 export const WHICH_CHOICES: readonly string[] = [REAL];
 
-/** The window settings as inputs, each with its label and the step of its arrows. */
-export const SETTING_FIELDS: readonly { key: keyof WindowSettings; label: string; step: string }[] = [
-  { key: "window_s", label: "window (s)", step: "1" },
-  { key: "stride_s", label: "stride (s)", step: "0.5" },
-  { key: "burn_in_s", label: "burn-in (s)", step: "0.5" },
-  { key: "horizon_s", label: "horizon (s)", step: "0.5" },
-  { key: "rate_hz", label: "training rate (Hz)", step: "1" },
-  { key: "min_heading_measured", label: "min measured heading", step: "0.05" },
-  { key: "min_complete_trips", label: "min complete trips", step: "1" },
-];
-
 export function verdictText(verdict: Verdict): string {
   return verdict.ok ? "ok" : `trouble, ${verdict.reasons.join(", ")}`;
-}
-
-/** One setting being tried beside the one a block's session was built with. */
-export interface SettingRow {
-  label: string;
-  tried: string;
-  built: string;
-  differs: boolean;
 }
 
 /** A row of the index: the readiness of a block and how its session was built. */
@@ -46,9 +28,7 @@ export interface IndexRow extends ReadinessBlock {
 export function indexRows({ blocks, built, settings }: Readiness): IndexRow[] {
   return blocks.map((block) => {
     const made = built[block.session_id];
-    const compare = SETTING_FIELDS.map(({ key, label }) => ({
-      label, tried: String(settings[key]), built: String(made.settings[key]), differs: made.settings[key] !== settings[key],
-    }));
+    const compare = compareSettings(settings, made.settings);
     return { ...block, builtAt: made.built_at, compare, otherSettings: compare.some((setting) => setting.differs) };
   });
 }
@@ -103,18 +83,6 @@ export function totalTiles(totals: ReadinessTotals): TotalTile[] {
     { label: "blocks", value: String(totals.blocks) }, { label: "ok", value: String(totals.ok) }, { label: "trouble", value: String(totals.trouble) },
     { label: "windows", value: String(totals.windows) }, { label: "windows, ok blocks", value: String(totals.windows_ok) },
   ];
-}
-
-/** The line over the index saying which settings its verdicts were tested at. */
-export function testedLine(s: WindowSettings): string {
-  return `Verdicts at a ${s.window_s} s window plus a ${s.horizon_s} s horizon every ${s.stride_s} s, measured heading at least ${percent(s.min_heading_measured)}, a track block with at least ${counted(s.min_complete_trips, "complete trip")}.`;
-}
-
-/** The line saying which settings the export reads, none when none were selected. */
-export function selectedLine(selected: Selected["selected"]): string {
-  if (!selected) return "No settings are selected for export yet.";
-  const { settings, totals, selected_at, selected_by } = selected;
-  return `Selected for export ${stampWithSince(selected_at)} by ${selected_by}: ${settingsText(settings)}. They gave ${totals.ok} of ${counted(totals.blocks, "block")} ok and ${counted(totals.windows_ok, "window")} in them.`;
 }
 
 export interface BlockLine {

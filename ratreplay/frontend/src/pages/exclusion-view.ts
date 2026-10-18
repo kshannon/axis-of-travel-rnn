@@ -1,6 +1,6 @@
 import type { ExclusionSaved } from "../api/types";
 
-/** What the Sessions and Replay pages say of excluding a session, which is the person's decision and never a rule. */
+/** What the Incoming and Replay pages say of excluding a session, which is the person's decision and never a rule. */
 
 /** The note shown when the lab's annotations mark a session excluded, which the tool shows and does not apply. */
 export const ANNOTATED_NOTE = "the lab annotations mark this excluded";

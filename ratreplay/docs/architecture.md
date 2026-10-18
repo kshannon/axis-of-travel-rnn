@@ -175,7 +175,7 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
   around: no arena or track epoch under the rules' condition, no frames), the epochs the rules select
   and `annotated_exclude`, the annotations table's exclude flag, a note and never applied. No protocol or
   group rule: the person excludes, ReviewManager records it. What the index shows without reading frames.
-- `session(arrays, environment, rules)`: kinematics in metres, heading offset and fills (interpolated up
+- `session(arrays, environment, rules)`: kinematics in metres and the smoothed position for drawing, heading offset and fills (interpolated up
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
   margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and
   the rules it used. What the Replay page draws, and what `apply` reads its rules from.

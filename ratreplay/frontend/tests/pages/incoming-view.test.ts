@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
-import type { SessionRow } from "../../src/api/types";
-import { COLUMNS, reviewText, rowTitle, sessionFacts, tiles, totalsText } from "../../src/pages/sessions-rows";
+import { formatGroups } from "../../src/api/describe";
+import type { FormatContract, Folder, Health, SessionRow } from "../../src/api/types";
+import { COLUMNS, incomingGroups, reviewText, rowTitle, sessionFacts, stripLines, stripProblems, tiles, totalsText } from "../../src/pages/incoming-view";
 
 function row(session_id: string, extra: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -48,4 +49,41 @@ test("the review text says who reviewed and when, who excluded and when, and a s
   expect(reviewText(row("A", reviewed))).toMatch(/^reviewed by kyle on .*, 2 blocks kept \(track 10\.0 min\)$/);
   expect(reviewText(row("A", { reviewed: true, ...excluded }))).toMatch(/^excluded by yuki on [^.]*$/);
   expect(reviewText(row("A", { ...reviewed, ...excluded }))).toMatch(/^reviewed by kyle on .*\. excluded by yuki on /);
+});
+
+const folder = (extra: Partial<Folder> = {}): Folder => ({
+  root: "/data/transformed", exists: true, problems: [], counts: { sessions: 6, frames: 2 },
+  manifest: { timestamp: "2026-10-13T10:00:00+00:00", modified: "2026-10-16T11:00:00+00:00" }, ...extra,
+});
+const ENVIRONMENTS: Folder = { root: "/repo/configs/environments", exists: true, problems: [], counts: { environments: 4 }, manifest: { modified: "2026-08-23T17:37:33+00:00" } };
+const PROCESSED: Folder = { root: "/data/processed", exists: true, problems: ["1 block files missing"], counts: {}, manifest: null };
+const health = (transformed: Folder, environments = ENVIRONMENTS): Health => ({ transformed, processed: PROCESSED, environments, config_path: "configs/local.yaml" });
+
+test("the strip has a line for the lab data, the environment geometry and the config file, the Reload button on the last, and says nothing of the processed folder", () => {
+  const lines = stripLines(health(folder()));
+  expect(lines.map((l) => [l.label, l.path, l.status, l.reloads])).toEqual([
+    ["lab data read from", "/data/transformed", "ok", false],
+    ["environment geometry read from", "/repo/configs/environments", "ok", false],
+    ["config file", "configs/local.yaml", "ok", true],
+  ]);
+  expect(lines[0].detail).toMatch(/^6 sessions, converter run 2026-10-13 /);
+  expect(lines[1].detail).toBe("4 environments");
+  expect(stripProblems(lines)).toEqual([]);
+});
+
+test("a folder with problems shows them under the strip with the line they belong to, a key the config lacks shows as not set", () => {
+  const notSet = folder({ root: null, exists: false, problems: ["TRANSFORMED_LAB_DATA is not set in configs/local.yaml"], counts: {}, manifest: null });
+  const lines = stripLines(health(notSet, { ...ENVIRONMENTS, problems: ["no yaml files"] }));
+  expect([lines[0].path, lines[0].status, lines[0].detail, lines[1].status]).toEqual(["not set", "problem", "", "problem"]);
+  expect(stripProblems(lines)).toEqual([
+    { label: "lab data read from", text: "TRANSFORMED_LAB_DATA is not set in configs/local.yaml" },
+    { label: "environment geometry read from", text: "no yaml files" },
+  ]);
+});
+
+test("the incoming format keeps the transformed files' tables and leaves the processed ones, the review file and the settings to their pages", () => {
+  const contract = { version: 1, transformed: { files: [] }, processed: { files: [{ path: "review/<session_id>.json", optional: true, edits: {} }] }, settings: {}, rules: {} } as unknown as FormatContract;
+  const groups = formatGroups(contract);
+  expect(groups.map((g) => g.title)).toEqual(["Transformed folder", "Processed folder", "Review file", "Window settings"]);
+  expect(incomingGroups(groups).map((g) => g.title)).toEqual(["Transformed folder"]);
 });

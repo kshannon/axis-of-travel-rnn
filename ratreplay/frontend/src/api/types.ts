@@ -387,8 +387,15 @@ export interface Readiness {
   settings: WindowSettings;
   blocks: ReadinessBlock[];
   totals: ReadinessTotals;
-  /** Per built session, the settings and the time its blocks were built at. */
-  built: Record<string, { settings: WindowSettings; built_at: string }>;
+  /** Per built session, the settings and the time its blocks were built at, whether it was built excluded and the blocks that failed with their problems. */
+  built: Record<string, BuiltSession>;
+}
+
+export interface BuiltSession {
+  settings: WindowSettings;
+  built_at: string;
+  excluded: boolean;
+  failed: { block_id: string; problems: string[] }[];
 }
 
 export interface Geometry {
@@ -506,6 +513,8 @@ export interface FormatContract {
   processed: { files: FormatFile[] };
   /** The default window settings. */
   settings: WindowSettings;
+  /** The engine's rules with their values, in the engine's order. */
+  rules: Record<string, unknown>;
 }
 
 // The parts of FastAPI's OpenAPI document the About page reads.

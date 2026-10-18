@@ -1,24 +1,36 @@
-import Alpine from "alpinejs";
-import { errorText, getSession, listSessions } from "../api/client";
-import type { SessionHeader, SessionRow } from "../api/types";
-import { Workspace } from "../session/workspace";
-import { healthStore } from "../state/health";
-import { settingsStore } from "../state/settings";
-import { card, pageGrid } from "../ui/card";
+import { card, foldedCard } from "../ui/card";
 import { factsList } from "../ui/facts";
-import { folderGate } from "../ui/gate";
+import { statusMark } from "../ui/status";
 import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
-import { clickHeader, sortableTable, sortArrow, sortRows } from "../ui/table";
-import type { Sort } from "../ui/table";
-import { counted } from "../ui/text";
-import { toast } from "../ui/toast";
-import type { Page } from "./page";
-import { askAndChange } from "./exclusion";
+import { sortableTable } from "../ui/table";
 import { ANNOTATED_NOTE } from "./exclusion-view";
-import { blockText, COLUMNS, filterRows, reviewText, rowTitle, sessionFacts, tiles, totalsText } from "./sessions-rows";
+import { formatBody, formatChip } from "./tables-html";
 
-const REPLAY_HASH = "#/replay";
 const SECONDS_PER_MINUTE = 60;
+
+const stripBody = `
+  <div data-testid="strip" class="flex flex-col gap-2">
+    <p x-show="!lines.length" class="text-sm text-muted">Reading the data folders</p>
+    <div class="grid grid-cols-[auto_15rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 text-sm">
+      <template x-for="line in lines" :key="line.label">
+        <div class="contents">
+          ${statusMark("line.status")}
+          <span class="text-muted" x-text="line.label"></span>
+          <div class="flex min-w-0 items-center gap-3">
+            <code :data-testid="line.reloads ? 'config-path' : null" class="min-w-0 break-all font-mono text-xs" :title="line.path" x-text="line.path"></code>
+            <span x-show="line.detail" class="shrink-0 text-xs text-muted" x-text="line.detail"></span>
+            <button type="button" x-show="line.reloads" :disabled="busy" @click="reload()" class="${BUTTON_PRIMARY} shrink-0">Reload</button>
+          </div>
+        </div>
+      </template>
+    </div>
+    <ul x-show="problems.length" data-testid="strip-problems" class="list-disc space-y-0.5 pl-5 text-xs text-bad">
+      <template x-for="problem in problems"><li><span x-text="problem.label + ': '"></span><span x-text="problem.text"></span></li></template>
+    </ul>
+    <p x-show="lines.length" class="text-xs text-muted">
+      Changing a folder means editing the config file, then pressing Reload, which reads it again and checks the folders it names.
+    </p>
+  </div>`;
 
 const openButtons = `
   <template x-if="!confirming">
@@ -84,7 +96,7 @@ const details = `
     </div>`;
 
 const sessionsTable = `
-  <div class="flex h-full flex-col gap-3">
+  <div x-data="incomingSessions" class="flex h-full flex-col gap-3">
     <div data-testid="totals" role="group" :aria-label="totalsLabel" x-show="rows.length" class="grid shrink-0 grid-cols-7 gap-2">
       <template x-for="tile in tiles" :key="tile.label">
         <div class="min-w-0 ${TILE}">
@@ -106,108 +118,22 @@ const sessionsTable = `
     </template>
   </div>`;
 
-function registerSessions(): void {
-  Alpine.data("sessionsPage", () => ({
-    rows: [] as SessionRow[],
-    loading: true,
-    error: "",
-    filter: "",
-    sort: null as Sort | null,
-    openId: "",
-    header: null as SessionHeader | null,
-    detailsError: "",
-    confirming: "",
-    busy: false,
-    columns: COLUMNS,
+// The sessions are listed once the three folders are usable. A processed folder in trouble is mended on the Outgoing page.
+const sessionsGate = `
+  <div class="h-full">
+    <template x-if="blocked">
+      <div class="flex flex-col items-start gap-2 text-sm">
+        <p x-text="blocked"></p>
+        <a x-show="$store.health.problem('processed')" href="#/outgoing" class="text-accent underline">Open the Outgoing page</a>
+      </div>
+    </template>
+    <template x-if="!blocked">${sessionsTable}</template>
+  </div>`;
 
-    get shown() {
-      return sortRows(filterRows(this.rows, this.filter), COLUMNS, this.sort);
-    },
-    get summary() {
-      const inDataset = this.rows.filter((row) => row.in_dataset).length;
-      return `${this.shown.length} of ${this.rows.length} sessions, ${inDataset} in the dataset`;
-    },
-    get tiles() {
-      return tiles(this.rows);
-    },
-    get totalsLabel() {
-      return totalsText(this.rows);
-    },
-
-    async init() {
-      try {
-        this.rows = await listSessions();
-      } catch (error) {
-        this.error = errorText(error);
-      }
-      this.loading = false;
-    },
-    sortBy(key: string) {
-      this.sort = clickHeader(this.sort, key);
-    },
-    arrow(key: string) {
-      return sortArrow(this.sort, key);
-    },
-    async toggle(row: SessionRow) {
-      this.header = null;
-      this.detailsError = "";
-      this.confirming = "";
-      if (this.openId === row.session_id) {
-        this.openId = "";
-        return;
-      }
-      this.openId = row.session_id;
-      try {
-        const header = await getSession(row.session_id);
-        if (this.openId === row.session_id) this.header = header;
-      } catch (error) {
-        if (this.openId === row.session_id) this.detailsError = errorText(error);
-      }
-    },
-    /** Exclude the session or include it again after asking for a note, then read the index and the open details again. */
-    async changeExclusion(row: SessionRow) {
-      this.busy = true;
-      try {
-        const saved = await askAndChange(row.session_id, !row.excluded, async (note) => Workspace.exclude(row.session_id, !row.excluded, note, { ...(await settingsStore().load()) }));
-        if (!saved) return;
-        this.rows = await listSessions();
-        if (this.openId === row.session_id) this.header = await getSession(row.session_id);
-      } catch (error) {
-        toast.error(errorText(error));
-      } finally {
-        this.busy = false;
-      }
-    },
-    facts(row: SessionRow) {
-      return sessionFacts(row, this.header);
-    },
-    reviewOf: reviewText,
-    titleOf: rowTitle,
-    blockText,
-    /** What the blocks listed are: those of the saved review when there is one, else the ones the rules cut. */
-    blocksNote() {
-      const { header } = this;
-      if (!header) return "";
-      return `${counted(header.n_initial_blocks, "block")} cut by the rules, ${header.review ? "the list is the saved review's" : "not reviewed yet"}`;
-    },
-    /** Open the session in the replay, asking first when the session open there has edits that are not saved. */
-    openInReplay(row: SessionRow, drop = false) {
-      const unsaved = Workspace.unsavedWhenOpening(row.session_id);
-      if (unsaved && !drop) {
-        this.confirming = unsaved.header.session_id;
-        return;
-      }
-      this.confirming = "";
-      healthStore().openSession(row.session_id);
-      toast.success(`Opened ${row.session_id} in the replay`);
-      location.hash = REPLAY_HASH;
-    },
-  }));
-}
-
-export const sessionsPage: Page = {
-  id: "sessions",
-  title: "Sessions",
-  html: pageGrid(card("Sessions", folderGate(`<div x-data="sessionsPage" class="h-full">${sessionsTable}</div>`, "transformed", "processed", "environments"))),
-  register: registerSessions,
-};
+/** The Incoming page: the strip of read paths, the sessions of the lab data with their tiles and details, and the transformed files' format folded at the bottom. */
+export const incomingRoot = `
+  <div x-data="incomingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
+    ${card("Read from", stripBody, "col-span-12")}
+    ${card("Sessions", sessionsGate, "col-span-12")}
+    ${foldedCard("Incoming data format", formatBody, "col-span-12", formatChip)}
+  </div>`;

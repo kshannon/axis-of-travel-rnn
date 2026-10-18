@@ -1,15 +1,60 @@
-import type { MadeBlock, SessionHeader, SessionRow } from "../api/types";
+import type { FormatGroup } from "../api/describe";
+import type { Folder, Health, MadeBlock, SessionHeader, SessionRow } from "../api/types";
 import { cutsOf } from "../session/cuts";
 import type { Fact } from "../ui/facts";
 import { degrees } from "../ui/format";
 import type { Column } from "../ui/table";
 import { counted } from "../ui/text";
-import { stampWithSince } from "../ui/time";
+import { formatStamp, stampWithSince } from "../ui/time";
 
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
 const NOTES_EXCERPT = 60;
 const LISTED = 6;
+const NOT_SET = "not set";
+const TRANSFORMED_FORMAT = "Transformed folder";
+
+/** One line of the strip over the page: where something is read from, whether it is usable, and what is wrong with it. */
+export interface StripLine {
+  label: string;
+  path: string;
+  status: "ok" | "problem";
+  problems: string[];
+  detail: string;
+  /** Whether the line carries the Reload button, which reads the config file again. */
+  reloads: boolean;
+}
+
+/** What the converter's folder holds, in one muted phrase. */
+function transformedDetail(folder: Folder): string {
+  const sessions = folder.counts.sessions;
+  const run = folder.manifest?.timestamp;
+  return [sessions === undefined ? "" : counted(sessions, "session"), run ? `converter run ${formatStamp(run)}` : ""].filter(Boolean).join(", ");
+}
+
+/** The three lines of the strip: the lab data, the environment geometry and the config file that names them. */
+export function stripLines(health: Health): StripLine[] {
+  const { transformed, environments } = health;
+  const status = (folder: Folder) => (folder.problems.length ? "problem" : "ok");
+  return [
+    { label: "lab data read from", path: transformed.root ?? NOT_SET, status: status(transformed), problems: transformed.problems, detail: transformedDetail(transformed), reloads: false },
+    {
+      label: "environment geometry read from", path: environments.root ?? NOT_SET, status: status(environments), problems: environments.problems,
+      detail: environments.counts.environments === undefined ? "" : counted(environments.counts.environments, "environment"), reloads: false,
+    },
+    { label: "config file", path: health.config_path, status: "ok", problems: [], detail: "", reloads: true },
+  ];
+}
+
+/** The problems found under the strip, each with the line it belongs to. */
+export function stripProblems(lines: StripLine[]): { label: string; text: string }[] {
+  return lines.flatMap((line) => line.problems.map((text) => ({ label: line.label, text })));
+}
+
+/** The tables of the transformed files out of the format's groups. */
+export function incomingGroups(groups: FormatGroup[]): FormatGroup[] {
+  return groups.filter((group) => group.title === TRANSFORMED_FORMAT);
+}
 
 /** Minutes of the arena, track and variant epochs, which is what the index lists of a session. */
 export function minutesOf(row: SessionRow): number {
@@ -100,7 +145,7 @@ export interface Tile {
   value: string;
 }
 
-/** The tiles across the top of the Sessions page, in the order they are read. */
+/** The tiles across the top of the sessions index, in the order they are read. */
 export function tiles(rows: SessionRow[]): Tile[] {
   const t = totals(rows);
   return [
