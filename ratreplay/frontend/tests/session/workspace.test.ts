@@ -1,4 +1,6 @@
+import { tableFromArrays, tableToIPC } from "apache-arrow";
 import { beforeEach, expect, test, vi } from "vitest";
+import { decodeColumns } from "../../src/api/arrow";
 import * as client from "../../src/api/client";
 import type { Edit, MadeBlock, Preview, ReviewBlock, SessionArrays, SessionHeader, WindowSettings } from "../../src/api/types";
 import { Workspace } from "../../src/session/workspace";
@@ -155,4 +157,18 @@ test("including a session whose review only recorded the exclusion leaves the wo
   await ws.setExclusion(false, "");
   expect([ws.excluded, ws.saved]).toEqual([false, null]);
   expect(client.setExclusion).toHaveBeenCalledWith("S", false, "", SETTINGS);
+});
+
+test("the workspace keeps the smoothed position beside the measured one, as the arrays are decoded, NaN included", async () => {
+  const columns = { t: [0, 1, 2], x: [1, 2, 3], y: [4, 5, 6], x_smooth: [NaN, 2.1, 3], y_smooth: [NaN, 5.1, 6], speed: [1, 2, 3] };
+  const bytes = tableToIPC(tableFromArrays(Object.fromEntries(Object.entries(columns).map(([name, values]) => [name, Float64Array.from(values)]))), "stream");
+  vi.mocked(client.getSessionArrays).mockImplementation(async () => decodeColumns(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer) as unknown as SessionArrays);
+  vi.mocked(client.getSession).mockResolvedValue({ session_id: "T", n_frames: 3, rate_hz: 60, excluded: false, review: null, ...preview(["auto"]) } as unknown as SessionHeader);
+  Workspace.current = null;
+  const { arrays } = await Workspace.open("T", SETTINGS);
+  expect(arrays.x_smooth).toBeInstanceOf(Float64Array);
+  expect(Array.from(arrays.x_smooth)).toEqual([NaN, 2.1, 3]);
+  expect(Array.from(arrays.y_smooth)).toEqual([NaN, 5.1, 6]);
+  expect(Array.from(arrays.x)).toEqual([1, 2, 3]);
+  Workspace.current = null;
 });

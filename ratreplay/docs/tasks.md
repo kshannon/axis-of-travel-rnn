@@ -152,7 +152,7 @@ anything that touches real data.
       status, per session the blocks built, the settings they were built with, failed blocks and their
       problems, excluded and skipped sessions, the selected windows.json, Rebuild all with its
       confirmation, later the synthetic sets, the processed data format collapsed at the bottom. [Pages]
-- [ ] K14 The Replay trail is drawn from the engine's smoothed position (the Savitzky-Golay position
+- [x] K14 The Replay trail is drawn from the engine's smoothed position (the Savitzky-Golay position
       kinematics already uses for speed), handed out by `session()` as display arrays beside the raw x
       and y, never into the blocks, and the trail is drawn a little wider. Kyle, 2026-10-18.
       [TrajectoryEngine.session, Page 3]

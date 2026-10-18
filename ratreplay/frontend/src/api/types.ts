@@ -265,6 +265,9 @@ export interface SessionArrays {
   t: Float64Array;
   x: Float64Array;
   y: Float64Array;
+  /** The smoothed position, for drawing only, NaN where the engine's window does not fit. */
+  x_smooth: Float64Array;
+  y_smooth: Float64Array;
   heading: Float64Array;
   speed: Float64Array;
   turn_rate: Float64Array;

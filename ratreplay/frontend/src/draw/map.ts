@@ -44,8 +44,12 @@ export interface Backdrop {
 
 /** The positions of a recording, one per frame, and the heading and speed that go with them. */
 export interface Track {
+  /** The measured position: the current point and the heading arrow are drawn here. */
   x: Float64Array;
   y: Float64Array;
+  /** The smoothed position the trail and the paths are drawn along, where the recording has one (a built block holds the raw position only). */
+  x_smooth?: Float64Array;
+  y_smooth?: Float64Array;
   heading: Float64Array;
   speed: Float64Array;
   rateHz: number;
@@ -65,6 +69,12 @@ export interface Stretch {
 
 /** The thin line the path of a block or a selection is drawn in behind the trail. */
 export const THIN_PATH = { colour: "ink", alpha: 0.35, width: 1 };
+
+/** The position the trail and the paths pass through at a frame: the smoothed one, the measured one where the smoothed one is NaN or the track holds none. */
+export function drawnAt(track: Track, i: number): [number, number] {
+  const [x, y] = [track.x_smooth?.[i] ?? NaN, track.y_smooth?.[i] ?? NaN];
+  return Number.isNaN(x) || Number.isNaN(y) ? [track.x[i], track.y[i]] : [x, y];
+}
 
 /** Equal scales in x and y, the extent centred in the box with a margin, y running up the screen when yUp. */
 export function fitScales(extent: Extent, width: number, height: number, yUp: boolean): Projection {
@@ -165,8 +175,8 @@ export class MapView {
 
   /** Each stretch at PATH_HZ, its last frame always included so stretches that meet leave no gap. */
   private drawStretches(ctx: CanvasRenderingContext2D): void {
-    const { x, y, rateHz } = this.track!;
-    const step = Math.max(1, Math.round(rateHz / PATH_HZ));
+    const track = this.track!;
+    const step = Math.max(1, Math.round(track.rateHz / PATH_HZ));
     for (const stretch of this.stretches) {
       const colour = colourOf(this.colours, stretch.colour);
       ctx.strokeStyle = withAlpha(stretch.light ? lighter(colour) : colour, stretch.alpha);
@@ -174,10 +184,11 @@ export class MapView {
       ctx.beginPath();
       let drawing = false;
       for (let i = stretch.first - 1; ; i = Math.min(i + step, stretch.last - 1)) {
-        if (Number.isNaN(x[i]) || Number.isNaN(y[i])) drawing = false;
-        else if (drawing) ctx.lineTo(this.project.x(x[i]), this.project.y(y[i]));
+        const [x, y] = drawnAt(track, i);
+        if (Number.isNaN(x) || Number.isNaN(y)) drawing = false;
+        else if (drawing) ctx.lineTo(this.project.x(x), this.project.y(y));
         else {
-          ctx.moveTo(this.project.x(x[i]), this.project.y(y[i]));
+          ctx.moveTo(this.project.x(x), this.project.y(y));
           drawing = true;
         }
         if (i >= stretch.last - 1) break;
@@ -186,25 +197,27 @@ export class MapView {
     }
   }
 
-  /** The last TRAIL_S seconds at TRAIL_HZ, each segment in the colour of the speed where it ends. */
+  /** The last TRAIL_S seconds at TRAIL_HZ along the drawn position, each segment in the colour of the speed where it ends. */
   private drawTrail(ctx: CanvasRenderingContext2D): void {
-    const { x, y, speed, rateHz } = this.track!;
+    const track = this.track!;
+    const { speed, rateHz } = track;
     const step = Math.max(1, Math.round(rateHz / TRAIL_HZ));
     const first = Math.max(0, this.index - TRAIL_S * rateHz);
     ctx.lineWidth = TRAIL_WIDTH_PX;
     ctx.lineCap = "round";
     for (let i = this.index; i - step >= first; i -= step) {
       const from = i - step;
-      if (Number.isNaN(x[i]) || Number.isNaN(x[from])) continue;
+      const [[x0, y0], [x1, y1]] = [drawnAt(track, from), drawnAt(track, i)];
+      if (Number.isNaN(x0) || Number.isNaN(y0) || Number.isNaN(x1) || Number.isNaN(y1)) continue;
       ctx.strokeStyle = this.speedColour(Number.isNaN(speed[i]) ? 0 : speed[i]);
       ctx.beginPath();
-      ctx.moveTo(this.project.x(x[from]), this.project.y(y[from]));
-      ctx.lineTo(this.project.x(x[i]), this.project.y(y[i]));
+      ctx.moveTo(this.project.x(x0), this.project.y(y0));
+      ctx.lineTo(this.project.x(x1), this.project.y(y1));
       ctx.stroke();
     }
   }
 
-  /** The current point with an arrow along the heading, as long as ARROW_FRACTION of the map's width. */
+  /** The current point, at the measured position, with an arrow along the heading, as long as ARROW_FRACTION of the map's width. */
   private drawPoint(ctx: CanvasRenderingContext2D): void {
     const { x, y, heading } = this.track!;
     const i = this.index;
