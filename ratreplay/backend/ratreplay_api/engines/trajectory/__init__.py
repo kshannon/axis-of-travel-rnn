@@ -3,6 +3,7 @@ TrajectoryEngine: the one contract for selecting, cutting, labelling and windowi
 """
 
 from . import funnel, session
+from .edits import apply_edits
 
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
 # beside the rules and settings it used.
@@ -100,9 +101,9 @@ class TrajectoryEngine:
 
     def apply(self, blocks, edits, session):
         """
-        The blocks that result from the edits and the refusals with their reasons, under the edit legality rules the session carries.
+        The blocks, cuts and flagged runs the edits make of the blocks and the refusals with their reasons, under the edit legality rules the session carries.
         """
-        raise NotImplementedError("task E2")
+        return apply_edits(blocks, edits, session)
 
     def blocks(self, arrays, review, environment, rules):
         """

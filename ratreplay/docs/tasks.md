@@ -31,7 +31,7 @@ anything that touches real data.
       blocks, moved from `engines/cuts.py`, `heading.py`, `spans.py`, `occupancy.py` and
       `src/process_lab_data/select.py` and `frame.py`. Test: parity with the processor's cuts and fills on
       the synthetic sessions, the held fill fires on lab shaped data. [TrajectoryEngine]
-- [ ] E2 `apply`: the edit rules from `engines/edits.py`. Test: the existing edit tests and the parity run
+- [x] E2 `apply`: the edit rules from `engines/edits.py`. Test: the existing edit tests and the parity run
       against the old tool (3,200 random edit lists), with the three deliberate refusals. [TrajectoryEngine]
 - [ ] E3 `blocks`: labels (trip, phase), frames to metres at 20 Hz, from `src/process_lab_data/labels.py`
       and `output.py` and `src/axis_of_travel_rnn/trajectory.py`. Test: parity with the processor's blocks

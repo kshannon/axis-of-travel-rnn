@@ -130,3 +130,10 @@ client.
   and on the validation pages, not inside `session()`. For Kyle: an arena only session passes the
   funnel today but cannot be registered (no track epoch), the processor crashes on it too, decide
   whether the funnel should mark it out. INITIAL_NOTE None here, "" in the old tool, E2 settles it.
+- E2: `apply` returns blocks, refusals (index, op, reason), cuts and flagged runs, and ReviewManager
+  assembles the review file (stamps, reviewed_by, notes) in M1. It is applied to the initial blocks with
+  the whole edit list, never to saved blocks (drop and confirm toggle). An initial block's note is None,
+  old review files hold "", readers treat them alike and F2 widens the type. Unknown ops are refused, not
+  skipped. The 3,200 random edit list parity against the old engine and the Dash tool is now a real test
+  (`tests/test_apply_parity.py`, one second) with four documented divergences allowed: reach, restores,
+  too short, epoch. It goes with the oracle in R2.

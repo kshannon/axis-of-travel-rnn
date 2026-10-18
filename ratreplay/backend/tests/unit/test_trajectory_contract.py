@@ -42,7 +42,7 @@ TRAJECTORY = {
 }
 GENERATOR = {"session": (("recipe", "environment", "seed", "length"), "E6")}
 ENGINES = ((TrajectoryEngine, TRAJECTORY), (GeneratorEngine, GENERATOR))
-DONE = ("E1",)
+DONE = ("E1", "E2")
 
 
 def test_every_rule_equals_the_project_constant_it_comes_from():
