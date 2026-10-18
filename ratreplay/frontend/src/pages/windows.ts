@@ -14,7 +14,7 @@ import { toast } from "../ui/toast";
 import { blockLine, NO_LINE } from "./blocks-view";
 import type { Page } from "./page";
 import { windowsRoot } from "./windows-html";
-import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches, windowVerdict } from "./windows-view";
+import { jumpTarget, noWindowReason, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches, windowVerdict } from "./windows-view";
 import type { Check } from "./windows-view";
 
 function registerWindows(): void {
@@ -31,6 +31,7 @@ function registerWindows(): void {
       line: player ? blockLine(player.header.row, player.windows.verdict) : NO_LINE,
       settingsLine: player ? settingsText(player.settings) : "",
       count: player?.windows.count ?? 0,
+      noWindow: player ? noWindowReason(player.windows) : "",
       okCount: player ? windowsOk(player.windows.rows) : 0,
       index: 0,
       jump: 1,
@@ -86,6 +87,7 @@ function registerWindows(): void {
         this.line = blockLine(header.row, windows.verdict);
         this.settingsLine = settingsText(settings);
         this.count = windows.count;
+        this.noWindow = noWindowReason(windows);
         this.okCount = windowsOk(windows.rows);
       },
 

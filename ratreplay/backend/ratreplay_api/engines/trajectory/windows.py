@@ -13,11 +13,20 @@ from .frame import TRACK
 # through float rounding, within this tolerance.
 TOLERANCE_S = 1e-9
 
-# The reasons a window or a block fails, in the order the checks run.
-NO_WINDOW = "no window fits"
-POSITION_LOST = "position not finite"
-HEADING_UNDER = "measured heading {:.0%} under {:.0%}"
-TRIPS_UNDER = "{} complete trips under {}"
+# The reasons a window or a block fails, in the order the checks run. They are written for the person reviewing the data
+# and name the setting that decides them, so every page shows the same words.
+NO_WINDOW = "no window of {window_s:g} s plus {horizon_s:g} s horizon fits in this {duration:.0f} s block"
+POSITION_LOST = "position missing on {} of this window"
+WINDOW_HEADING_UNDER = "head dir measured on {:.0%} of this window, under the minimum measured heading setting of {:.0%}"
+BLOCK_HEADING_UNDER = "head dir measured on {:.0%} of frames, under the minimum measured heading setting of {:.0%}"
+TRIPS_UNDER = "{} in this track block, under the minimum complete trips setting of {}"
+
+
+def counted(n, noun):
+    """
+    The count with its noun, plural unless the count is one.
+    """
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
 
 
 def window_count(n_frames, rate_hz, settings):
@@ -35,6 +44,13 @@ def position_finite(arrays, at):
     The share of the frames in the slice with a finite position.
     """
     return float(np.mean(np.isfinite(arrays["x"][at]) & np.isfinite(arrays["y"][at])))
+
+
+def position_missing(arrays, at):
+    """
+    The number of frames in the slice without a finite position.
+    """
+    return int(np.count_nonzero(~(np.isfinite(arrays["x"][at]) & np.isfinite(arrays["y"][at]))))
 
 
 def heading_measured(arrays, at):
@@ -81,9 +97,9 @@ def window_rows(arrays, extents, count, rate_hz, settings):
         finite, measured = position_finite(arrays, at), heading_measured(arrays, at)
         complete, partial = trips_in(extents, first, first + span)
         if finite < 1.0:
-            reason = POSITION_LOST
+            reason = POSITION_LOST.format(counted(position_missing(arrays, at), "frame"))
         elif measured < settings["min_heading_measured"]:
-            reason = HEADING_UNDER.format(measured, settings["min_heading_measured"])
+            reason = WINDOW_HEADING_UNDER.format(measured, settings["min_heading_measured"])
         else:
             reason = None
         rows.append({"index": index, "first": first, "burn_in_stop": first + round(settings["burn_in_s"] * rate_hz),
@@ -99,11 +115,11 @@ def block_verdict(row, arrays, count, settings):
     Whether the block is fit for training and every rule it breaks: no window fits, too little measured heading, too few complete trips on the track.
     """
     measured, complete = heading_measured(arrays, slice(None)), len(np.unique(arrays["trip"][arrays["trip"] > 0]))
-    reasons = [NO_WINDOW] if count == 0 else []
+    reasons = [NO_WINDOW.format(window_s=settings["window_s"], horizon_s=settings["horizon_s"], duration=row["duration_s"])] if count == 0 else []
     if measured < settings["min_heading_measured"]:
-        reasons.append(HEADING_UNDER.format(measured, settings["min_heading_measured"]))
+        reasons.append(BLOCK_HEADING_UNDER.format(measured, settings["min_heading_measured"]))
     if row["kind"] == TRACK and complete < settings["min_complete_trips"]:
-        reasons.append(TRIPS_UNDER.format(complete, settings["min_complete_trips"]))
+        reasons.append(TRIPS_UNDER.format(counted(complete, "complete trip"), settings["min_complete_trips"]))
     return {"ok": not reasons, "reasons": reasons}
 
 

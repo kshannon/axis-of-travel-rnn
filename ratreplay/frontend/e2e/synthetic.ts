@@ -50,9 +50,9 @@ export function nextHealth(page: Page): Promise<Response> {
   return page.waitForResponse((response) => new URL(response.url()).pathname === "/api/health");
 }
 
-/** The toast whose text contains this one. */
+/** The toast whose text contains this one, a success at the bottom or a warning or error in the stack at the top right. */
 export function toast(page: Page, text: string): Locator {
-  return page.getByRole("status").filter({ hasText: text });
+  return page.getByRole("status").or(page.getByRole("alert")).filter({ hasText: text });
 }
 
 /** The pixels of the map in the theme's muted colour, which is what the walls, the arena's boundary and the centerline are drawn in, and the letters of the site names and of the speed legend. */

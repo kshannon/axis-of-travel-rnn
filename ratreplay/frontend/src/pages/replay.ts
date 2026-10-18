@@ -1,13 +1,14 @@
 import Alpine from "alpinejs";
 import { errorText, listSessions } from "../api/client";
 import type { MadeBlock } from "../api/types";
-import { allLayers, LAYERS } from "../draw/layers";
+import { allLayers, LAYERS, layerMeanings } from "../draw/layers";
 import type { LayerKey } from "../draw/layers";
-import { timeLabel } from "../draw/lanes";
+import { FRAMES_LANE, timeLabel } from "../draw/lanes";
 import { MapView, THIN_PATH } from "../draw/map";
-import { ALL, CURRENT, OccupancyBackdrop } from "../draw/occupancy";
+import { defaultMapChoice, OccupancyBackdrop } from "../draw/occupancy";
 import { sessionScene } from "../draw/session-scene";
 import { Timeline } from "../draw/timeline";
+import type { LaneClick } from "../draw/timeline";
 import { epochAt, runAt } from "../session/at";
 import { REAL_TIME, SPEEDS } from "../session/clock";
 import { editFor, label, reselected } from "../session/editor";
@@ -24,14 +25,17 @@ import { toast } from "../ui/toast";
 import { askAndChange } from "./exclusion";
 import type { Page } from "./page";
 import { replayGrid } from "./replay-html";
-import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, settingsLine, stateLine, summaryTiles } from "./replay-view";
-import type { BlockCard, Note, Tile } from "./replay-view";
+import { escapeClears, laneSelection, pickedRun, selectionText, toggled } from "./replay-selection";
+import type { Picked } from "./replay-selection";
+import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
+import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Sessions page.";
 const PROBLEM = "$store.health.problem('transformed', 'processed', 'environments')";
 
-// The chips of the timeline keep their state when the person visits another page and comes back.
+// The layers of the timeline and of the map keep their state when the person visits another page and comes back.
 const layers = allLayers();
+const mapLayers = { ...defaultMapChoice(), trail: true };
 
 function registerReplay(): void {
   Alpine.data("replayPage", () => {
@@ -40,13 +44,16 @@ function registerReplay(): void {
     let timeline!: Timeline;
     let map!: MapView;
     let occupancy!: OccupancyBackdrop;
+    // What is selected: a block, or an epoch, a run or a frame, never both.
     let selected: MadeBlock | null = null;
+    let picked: Picked | null = null;
     let alive = true;
     let stopPlayback = () => {};
+    // The run a flag acts on: the run selected, else the run under the cursor.
+    const runInReach = () => pickedRun(ws.header, picked) ?? runAt(ws.header.runs, ws.clock.index + 1);
     const targetOf = (position?: number) => {
-      const frame = ws.clock.index + 1;
       const block = position === undefined ? selected : (ws.preview.blocks[position] ?? null);
-      return { cursor: frame, block, blocks: ws.preview.blocks, range: ws.editor.range, run: runAt(ws.header.runs, frame) };
+      return { cursor: ws.clock.index + 1, block, blocks: ws.preview.blocks, range: ws.editor.range, run: runInReach() };
     };
 
     return {
@@ -55,7 +62,8 @@ function registerReplay(): void {
       error: "",
       sessionId: "",
       facts: "",
-      stateLine: "",
+      status: { state: { text: "", chip: "", title: "" }, flags: [] } as Status,
+      selectionLine: "",
       inDataset: true,
       excluded: false,
       reason: "",
@@ -72,10 +80,11 @@ function registerReplay(): void {
       lights: "",
       epochNow: "",
       shown: "",
-      occupancy: CURRENT,
-      occupancyChoices: [CURRENT, ALL] as string[],
+      mapLayers,
+      epochKinds: [] as string[],
       layers,
       layerList: LAYERS,
+      meanings: {} as Record<LayerKey, string>,
       marksLine: "",
       runLine: "",
       runNow: null as number | null,
@@ -84,6 +93,7 @@ function registerReplay(): void {
       editCount: 0,
       hasSelection: false,
       hasRange: false,
+      hasMarks: false,
       selectedName: "",
 
       get speedLabel() {
@@ -98,7 +108,7 @@ function registerReplay(): void {
         if (!alive) return;
         const handlers = {
           seek: (index: number) => this.seek(index),
-          select: (position: number) => this.select(position),
+          click: (hit: LaneClick) => this.laneClick(hit),
           view: (from: number, to: number) => (this.shown = `${timeLabel(from)} to ${timeLabel(to)}`),
         };
         timeline = new Timeline(this.$refs.timeline, handlers);
@@ -133,8 +143,12 @@ function registerReplay(): void {
         if (!alive) return;
         const { header, arrays } = ws;
         selected = null;
+        picked = null;
         timeline.load(this.scene());
+        for (const kind of header.selected_epochs) mapLayers.kinds[kind] ??= true;
         occupancy = new OccupancyBackdrop(header);
+        occupancy.choice = mapLayers;
+        map.trail = mapLayers.trail;
         map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
         this.sessionId = header.session_id;
         this.facts = factsLine(header);
@@ -142,8 +156,8 @@ function registerReplay(): void {
         this.excluded = ws.excluded;
         this.reason = header.reason ?? "";
         this.notes = ws.saved?.notes ?? "";
-        this.occupancyChoices = [CURRENT, ALL, ...header.selected_epochs];
-        this.occupancy = CURRENT;
+        this.epochKinds = header.selected_epochs;
+        this.meanings = layerMeanings(header, ws.speedTop);
         this.speedIndex = (SPEEDS as readonly number[]).indexOf(ws.clock.speed);
         this.loading = false;
         this.sync();
@@ -172,12 +186,13 @@ function registerReplay(): void {
         this.showRun();
       },
 
-      /** The run under the cursor, which the flag button acts on, and whether it is flagged. */
+      /** The run the flag button acts on, the run selected or else the run under the cursor, and whether it is flagged. */
       showRun() {
-        const run = runAt(ws.header.runs, ws.clock.index + 1);
+        const run = runInReach();
         this.runNow = run?.run ?? null;
         this.runFlagged = run !== null && ws.preview.flagged_runs.includes(run.run);
-        this.runLine = run ? `run ${run.run}, path ${run.path_id} ${run.clean ? "clean" : "dirty"}${this.runFlagged ? ", flagged" : ""}` : "no run under the cursor";
+        const chosen = pickedRun(ws.header, picked) !== null;
+        this.runLine = run ? `${chosen ? "selected " : ""}run ${run.run}, path ${run.path_id} ${run.clean ? "clean" : "dirty"}${this.runFlagged ? ", flagged" : ""}` : "no run under the cursor";
       },
 
       /** Redraw everything that follows the edits: the cards, the summary, the lanes' blocks, the selection and the marks. */
@@ -187,16 +202,19 @@ function registerReplay(): void {
         this.summary = summaryTiles(preview, header, ws.settings);
         this.settingsLine = settingsLine(ws.settings);
         this.notices = sessionNotes(header, preview.refusals, editor.edits);
-        this.stateLine = stateLine(ws.saved, editor.edits.length, editor.dirty, preview.refusals.length);
+        this.status = sessionStatus(header, ws.saved, editor.edits.length, editor.dirty, preview.refusals.length, ws.excluded);
         this.editCount = editor.edits.length;
         this.marksLine = marksLine(editor.markIn, editor.markOut, header.rate_hz);
         this.hasRange = editor.range !== null;
+        this.hasMarks = editor.markIn !== null || editor.markOut !== null;
         this.hasSelection = selected !== null;
         this.selectedName = this.blocks.find((b) => b.selected)?.name ?? "";
+        this.selectionLine = selectionText(header, picked, selected, selected ? preview.blocks.indexOf(selected) : -1);
+        const outline = laneSelection(header, picked, selected);
         timeline.setScene(this.scene());
-        timeline.setSelection(selected && { lane: "blocks", first: selected.frame_start, last: selected.frame_end });
+        timeline.setSelection(outline);
         timeline.setMarks(editor.markIn, editor.markOut);
-        map.setStretches(selected ? [{ first: selected.frame_start, last: selected.frame_end, ...THIN_PATH }] : []);
+        map.setStretches(outline && outline.lane !== FRAMES_LANE ? [{ first: outline.first, last: outline.last, ...THIN_PATH }] : []);
         this.showRun();
       },
 
@@ -218,9 +236,9 @@ function registerReplay(): void {
         ws.clock.seek(index, performance.now());
         this.show();
       },
-      setOccupancy(choice: string) {
-        this.occupancy = choice;
-        occupancy.choice = choice;
+      /** A map layer was switched: the backdrop reads the choice itself, the trail is the map's. */
+      mapLayersChanged() {
+        map.trail = mapLayers.trail;
         map.redraw();
       },
       toggleLayer(key: LayerKey) {
@@ -240,22 +258,39 @@ function registerReplay(): void {
         timeline.fitSelected();
       },
 
+      /** Select a block, or let go of the selection, which drops whatever else was picked. */
       selectBlock(block: MadeBlock | null) {
         selected = block;
+        if (block) picked = null;
         this.sync();
       },
       select(position: number) {
         this.selectBlock(ws.preview.blocks[position] ?? null);
       },
-      /** Escape: no selection and no marks, the zoom stays. */
-      clear() {
-        ws.editor.clearMarks();
-        this.selectBlock(null);
+      /** A click on a lane selects the epoch, run, block or frame under it, and a second click on the same one lets go of it. Empty lane space moves the cursor. */
+      laneClick({ lane, pick, index, again }: LaneClick) {
+        if (lane === "blocks" && pick !== undefined) {
+          const block = ws.preview.blocks[pick];
+          this.selectBlock(block === selected ? null : block);
+        } else if ((lane === "session" || lane === "runs") && pick !== undefined) {
+          this.pick(toggled(picked, { kind: lane === "session" ? "epoch" : "run", index: pick }));
+        } else if (lane === FRAMES_LANE) {
+          if (!again) this.seek(index);
+          this.pick(toggled(picked, { kind: "frame", frame: index + 1 }, again));
+        } else this.seek(index);
       },
-      /** The lanes zoomed out and no block selected, the marks stay. */
-      wholeSession() {
-        timeline.zoomAll();
-        this.selectBlock(null);
+      pick(next: Picked | null) {
+        picked = next;
+        if (next) selected = null;
+        this.sync();
+      },
+      /** Escape: the marks go first, then the selection. The zoom stays. */
+      clear() {
+        const step = escapeClears(ws.editor.markIn !== null || ws.editor.markOut !== null, selected !== null || picked !== null);
+        if (!step) return;
+        if (step === "marks") ws.editor.clearMarks();
+        else selected = picked = null;
+        this.sync();
       },
       mark(which: "in" | "out") {
         ws.editor[which === "in" ? "markIn" : "markOut"] = ws.clock.index + 1;

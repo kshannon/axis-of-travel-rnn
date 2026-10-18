@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { BlockHeader, BlockWindow } from "../../src/api/types";
-import { jumpTarget, stepWindow, windowsOk, windowStretches, windowVerdict } from "../../src/pages/windows-view";
+import type { BlockHeader, BlockWindow, BlockWindows } from "../../src/api/types";
+import { jumpTarget, noWindowReason, stepWindow, windowsOk, windowStretches, windowVerdict } from "../../src/pages/windows-view";
 
 const header = { rate_hz: 60, row: { n_frames: 1200 } } as unknown as BlockHeader;
 const window = (extra: Partial<BlockWindow> = {}): BlockWindow => ({
@@ -32,4 +32,10 @@ test("the map draws the whole path, the burn-in lighter, the rest of the window 
   const stretches = windowStretches(header, window());
   expect(stretches.map((s) => [s.first, s.last, s.colour])).toEqual([[1, 1200, "ink"], [601, 660, "accent"], [660, 900, "accent"], [900, 930, "warn"]]);
   expect(stretches.map((s) => s.light ?? false)).toEqual([false, true, false, false]);
+});
+
+test("a block that yields no window says why in the engine's words, and one that yields some says nothing", () => {
+  const found = (count: number) => ({ count, verdict: { ok: !!count, reasons: count ? [] : ["no window of 40 s plus 0.5 s horizon fits in this 20 s block", "another"] } }) as unknown as BlockWindows;
+  expect(noWindowReason(found(0))).toBe("no window of 40 s plus 0.5 s horizon fits in this 20 s block");
+  expect(noWindowReason(found(3))).toBe("");
 });

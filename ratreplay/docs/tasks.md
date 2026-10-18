@@ -120,7 +120,7 @@ anything that touches real data.
 - [x] K10 The Sessions totals line becomes a one row strip of small tiles (in the dataset, reviewed,
       excluded, blocks confirmed, confirmed hours per kind, built), numbers large, labels muted. Folds into
       Incoming (K7) if that shape is taken. Kyle, 2026-10-18. [Page 2]
-- [ ] K11 Replay layout and errors: the block editing buttons (marks, split, new block, edges, accept,
+- [x] K11 Replay layout and errors: the block editing buttons (marks, split, new block, edges, accept,
       reject, remove) move onto the timeline card in one row under the lanes, notes and flag a run go
       under the playback, names get a plainness pass. Errors and warnings move to the top right, larger,
       with the time, stacked newest first, each closed by hand, successes stay brief. Flag a run stays
@@ -135,7 +135,7 @@ anything that touches real data.
       checkboxes under the map title, each layer on or off on its own (occupancy, geometry, arena, track,
       trail), "follow the cursor's epoch" a checkbox too, nothing forced on. Kyle, 2026-10-18.
       [Page 3, UX rules]
-- [ ] K12 The verdict strings are written for a person, in the engine so every page says the same: "head
+- [x] K12 The verdict strings are written for a person, in the engine so every page says the same: "head
       dir measured on 75% of frames, the setting needs 80%", "no window of 40 s fits in this block",
       "0 complete trips, the setting needs 1", each naming the setting that decides it, the window
       row's reason likewise, and the Blocks page settings fields get a one line hint of what each setting

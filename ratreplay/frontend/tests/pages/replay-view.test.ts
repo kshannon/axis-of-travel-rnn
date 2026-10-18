@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { MadeBlock, Preview, ReviewBlock, SavedBlocks, SessionHeader } from "../../src/api/types";
-import { blockCards, saveToast, sessionNotes, stateLine, summaryTiles } from "../../src/pages/replay-view";
+import { blockCards, factsLine, headingText, saveToast, sessionNotes, sessionStatus, summaryTiles } from "../../src/pages/replay-view";
 
 const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
@@ -12,6 +12,7 @@ const header = {
     { frame: 10, reason: "pause" }, { frame: 20, reason: "jump" }, { frame: 30, reason: "jump" }, { frame: 40, frame_end: 50, reason: "gap" },
   ],
   margins: [],
+  heading_spans: { lost: [[1, 30]], filled: [[301, 360], [1000, 1059]], held: [[1401, 1500]] },
 } as unknown as SessionHeader;
 
 // What the manager answers for a kept block, and for a removed one.
@@ -53,32 +54,44 @@ test("the summary counts the blocks by status and the time kept of the epochs th
   expect(tiles.kept).toMatchObject({ value: "0.3 min", note: "67%" }); // 20 s kept of the arena's 30 s, the variant epoch is not cut
   expect(tiles.windows).toMatchObject({ value: "2", note: "5 s each" }); // the manager's counts summed: 2 for the confirmed block, 0 for the auto one, the removed one has none
   expect(tiles.windows.title).toContain("1 block not ok");
-  expect(tiles["pauses, jumps, gaps"].value).toBe("1, 2, 1");
+  expect(tiles["paused, jumped, lost"].value).toBe("1, 2, 1");
   expect(tiles.flagged).toMatchObject({ value: "1", note: "of 2 runs" });
 });
 
-test("the state line says automatic or who saved and when, and the edits not saved yet", () => {
+test("the status is one chip for where the review stands: automatic, edits not saved, saved by whom and when, or excluded", () => {
+  const none = { warnings: [] };
   const saved = { reviewed_by: "kyle", reviewed_at: "2026-10-16T12:00:00+00:00", edits: [{}, {}] } as never;
-  expect(stateLine(null, 0, false, 0)).toBe("automatic");
-  expect(stateLine(null, 3, true, 0)).toBe("automatic, now 3 edits not saved yet");
-  expect(stateLine(null, 1, true, 0)).toBe("automatic, now 1 edit not saved yet");
-  expect(stateLine(saved, 2, false, 1)).toMatch(/^saved .* by kyle, 2 edits, 1 skipped under the current rules$/);
-  expect(stateLine(saved, 3, true, 0)).toMatch(/by kyle, 2 edits, now 3 edits not saved yet$/);
-  expect(stateLine(saved, 0, true, 0)).toBe("automatic, the saved review on disk is not loaded");
+  expect(sessionStatus(none, null, 0, false, 0, false).state.text).toBe("automatic, nothing reviewed yet");
+  expect(sessionStatus(none, null, 3, true, 0, false).state.text).toBe("3 edits not saved");
+  expect(sessionStatus(none, null, 1, true, 0, false).state.text).toBe("1 edit not saved");
+  expect(sessionStatus(none, saved, 2, false, 0, false).state.text).toBe("saved by kyle on 2026-10-16, 2 edits");
+  expect(sessionStatus(none, saved, 3, true, 0, false).state.text).toBe("3 edits not saved");
+  expect(sessionStatus(none, saved, 0, true, 0, false).state.text).toBe("edits cleared, the saved review is not loaded");
   const onlyExcluded = { reviewed_by: null, reviewed_at: null, edits: [] } as never;
-  expect(stateLine(onlyExcluded, 0, false, 0)).toBe("automatic");
-  expect(stateLine(onlyExcluded, 2, true, 0)).toBe("automatic, now 2 edits not saved yet");
+  expect(sessionStatus(none, onlyExcluded, 0, false, 0, false).state.text).toBe("automatic, nothing reviewed yet");
+  expect(sessionStatus(none, saved, 2, false, 0, true).state.text).toBe("excluded");
+  // each state has its own colour
+  const colours = [sessionStatus(none, null, 3, true, 0, false), sessionStatus(none, saved, 2, false, 0, false), sessionStatus(none, null, 0, false, 0, true), sessionStatus(none, null, 0, false, 0, false)];
+  ["text-warn", "text-ok", "text-muted", "text-ink"].forEach((colour, i) => expect(colours[i].state.chip).toContain(colour));
+});
+
+test("beside the status chip go the edits the rules skip, the unsaved edits of an excluded session and the manager's two warnings about the saved review", () => {
+  const warnings = ["reviewed under other rules", "saved blocks differ from the blocks today's rules give", "S1 track scale x and y differ by 12 percent"];
+  const { flags } = sessionStatus({ warnings }, null, 0, false, 2, false);
+  expect(flags.map((f) => f.text)).toEqual(["2 edits skipped under today's rules", "reviewed under other rules", "saved blocks differ from today's rules"]);
+  expect(sessionStatus({ warnings: [] }, null, 2, true, 0, true).flags.map((f) => f.text)).toEqual(["2 edits not saved"]);
+  expect(sessionStatus({ warnings: [] }, null, 0, false, 0, false).flags).toEqual([]);
 });
 
 test("the session notes say why a session is out of the dataset, the warnings, the saved edits that do not apply and the positions off the map", () => {
   const edits = [{ op: "accept" }, { op: "split", frame: 700 }] as never;
   const quiet = { ...header, in_dataset: true, reason: null, warnings: [], occupancy: { outside: 0 } } as unknown as SessionHeader;
   expect(sessionNotes(quiet, [], edits)).toEqual([]);
-  const noisy = { ...quiet, in_dataset: false, reason: "protocol rotation", warnings: ["reviewed under other rules"], occupancy: { outside: 1 } } as unknown as SessionHeader;
+  const noisy = { ...quiet, in_dataset: false, reason: "protocol rotation", warnings: ["S1 track scale x and y differ by 12 percent", "reviewed under other rules"], occupancy: { outside: 1 } } as unknown as SessionHeader;
   const notes = sessionNotes(noisy, [{ index: 1, op: "split", reason: "no block holds frame 700" }], edits);
   expect(notes.map((n) => n.text)).toEqual([
     "Not in the dataset: protocol rotation. It can be viewed and previewed, Save blocks is disabled.",
-    "reviewed under other rules",
+    "S1 track scale x and y differ by 12 percent",
     "Edit 2 (split at frame 700) is not applied under the current rules: no block holds frame 700",
     "1 position outside the room, drawn outside its outline.",
   ]);
@@ -98,4 +111,16 @@ test("a save toast names the review file and the blocks built, and warns on a fa
   });
   const broken = saveToast({ ...saved, built: 0, build_error: "OSError: disk full" });
   expect(broken).toEqual({ kind: "warning", path: "review/S1.json", text: "Saved, a new file, but the build failed and nothing was built: OSError: disk full" });
+});
+
+test("a block card says what happened to the head direction inside the block, in the words of the timeline", () => {
+  expect(headingText(block(301, 900, "auto"), header as never)).toBe("head dir: 1.0 s interpolated by RatReplay");
+  expect(headingText(block(1, 1500, "auto"), header as never)).toBe("head dir: 2.0 s interpolated by RatReplay, 1.7 s held by RatReplay, 0.5 s missing");
+  expect(headingText(block(1501, 1800, "auto"), header as never)).toBe("");
+  expect(blockCards(blocks, header, null).map((c) => c.heading)).toEqual(["head dir: 1.0 s interpolated by RatReplay", "head dir: 1.0 s interpolated by RatReplay, 1.7 s held by RatReplay", ""]);
+});
+
+test("the facts line gives the rat, the recording and how many blocks were automatically derived", () => {
+  expect(factsLine({ ...header, n_initial_blocks: 14 })).toBe("rat NS14, 2015-01-01, standard, 60 Hz, 6000 frames, 14 blocks automatically derived");
+  expect(factsLine({ ...header, n_initial_blocks: 1 })).toMatch(/1 block automatically derived$/);
 });

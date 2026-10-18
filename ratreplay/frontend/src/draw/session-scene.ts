@@ -6,8 +6,9 @@ import type { LayerKey, Layers } from "./layers";
 import { FRAMES_LANE, runFill, runKind } from "./lanes";
 import type { Bar, FrameLayer, LaneSpec, Scene } from "./lanes";
 
+/** The lanes of the session timeline. The runs lane is as thin as the epochs lane, a run is only a coloured stretch. */
 export const SESSION_LANES: readonly LaneSpec[] = [
-  { name: "session", weight: 1 }, { name: "runs", weight: 2 }, { name: FRAMES_LANE, weight: 3 }, { name: "blocks", weight: 2 },
+  { name: "session", weight: 1 }, { name: "runs", weight: 1 }, { name: FRAMES_LANE, weight: 3 }, { name: "blocks", weight: 2 },
 ];
 
 const EPOCH_COLOURS: Record<string, string> = { arena: "#38bdf8", track: "#4ade80" };
@@ -24,20 +25,22 @@ const PAUSE_TICK = 0.3;
 const SECONDS_PER_MINUTE = 60;
 
 export const blockName = (position: number): string => `block ${position + 1}`;
+/** The number alone, what a block bar writes when its name does not fit. */
+const blockNumber = (position: number): string => String(position + 1);
 
 const framesOf = (first: number, last: number) => last - first + 1;
 
 function epochBars(header: SessionHeader): Bar[] {
-  return header.epochs.map((e) => ({
-    lane: "session", first: e.frame_start, last: e.frame_end, fill: EPOCH_COLOURS[e.epoch] ?? OTHER_EPOCH_COLOUR, alpha: BAR_ALPHA, text: e.epoch,
+  return header.epochs.map((e, pick) => ({
+    lane: "session", first: e.frame_start, last: e.frame_end, fill: EPOCH_COLOURS[e.epoch] ?? OTHER_EPOCH_COLOUR, alpha: BAR_ALPHA, text: e.epoch, pick,
     tip: `${e.epoch}, ${e.environment}, ${e.condition}, frames ${e.frame_start} to ${e.frame_end}, ${(framesOf(e.frame_start, e.frame_end) / header.rate_hz / SECONDS_PER_MINUTE).toFixed(1)} min`,
   }));
 }
 
 /** A run is hatched when dirty and outlined when flagged. */
 function runBars(header: SessionHeader, flagged: Set<number>): Bar[] {
-  return header.runs.map((r) => ({
-    lane: "runs", first: r.frame_start, last: r.frame_end, fill: runFill(r.path_id), hatched: !r.clean, outline: flagged.has(r.run) ? "bad" : undefined,
+  return header.runs.map((r, pick) => ({
+    lane: "runs", first: r.frame_start, last: r.frame_end, fill: runFill(r.path_id), hatched: !r.clean, outline: flagged.has(r.run) ? "bad" : undefined, pick,
     tip: `run ${r.run}, path ${r.path_id} ${runKind(r.path_id)}, ${r.clean ? "clean" : "dirty"}${flagged.has(r.run) ? ", flagged" : ""}, ${framesOf(r.frame_start, r.frame_end)} frames (${r.frame_start} to ${r.frame_end})`,
   }));
 }
@@ -52,7 +55,7 @@ export function yieldOf(block: MadeBlock): string {
 function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
   return blocks.map((b, position) => ({
     lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: b.status === "dropped" ? GAP_ALPHA : BAR_ALPHA,
-    text: blockName(position), pick: position,
+    text: blockName(position), short: blockNumber(position), pick: position,
     tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s, ${yieldOf(b)}`,
   }));
 }

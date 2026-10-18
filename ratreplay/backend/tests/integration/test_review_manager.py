@@ -34,9 +34,9 @@ SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited"), (
 ACCEPT = [{"op": "accept"}]
 HEADER_KEYS = {"session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap", "date", "n_frames", "in_dataset", "reason", "annotated_exclude", "excluded",
                "epochs", "runs",
-               "selected_epochs", "n_initial_blocks", "environments", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
+               "selected_epochs", "n_initial_blocks", "environments", "rules", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
                "warnings", "review", "blocks", "refusals", "cuts", "flagged_runs"}
-ARRAY_KEYS = ["t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights"]
+ARRAY_KEYS = ["t", "x", "y", "x_smooth", "y_smooth", "heading", "speed", "turn_rate", "motion", "n_lights"]
 
 
 class MissingPosition(TransformedAccess):

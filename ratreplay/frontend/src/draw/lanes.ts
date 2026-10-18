@@ -18,6 +18,9 @@ const MIN_BAR_PX = 2;
 const HIT_SLOP_PX = 1;
 export const BAR_INSET_PX = 1;
 
+// A bar's name is written inside it with this much room left over.
+const LABEL_PAD_PX = 6;
+
 // The closest zoom shows this many seconds. A cursor that leaves the window pages it so the cursor lands this fraction
 // of the window from the edge it crossed.
 const MIN_SPAN_S = 5;
@@ -50,6 +53,8 @@ export interface Bar {
   /** Drawn in a lighter shade of its colour. */
   light?: boolean;
   text?: string;
+  /** What the bar writes when `text` is too wide for it, such as "5" for "block 5". */
+  short?: string;
   hatched?: boolean;
   /** A palette colour name. */
   outline?: string;
@@ -99,6 +104,16 @@ export function laneBands(height: number, lanes: readonly LaneSpec[]): Bands {
     top = bands[name].bottom + LANE_GAP_PX;
   }
   return bands;
+}
+
+/** The name of the lane a height falls in, none over the gaps between lanes or outside them. */
+export function laneAt(bands: Bands, y: number): string | null {
+  return Object.keys(bands).find((name) => y >= bands[name].top && y <= bands[name].bottom) ?? null;
+}
+
+/** The first of a bar's names that fits in its width with a little room left over, none when even the shortest does not. `measure` gives a text's width in pixels. */
+export function fittingLabel(names: readonly (string | undefined)[], width: number, measure: (text: string) => number): string | null {
+  return names.find((name): name is string => !!name && measure(name) + LABEL_PAD_PX <= width) ?? null;
 }
 
 /** Whether a point of the canvas is over the lanes, the gaps between them included. */

@@ -1,4 +1,4 @@
-import type { BlockHeader, BlockWindow, WindowSettings } from "../api/types";
+import type { BlockHeader, BlockWindow, BlockWindows, WindowSettings } from "../api/types";
 import { THIN_PATH } from "../draw/map";
 import type { Stretch } from "../draw/map";
 import { percent } from "../ui/format";
@@ -39,6 +39,11 @@ export function windowChecks(window: BlockWindow, settings: WindowSettings): Che
 /** What the server says of a window: ok, or in trouble with the first check it fails. */
 export function windowVerdict(window: BlockWindow): string {
   return window.ok ? "window ok" : `window trouble, ${window.reason}`;
+}
+
+/** Why the block yields no window, in the engine's words: the first reason of its verdict when it counts none, else nothing. */
+export function noWindowReason({ count, verdict }: BlockWindows): string {
+  return count ? "" : verdict.reasons[0] ?? "";
 }
 
 /** Where a window lies in the block, from its row: its start and the end of its horizon in seconds. */

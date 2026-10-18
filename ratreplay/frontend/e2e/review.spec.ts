@@ -30,7 +30,7 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(rows.nth(1)).toContainText(/NS14.*yes/);
     await expect(rows.nth(2)).toContainText(/NS16.*yes/);
     await expect(rows.nth(3)).toContainText(/NS14.*rotation.*no/);
-    await expect(page.getByTestId("totals")).toContainText("0 of 6 sessions reviewed, 0 blocks confirmed");
+    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 0 reviewed, 0 excluded, 0 blocks confirmed/);
     await rows.nth(1).click();
     await page.getByRole("button", { name: "Open in replay" }).click();
     await expect(page.getByTestId("session-id")).toHaveText(S1);
@@ -40,34 +40,54 @@ test("read the folders, review a session, refuse a split, split the track block,
   await test.step("the blocks are drawn with the windows they yield at the default 40 s window", async () => {
     await expect(cards).toHaveCount(2); // the arena block and the track block
     await expect(cards.first()).toContainText("0 training windows");
-    await expect(cards.first().getByTestId("verdict")).toHaveText("no window fits");
+    await expect(cards.first().getByTestId("verdict")).toHaveText("no window of 40 s plus 0.5 s horizon fits in this 20 s block");
     await expect(page.getByTestId("settings")).toContainText("window 40 s, stride 10 s");
     await expect(page.getByTestId("map").locator("canvas")).toBeVisible();
-    await expect(state).toHaveText("automatic");
+    await expect(state).toHaveText("automatic, nothing reviewed yet");
   });
 
   await test.step("a split that leaves a piece under 10 s is refused and toasted with the API's reason", async () => {
     await cards.nth(1).click();
     await expect(cards.nth(1)).toHaveAttribute("aria-current", "true");
+    await expect(page.getByTestId("selection")).toContainText("block 2");
     for (let i = 0; i < 39; i++) await page.keyboard.press("Shift+ArrowRight");
     await expect(frame).toHaveText("2341"); // 4 s into the track block
     await expect.poll(() => environmentPixels(page)).toBeGreaterThan(WALL_PIXELS); // the track's walls are drawn in metres
-    await page.getByRole("button", { name: "Split at cursor" }).click();
-    await expect(toast(page, "a kept block must last 10 s or more")).toBeVisible();
+    await page.getByRole("button", { name: "Split here" }).click();
+    const refused = toast(page, "a kept block must last 10 s or more");
+    await expect(refused).toBeVisible();
+    await expect(refused).toContainText("Warning"); // a warning is held in the stack at the top right with the time, until it is closed
+    await refused.getByRole("button", { name: "Close" }).click();
+    await expect(refused).toBeHidden();
     await expect(cards).toHaveCount(2);
   });
 
   await test.step("the track block splits in half at frame 2701, accept all confirms the rest", async () => {
     for (let i = 0; i < 6; i++) await page.keyboard.press("Shift+ArrowRight");
     await expect(frame).toHaveText("2701"); // the middle of the track block, the only split that leaves two blocks of 10 s
-    await page.getByRole("button", { name: "Split at cursor" }).click();
+    await page.getByRole("button", { name: "Split here" }).click();
     await expect(toast(page, "Added split at frame 2701")).toBeVisible();
     await expect(cards).toHaveCount(3);
     await page.getByRole("button", { name: "Accept all" }).click();
     await expect(cards.first()).toContainText("confirmed");
     await expect(cards.nth(1)).toContainText("edited");
     await expect(cards.nth(2)).toContainText("edited");
-    await expect(state).toContainText("now 2 edits not saved yet");
+    await expect(state).toHaveText("2 edits not saved");
+  });
+
+  await test.step("a click on the frames lane selects a frame, a second click on it and escape let go of it", async () => {
+    const box = (await page.getByTestId("timeline").boundingBox())!;
+    const unit = (box.height - 38) / 7; // the lanes weigh 1, 1, 3 and 2, the frames lane is the third
+    const frames = { x: box.width / 2, y: 12 + 3.5 * unit };
+    const selection = page.getByTestId("selection");
+    await page.getByTestId("timeline").click({ position: frames });
+    await expect(selection).toContainText(/^frame \d+, at /);
+    await page.getByTestId("timeline").click({ position: frames });
+    await expect(selection).toHaveText("nothing selected");
+    await page.getByTestId("timeline").click({ position: frames });
+    await expect(selection).toContainText("frame");
+    await page.keyboard.press("Escape");
+    await expect(selection).toHaveText("nothing selected");
   });
 
   await test.step("Save blocks names the review file and the blocks built, then opens the next session", async () => {
@@ -82,14 +102,14 @@ test("read the folders, review a session, refuse a split, split the track block,
 
   await test.step("a reload shows the saved blocks", async () => {
     await goTo("Sessions");
-    await expect(page.getByTestId("totals")).toContainText("1 of 6 sessions reviewed, 3 blocks confirmed");
+    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded, 3 blocks confirmed/);
     await page.getByLabel("Filter sessions").fill("ns14");
     await page.getByRole("row").nth(1).click();
     await page.getByRole("button", { name: "Open in replay" }).click();
     await expect(page.getByTestId("session-id")).toHaveText(S1);
     await page.reload();
     await expect(page.getByTestId("session-id")).toHaveText(S1);
-    await expect(state).toContainText(/^saved .* by \S+, 2 edits$/);
+    await expect(state).toHaveText(/^saved by \S+ on \d{4}-\d{2}-\d{2}, 2 edits$/);
     await expect(page.getByLabel("Notes on the session")).toHaveValue("the whole story");
     await expect(cards).toHaveCount(3);
     await expect(cards.first()).toContainText("confirmed");
@@ -120,22 +140,22 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(left).toBeVisible();
     await expect(left).toContainText(`review/${S6}.json`);
     await expect(row.getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("yes");
-    await expect(page.getByTestId("totals")).toContainText("2 of 6 sessions reviewed");
+    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 2 reviewed, 1 excluded/);
     await expect(page.getByRole("paragraph").filter({ hasText: "camera moved" })).toBeVisible(); // the notes of its review, in the open details
   });
 
   await test.step("in the Replay the excluded session shows its chip and cannot be saved, and Include takes it back", async () => {
     await page.getByRole("button", { name: "Open in replay" }).click();
     await expect(page.getByTestId("session-id")).toHaveText(S6);
-    await expect(page.getByTestId("excluded-chip")).toBeVisible();
+    await expect(state).toHaveText("excluded");
     await expect(page.getByRole("button", { name: "Save blocks" })).toBeDisabled();
     page.once("dialog", (dialog) => void dialog.accept(""));
     await page.getByRole("button", { name: "Include", exact: true }).click();
     await expect(toast(page, `Included ${S6} again`)).toBeVisible();
-    await expect(page.getByTestId("excluded-chip")).toBeHidden();
+    await expect(state).not.toHaveText("excluded");
     await expect(page.getByRole("button", { name: "Save blocks" })).toBeEnabled();
     await goTo("Sessions");
-    await expect(page.getByTestId("totals")).toContainText("1 of 6 sessions reviewed");
+    await expect(page.getByTestId("totals")).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded/);
     await expect(page.getByRole("row").nth(1).getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("");
   });
 });

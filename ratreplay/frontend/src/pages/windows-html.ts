@@ -26,7 +26,7 @@ const windowBody = `
         <input type="number" min="1" :max="count" x-model.number="jump" @change="goTo(jump)" aria-label="Window number" class="${INPUT} w-20" />
         of <span data-testid="window-count" x-text="count"></span>
       </label>
-      <span x-show="!count" data-testid="no-window" class="${CHIP_BAD}">no window fits</span>
+      <span x-show="!count" data-testid="no-window" class="${CHIP_BAD}" x-text="noWindow"></span>
       <button type="button" @click="step(1)" :disabled="!count || index === count - 1" class="${BUTTON}">Next <kbd class="${KBD}">right</kbd></button>
       <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="verdict"></span>
     </div>

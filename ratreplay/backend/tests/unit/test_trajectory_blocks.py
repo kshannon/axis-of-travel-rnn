@@ -225,6 +225,18 @@ def test_the_arrays_hold_the_block_schema_columns_and_no_motion_and_the_processe
     assert made["frame"]["track"]["scale_px_per_m"] > 0 and made["warnings"] == [w for w in made["warnings"] if w.startswith(S1)]
 
 
+def test_a_blocks_position_is_the_registered_raw_position_never_the_smoothed_one(transformed):
+    found, environment = loaded(transformed, S1)
+    for name in ("mashup_x", "mashup_y"):
+        found["arrays"][name] += np.random.default_rng(0).normal(0, 1.0, len(found["arrays"][name]))
+    kin = TrajectoryEngine().session(found, environment, RULES)["kinematics"]
+    for block in TrajectoryEngine().blocks(found, None, environment, RULES)["blocks"]:
+        at = build.block_slice(found["arrays"]["frame"], block["row"])
+        for raw, smooth in (("x", "x_smooth"), ("y", "y_smooth")):
+            np.testing.assert_array_equal(block["arrays"][raw], kin[raw][at])
+            assert np.nanmax(np.abs(block["arrays"][raw] - kin[smooth][at])) > 1e-3
+
+
 def test_generated_style_arrays_build_the_same_blocks_under_their_own_session_id(transformed):
     found, environment = loaded(transformed, S1)
     generated = {**found, "session": {**found["session"], "session_id": "synthetic_0001"}}

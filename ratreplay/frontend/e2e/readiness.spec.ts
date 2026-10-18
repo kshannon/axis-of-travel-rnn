@@ -20,7 +20,7 @@ test("test the built blocks at another window, step the windows of a block, sele
   await test.step("the Blocks page lists the three built blocks, none yields a window at the default 40 s", async () => {
     await page.goto("/#/blocks");
     await expect(page.getByRole("row")).toHaveCount(4); // the header and the three blocks
-    await expect(page.getByRole("row").filter({ hasText: "trouble, no window fits" })).toHaveCount(3);
+    await expect(page.getByRole("row").filter({ hasText: "trouble, no window of 40 s plus 0.5 s horizon fits in this 20 s block" })).toHaveCount(3);
     await expect(page.getByRole("row").filter({ hasText: "as tried" })).toHaveCount(3);
     await expect(tried).toContainText("Verdicts at a 40 s window");
     await expect(page.getByTestId("selected")).toHaveText("No settings are selected for export yet.");
@@ -31,7 +31,7 @@ test("test the built blocks at another window, step the windows of a block, sele
     await window.press("Tab");
     await expect(tried).toContainText("Verdicts at a 5 s window");
     await expect(row(S1_TRACK).getByRole("cell", { name: "ok", exact: true })).toBeVisible();
-    await expect(row(S6_TRACK)).toContainText("trouble, 0 complete trips under 1");
+    await expect(row(S6_TRACK)).toContainText("trouble, 0 complete trips in this track block, under the minimum complete trips setting of 1");
     await expect(page.getByRole("row").filter({ hasText: "built at other settings" })).toHaveCount(3);
   });
 
@@ -46,7 +46,7 @@ test("test the built blocks at another window, step the windows of a block, sele
     await expect(page.getByTestId("window-verdict")).toHaveText("window ok");
     await page.getByRole("button", { name: /Next/ }).click();
     await expect(number).toHaveValue("2");
-    await expect(page.getByTestId("window-verdict")).toHaveText("window trouble, measured heading 64% under 80%");
+    await expect(page.getByTestId("window-verdict")).toHaveText("window trouble, head dir measured on 64% of this window, under the minimum measured heading setting of 80%");
     await page.getByRole("button", { name: /Previous/ }).click();
     await expect(number).toHaveValue("1");
     await expect(page.getByTestId("window-verdict")).toHaveText("window ok");

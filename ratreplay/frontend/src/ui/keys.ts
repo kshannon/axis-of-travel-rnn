@@ -5,7 +5,7 @@ export const KEYS: readonly { keys: string; action: string }[] = [
   { keys: "shift with left, right", action: "one second back or forward" },
   { keys: "[ and ]", action: "previous and next run" },
   { keys: "enter", action: "confirm the selected block" },
-  { keys: "escape", action: "clear the selection and the marks" },
+  { keys: "escape", action: "clear the marks, then the selection" },
   { keys: "z", action: "undo the last edit" },
 ];
 

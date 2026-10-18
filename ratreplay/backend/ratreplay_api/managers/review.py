@@ -14,7 +14,7 @@ SESSION_KEYS = ("session_id", "subject_id", "group", "protocol", "rate_hz", "max
 EPOCH_KEYS = ("epoch", "environment", "condition", "frame_start", "frame_end", "duration_s")
 RUN_KEYS = ("run", "epoch", "path_id", "clean", "frame_start", "frame_end")
 DRAWN_KEYS = ("frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops")
-ARRAY_KEYS = ("t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights")
+ARRAY_KEYS = ("t", "x", "y", "x_smooth", "y_smooth", "heading", "speed", "turn_rate", "motion", "n_lights")
 
 # The statuses of a block: the two a build keeps, a block no one has looked at, and a removed block, and the keys of a review's block.
 CONFIRMED, AUTO, DROPPED = "confirmed", "auto", "dropped"
@@ -130,7 +130,7 @@ class ReviewManager:
                 "reason": funnel["reason"], "annotated_exclude": funnel["annotated_exclude"], "excluded": review is not None and review["excluded"],
                 "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
                 "runs": [picked(r, RUN_KEYS) for r in arrays["runs"]], "selected_epochs": [e["epoch"] for e in found["epochs"]],
-                "n_initial_blocks": len(found["initial_blocks"]), "environments": environments, **picked(found, DRAWN_KEYS), "warnings": warnings,
+                "n_initial_blocks": len(found["initial_blocks"]), "environments": environments, "rules": found["rules"], **picked(found, DRAWN_KEYS), "warnings": warnings,
                 "review": review, **made}
 
     def arrays(self, sid):

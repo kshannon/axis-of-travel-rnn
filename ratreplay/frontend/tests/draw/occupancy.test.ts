@@ -1,7 +1,8 @@
 import { scaleLinear } from "d3";
 import { expect, test } from "vitest";
 import type { Geometry, SessionHeader } from "../../src/api/types";
-import { ALL, CURRENT, environmentsShown, epochsShown, roomRect, rowsFromTop } from "../../src/draw/occupancy";
+import { defaultMapChoice, environmentsShown, epochsShown, roomRect, rowsFromTop } from "../../src/draw/occupancy";
+import type { MapChoice } from "../../src/draw/occupancy";
 
 const geometry = (name: string) => ({ name }) as Geometry;
 const header = {
@@ -14,20 +15,30 @@ const header = {
   environments: { open_arena: geometry("open_arena"), triple_t: geometry("triple_t") },
 } as unknown as SessionHeader;
 
-test("the current choice follows the epoch under the cursor, which is the lab frame after the index", () => {
-  expect(epochsShown(header, CURRENT, 0)).toEqual(["arena"]);
-  expect(epochsShown(header, CURRENT, 1800)).toEqual(["track"]);
-  expect(epochsShown(header, CURRENT, 9000)).toEqual(["no epoch"]);
-  expect(environmentsShown(header, CURRENT, 1799)).toEqual(["open_arena"]);
-  expect(environmentsShown(header, CURRENT, 1800)).toEqual(["triple_t"]);
+// Every layer is its own choice: the kinds on, and with follow only the epoch under the cursor.
+const choice = (changes: Partial<MapChoice> = {}): MapChoice => ({ ...defaultMapChoice(), kinds: { arena: true, track: true }, ...changes });
+
+test("following the cursor shows the epoch under it, which is the lab frame after the index", () => {
+  expect(epochsShown(header, choice(), 0)).toEqual(["arena"]);
+  expect(epochsShown(header, choice(), 1800)).toEqual(["track"]);
+  expect(epochsShown(header, choice(), 9000)).toEqual([]);
+  expect(environmentsShown(header, choice(), 1799)).toEqual(["open_arena"]);
+  expect(environmentsShown(header, choice(), 1800)).toEqual(["triple_t"]);
 });
 
-test("all shows the epochs the rules cut, one by name shows its own, and an epoch the rules do not cut has no geometry", () => {
-  expect(epochsShown(header, ALL, 0)).toEqual(["arena", "track"]);
-  expect(environmentsShown(header, ALL, 0)).toEqual(["open_arena", "triple_t"]);
-  expect(environmentsShown(header, "track", 0)).toEqual(["triple_t"]);
-  expect(environmentsShown(header, "variant", 0)).toEqual([]);
-  expect(environmentsShown(header, CURRENT, 4000)).toEqual([]);
+test("without following, each epoch kind that is on shows, and an epoch the rules do not cut has no geometry", () => {
+  const all = choice({ follow: false });
+  expect(epochsShown(header, all, 0)).toEqual(["arena", "track"]);
+  expect(environmentsShown(header, all, 0)).toEqual(["open_arena", "triple_t"]);
+  expect(environmentsShown(header, choice({ follow: false, kinds: { arena: false, track: true } }), 0)).toEqual(["triple_t"]);
+  expect(environmentsShown(header, choice({ follow: false, kinds: { variant: true } }), 0)).toEqual([]);
+  expect(environmentsShown(header, choice(), 4000)).toEqual([]);
+});
+
+test("a kind that is off is never shown, even under the cursor, and with every kind off nothing is", () => {
+  expect(epochsShown(header, choice({ kinds: { arena: false, track: true } }), 0)).toEqual([]);
+  expect(epochsShown(header, choice({ follow: false, kinds: { arena: false, track: false } }), 0)).toEqual([]);
+  expect(environmentsShown(header, choice({ kinds: {} }), 0)).toEqual([]);
 });
 
 test("the room's image sits on the projected room corners, however much wider than the room the projection reaches", () => {

@@ -4,7 +4,8 @@ import { colourOf, palette } from "../ui/palette";
 import type { Palette } from "../ui/palette";
 import { lighter, sizeCanvas, watchSize, withAlpha } from "./canvas";
 import {
-  BAR_INSET_PX, barBox, barSpan, baseScale, FRAMES_LANE, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits,
+  BAR_INSET_PX, barBox, barSpan, baseScale, fittingLabel, FRAMES_LANE, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform,
+  zoomLimits,
 } from "./lanes";
 import type { Bands, Bar, FrameLayer, Scale, Scene } from "./lanes";
 
@@ -13,7 +14,6 @@ const LANE_TINT = 0.05;
 const GRID_ALPHA = 0.08;
 const LABEL_GAP_PX = 8;
 const TICK_SPACING_PX = 90;
-const LABEL_PAD_PX = 6;
 const HATCH_PX = 5;
 const MIN_HATCH_PX = 4;
 const HATCH_COLOUR = "rgba(255, 255, 255, 0.6)";
@@ -31,6 +31,16 @@ const TOOLTIP_OFFSET_PX = 12;
 const ZOOM_STEP = 2;
 const FIT_MARGIN = 0.05;
 const CLICK_PX = 4;
+// A second click this close to the frame selected lets go of it.
+const SAME_FRAME_PX = 6;
+
+/** A click on the lanes: the lane, the number of the bar under it when the bar carries one, the frame index under it, and for the frames lane whether it hit the frame already selected. */
+export interface LaneClick {
+  lane: string;
+  pick?: number;
+  index: number;
+  again: boolean;
+}
 
 export interface TimelineHandlers {
   /** A click on the lanes, with the frame index under it. */
@@ -39,6 +49,8 @@ export interface TimelineHandlers {
   view(from: number, to: number): void;
   /** A click on a bar that can be picked, with the number the bar carries. */
   select?(pick: number): void;
+  /** Every click on the lanes, which a page that selects by lane takes instead of `seek` and `select`. */
+  click?(hit: LaneClick): void;
 }
 
 /** A stretch of lab frames outlined in its lane, the block or window the page has selected. */
@@ -231,9 +243,20 @@ export class Timeline {
     const point = this.pointer(event);
     if (!this.ready || !inPlot(point, this.width, this.height)) return;
     const bar = this.barAt(point);
-    if (bar?.pick !== undefined && this.handlers.select) this.handlers.select(bar.pick);
-    else this.handlers.seek?.(indexAt(this.scale, point.x, this.rate, this.nFrames));
+    const index = indexAt(this.scale, point.x, this.rate, this.nFrames);
+    if (this.handlers.click) {
+      const lane = bar?.lane ?? laneAt(this.bands, point.y);
+      if (lane) this.handlers.click({ lane, pick: bar?.pick, index, again: lane === FRAMES_LANE && this.hitsSelectedFrame(point.x) });
+      else this.handlers.seek?.(index);
+    } else if (bar?.pick !== undefined && this.handlers.select) this.handlers.select(bar.pick);
+    else this.handlers.seek?.(index);
   };
+
+  /** Whether a pixel is on the frame the frames lane has selected. */
+  private hitsSelectedFrame(x: number): boolean {
+    if (this.selected?.lane !== FRAMES_LANE) return false;
+    return Math.abs(x - barSpan(this.scale, this.selected, this.rate)[0]) <= SAME_FRAME_PX;
+  }
 
   private onMove = (event: MouseEvent): void => {
     const at = this.pointer(event);
@@ -299,10 +322,11 @@ export class Timeline {
     const fill = colourOf(this.colours, bar.fill);
     ctx.fillStyle = withAlpha(bar.light ? lighter(fill) : fill, bar.alpha ?? 1);
     ctx.fillRect(x, y, w, h);
-    if (bar.text && ctx.measureText(bar.text).width + LABEL_PAD_PX <= w) {
+    const name = fittingLabel([bar.text, bar.short], w, (text) => ctx.measureText(text).width);
+    if (name) {
       ctx.fillStyle = this.colours.ink;
       ctx.textAlign = "center";
-      ctx.fillText(bar.text, x + w / 2, y + h / 2);
+      ctx.fillText(name, x + w / 2, y + h / 2);
     }
     if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h);
     if (bar.outline) {

@@ -8,7 +8,7 @@ const FONT = "11px ui-sans-serif, system-ui, sans-serif";
 const PAD_PX = 16;
 const TRAIL_S = 2;
 const TRAIL_HZ = 20;
-const TRAIL_WIDTH_PX = 3;
+const TRAIL_WIDTH_PX = 4.5;
 const PATH_HZ = 10;
 const POINT_RADIUS_PX = 6;
 const ARROW_FRACTION = 0.08;
@@ -96,6 +96,8 @@ export class MapView {
   private stretches: Stretch[] = [];
   private withCursor = true;
   private index = 0;
+  /** Whether the last seconds are drawn as a trail coloured by speed, with the legend. The current point is the cursor and is always drawn. */
+  trail = true;
 
   constructor(host: HTMLElement) {
     this.canvas.className = "absolute left-0 top-0";
@@ -156,9 +158,9 @@ export class MapView {
     this.backdrop.draw(ctx, this.project, this.colours, index);
     this.drawStretches(ctx);
     if (!this.withCursor) return;
-    this.drawTrail(ctx);
+    if (this.trail) this.drawTrail(ctx);
     this.drawPoint(ctx);
-    this.drawLegend(ctx);
+    if (this.trail) this.drawLegend(ctx);
   }
 
   /** Each stretch at PATH_HZ, its last frame always included so stretches that meet leave no gap. */

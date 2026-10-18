@@ -1,17 +1,17 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_PRIMARY, CHIP_OFF, CHIP_ON, CHIP_WARN, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
-  <p>The room in metres, north up, the same frame for every epoch. The outlines are the environment of the epoch chosen under occupancy: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. The grey shading is where the animal spent time in that epoch, darker is more.</p>
-  <p class="mt-2">The trail is the last 2 s of the path coloured by speed in m/s. The red dot is the current position and the red arrow the heading after the fill and the LED offset. The thin line is the whole path of the selected block. Positions outside the room are drawn outside the outline, where a registration problem shows, and are counted in the Session card.</p>`;
+  <p>The room in metres, north up, the same frame for every epoch. The checkboxes under the title switch each layer on or off. Occupancy is where the animal spent time in an epoch, darker is more. Geometry is the environment of the epoch: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. Arena and track choose which epochs are drawn, and following the cursor's epoch draws only the epoch under the cursor.</p>
+  <p class="mt-2">The trail is the last 2 s of the path coloured by speed in m/s. The red dot is the cursor's position and the red arrow the head direction after the fill and the LED offset. The thin line is the path of what is selected on the timeline. Positions outside the room are drawn outside the outline, where a registration problem shows, and are counted in the Session card.</p>`;
 
 const TIMELINE_HELP = `
-  <p>One time axis in minutes of recording, a pause is a mark and not a stretch. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a chip above (pauses, gaps, jumps, margins, heading lost, filled and held, speed). Blocks: the blocks as they stand after the edits, coloured by status, a hover tells their windows and verdict.</p>
+  <p>One time axis in minutes of recording, a pause is a mark and not a stretch. The purple line is the cursor, the frame the playback is at. Session: the epochs. Runs: the lab's runs, dark blue outbound and light blue return, hatched when dirty, outlined red when flagged. Frames: what cut the session and what the review looks at, each layer a checkbox in the row under the lanes, hover one for what it means. Blocks: the blocks as they stand after the edits, coloured by status, a hover tells their windows and verdict.</p>
   <p class="mt-2">A block is cut at every pause, jump, gap and epoch bound, a margin is trimmed beside each cut and a piece that is too short is dropped. The cuts, margins and fills are the engine's, the same call that builds the blocks, so a confirmed block is the block it builds.</p>
-  <p class="mt-2">Click a lane to move the cursor, click a block bar to select it. The wheel zooms and a drag pans.</p>`;
+  <p class="mt-2">Click an epoch, a run, a block or a frame of the frames lane to select it, and click it again or press escape to let go. Click empty space in a lane to move the cursor. The wheel zooms and a drag pans. The buttons above the lanes act on the cursor, the marks and the selected block.</p>`;
 
 const toggle = (pressed: string, on: string, off: string) => `:class="${pressed} ? '${on}' : '${off}'"`;
 
@@ -19,25 +19,24 @@ const sessionActions = `
   <button type="button" @click="save()" :disabled="loading || busy || !inDataset || excluded"
     :title="excluded ? '${EXCLUDED_SAVE}' : inDataset ? '' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
   <button type="button" @click="changeExclusion()" :disabled="loading || busy" class="${BUTTON}"
-    x-text="excluded ? 'Include' : 'Exclude'"></button>
-  <button type="button" @click="undo()" :disabled="!editCount" class="${BUTTON}">Undo <kbd class="${KBD}">z</kbd></button>
-  <button type="button" @click="reset()" :disabled="!editCount" class="${BUTTON}">Reset to automatic</button>`;
+    x-text="excluded ? 'Include' : 'Exclude'"></button>`;
 
+// The status header: the session id large, the facts under it, then where the review stands as one strong chip with the warnings beside it, and what is selected.
 const sessionBody = `
-  <div class="flex items-end justify-between gap-3">
-    <div class="flex min-w-0 flex-col gap-1">
-      <div class="flex items-center gap-2">
-        <p data-testid="session-id" class="truncate font-mono text-sm" x-text="sessionId"></p>
-        <span x-show="excluded" data-testid="excluded-chip" class="${CHIP_WARN} shrink-0">excluded</span>
-      </div>
-      <p class="text-xs" x-text="facts"></p>
-      <p data-testid="state" class="text-xs text-muted" x-text="stateLine"></p>
-      <ul data-testid="notices" x-show="notices.length" class="max-h-14 space-y-0.5 overflow-auto text-xs">
-        <template x-for="notice in notices"><li :class="notice.tone" x-text="notice.text"></li></template>
-      </ul>
-      <p x-show="error" x-text="error" role="alert" class="text-xs text-bad"></p>
+  <div class="flex flex-col gap-2">
+    <p data-testid="session-id" class="truncate font-mono text-xl font-semibold" x-text="sessionId"></p>
+    <p class="text-sm" x-text="facts"></p>
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span data-testid="state" :class="status.state.chip" :title="status.state.title" x-text="status.state.text"></span>
+      <template x-for="flag in status.flags" :key="flag.text">
+        <span data-testid="flag" :class="flag.chip" :title="flag.title" x-text="flag.text"></span>
+      </template>
+      <p class="ml-auto text-sm"><span class="text-muted">selected </span><span data-testid="selection" x-text="selectionLine"></span></p>
     </div>
-    <button type="button" @click="wholeSession()" :disabled="loading" class="${BUTTON} shrink-0">Whole session</button>
+    <ul data-testid="notices" x-show="notices.length" class="max-h-12 space-y-0.5 overflow-auto text-xs">
+      <template x-for="notice in notices"><li :class="notice.tone" x-text="notice.text"></li></template>
+    </ul>
+    <p x-show="error" x-text="error" role="alert" class="text-xs text-bad"></p>
   </div>`;
 
 const summaryBody = `
@@ -61,6 +60,7 @@ const blockCard = `
     </div>
     <p class="mt-0.5 text-muted" x-text="block.epoch + ', ' + block.minutes + ' min, ' + block.runs + ' runs'"></p>
     <p class="text-muted" x-text="block.windowsText"></p>
+    <p x-show="block.heading" class="text-muted" x-text="block.heading"></p>
     <p x-show="block.verdict" data-testid="verdict" :class="block.ok ? 'text-ok' : 'text-warn'" x-text="block.verdict"></p>
     <template x-for="problem in block.problems"><p class="text-bad" x-text="problem"></p></template>
     <div class="mt-1.5 flex gap-1.5">
@@ -77,71 +77,111 @@ const blocksBody = `
     <template x-for="block in blocks" :key="block.position">${blockCard}</template>
   </div>`;
 
-const mapBody = `<div x-ref="map" data-testid="map" class="relative h-full min-h-0"></div>`;
+const checkbox = (model: string, label: string, title = "") => `
+  <label class="inline-flex cursor-pointer items-center gap-1.5" title="${title}">
+    <input type="checkbox" x-model="${model}" @change="mapLayersChanged()" class="accent-accent" /><span>${label}</span>
+  </label>`;
 
-const occupancyChips = `
-  <div class="flex flex-wrap items-center gap-1.5">
-    <span class="text-xs text-muted">occupancy</span>
-    <template x-for="choice in occupancyChoices" :key="choice">
-      <button type="button" @click="setOccupancy(choice)" :aria-pressed="occupancy === choice" x-text="choice"
-        ${toggle("occupancy === choice", CHIP_ON, CHIP_OFF)}></button>
-    </template>
+// A layer each on its own: the occupancy, the geometry, the epoch kinds of the session, the trail, and whether only the epoch under the cursor is drawn.
+const mapBody = `
+  <div class="flex h-full min-h-0 flex-col gap-2">
+    <div role="group" aria-label="Map layers" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+      ${checkbox("mapLayers.occupancy", "occupancy", "Where the animal spent time, darker is more")}
+      ${checkbox("mapLayers.geometry", "geometry", "The walls, boundary, centerline and reward sites of the environment")}
+      <template x-for="kind in epochKinds" :key="kind">
+        <label class="inline-flex cursor-pointer items-center gap-1.5" :title="'Draw the ' + kind + ' epoch'">
+          <input type="checkbox" x-model="mapLayers.kinds[kind]" @change="mapLayersChanged()" class="accent-accent" /><span x-text="kind"></span>
+        </label>
+      </template>
+      ${checkbox("mapLayers.trail", "trail", "The last 2 s of the path coloured by speed, with the speed colours")}
+      ${checkbox("mapLayers.follow", "follow the cursor's epoch", "Draw only the epoch under the cursor")}
+    </div>
+    <div x-ref="map" data-testid="map" class="relative min-h-0 flex-1"></div>
   </div>`;
 
-const playbackCard = playbackBody([["time", "time"], ["lab frame", "frame"], ["speed", "speed"], ["lights", "lights"]], occupancyChips);
+// Under the playback: the run the flag acts on and the notes of the session.
+const flagAndNotes = `
+  <div class="flex items-center gap-2">
+    <button type="button" @click="act('flag')" :disabled="runNow === null" class="${BUTTON}" x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
+    <span class="min-w-0 truncate text-xs text-muted" x-text="runLine"></span>
+  </div>
+  <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} min-h-10 flex-1 resize-none"></textarea>`;
 
-const reviewBody = `
-  <div class="flex flex-col gap-2">
-    <p class="text-xs text-muted" x-text="marksLine"></p>
-    <div class="flex flex-wrap gap-2">
-      <button type="button" @click="mark('in')" :disabled="loading" class="${BUTTON}">Mark in</button>
-      <button type="button" @click="mark('out')" :disabled="loading" class="${BUTTON}">Mark out</button>
-      <button type="button" @click="act('new-block')" :disabled="!hasRange" class="${BUTTON}">New block from marks</button>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <button type="button" @click="act('start-to-cursor')" :disabled="!hasSelection" class="${BUTTON}">Start to cursor</button>
-      <button type="button" @click="act('end-to-cursor')" :disabled="!hasSelection" class="${BUTTON}">End to cursor</button>
-      <button type="button" @click="act('split')" :disabled="!hasSelection" class="${BUTTON}">Split at cursor</button>
-    </div>
-    <div class="flex items-center gap-2">
-      <button type="button" @click="act('flag')" :disabled="runNow === null" class="${BUTTON}" x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
-      <span class="text-xs text-muted" x-text="runLine"></span>
-    </div>
-    <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} resize-none"></textarea>
+const playbackCard = playbackBody([["time", "time"], ["lab frame", "frame"], ["speed", "speed"], ["lights", "lights"]], flagAndNotes, "grid-cols-4");
+
+// The zoom controls as one block of segments.
+const SEGMENT = "px-3 py-1.5 text-sm text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40";
+const zoomBlock = `
+  <div role="group" aria-label="Zoom" class="inline-flex divide-x divide-line overflow-hidden rounded-md border border-line">
+    <button type="button" @click="zoomAll()" :disabled="loading" class="${SEGMENT}">Reset view</button>
+    <button type="button" @click="zoomIn()" :disabled="loading" aria-label="Zoom in" title="Zoom in" class="${SEGMENT}">+</button>
+    <button type="button" @click="zoomOut()" :disabled="loading" aria-label="Zoom out" title="Zoom out" class="${SEGMENT}">-</button>
+    <button type="button" @click="fitBlock()" :disabled="!hasSelection" title="Zoom to the selected block" class="${SEGMENT}">Zoom to block</button>
   </div>`;
 
 const timelineActions = `
-  <button type="button" @click="zoomAll()" :disabled="loading" class="${BUTTON}">Zoom all</button>
-  <button type="button" @click="zoomIn()" :disabled="loading" class="${BUTTON}">Zoom in</button>
-  <button type="button" @click="zoomOut()" :disabled="loading" class="${BUTTON}">Zoom out</button>
-  <button type="button" @click="fitBlock()" :disabled="!hasSelection" class="${BUTTON}">Fit block</button>
+  <span class="text-xs text-muted">showing <span data-testid="shown" class="tabular-nums text-ink" x-text="shown"></span></span>
+  ${zoomBlock}
   ${helpPopover("About the timeline", TIMELINE_HELP)}`;
 
+// The buttons of the editing row are a little smaller than the rest so the row stays short.
+const EDIT = "rounded-md border border-line px-2 py-1 text-sm text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40";
+
+const group = (name: string, buttons: string) => `
+  <div role="group" aria-label="${name}" class="flex shrink-0 items-center gap-1.5">
+    <span class="text-xs uppercase tracking-wide text-muted">${name}</span>${buttons}
+  </div>`;
+
+// The editing buttons in one row above the lanes: the marks, the cuts at the cursor, and the status of the selected block with undo and reset.
+const SCROLL_X = "overflow-x-auto [scrollbar-width:thin]";
+
+const editRow = `
+  <div class="flex shrink-0 items-center gap-x-3 pb-1 ${SCROLL_X}">
+    ${group("marks", `
+      <button type="button" @click="mark('in')" :disabled="loading" title="Mark the start of a range at the cursor" class="${EDIT}">Mark in</button>
+      <button type="button" @click="mark('out')" :disabled="loading" title="Mark the end of a range at the cursor" class="${EDIT}">Mark out</button>
+      <button type="button" @click="act('new-block')" :disabled="!hasRange" title="Make a block of the marked range" class="${EDIT}">New block from marks</button>`)}
+    ${group("cuts", `
+      <button type="button" @click="act('split')" :disabled="!hasSelection" title="Split the selected block at the cursor" class="${EDIT}">Split here</button>
+      <button type="button" @click="act('start-to-cursor')" :disabled="!hasSelection" title="Move the start of the selected block to the cursor" class="${EDIT}">Start here</button>
+      <button type="button" @click="act('end-to-cursor')" :disabled="!hasSelection" title="Move the end of the selected block to the cursor" class="${EDIT}">End here</button>`)}
+    ${group("status", `
+      <button type="button" @click="act('accept')" :disabled="!hasSelection" title="Accept the selected block, again to take it back" class="${EDIT}">Accept</button>
+      <button type="button" @click="act('reject')" :disabled="!hasSelection" title="Reject the selected block, which removes it, again to restore it" class="${EDIT}">Reject</button>
+      <button type="button" @click="undo()" :disabled="!editCount" title="Take the last edit back" class="${EDIT}">Undo <kbd class="${KBD}">z</kbd></button>
+      <button type="button" @click="reset()" :disabled="!editCount" title="Clear every edit so the blocks are automatic again. A saved review stays on disk until you save." class="${EDIT}">Reset</button>`)}
+    <span x-show="hasMarks" data-testid="marks" :title="marksLine" class="min-w-0 truncate text-xs text-muted" x-text="marksLine"></span>
+  </div>`;
+
+// The layers of the frames lane in one row along the bottom, each a checkbox with its name and what it means, with the numbers of the rules the session was cut under, as its hover.
+const layerRow = `
+  <div aria-label="Timeline layers" role="group" class="flex shrink-0 items-center gap-x-4 pb-1 ${SCROLL_X}">
+    <template x-for="layer in layerList" :key="layer.key">
+      <label class="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs" :title="meanings[layer.key]">
+        <input type="checkbox" :checked="layers[layer.key]" @change="toggleLayer(layer.key)" class="accent-accent" />
+        <span class="size-2 shrink-0 rounded-full border border-line" :style="{ background: layer.colour }"></span><span x-text="layer.label"></span>
+      </label>
+    </template>
+  </div>`;
+
+// The editing buttons above the lanes and the layers below them, the lanes across the whole card.
 const timelineBody = `
   <div class="flex h-full min-h-0 flex-col gap-2">
-    <div class="flex flex-wrap items-center gap-1.5">
-      <template x-for="layer in layerList" :key="layer.key">
-        <button type="button" @click="toggleLayer(layer.key)" :aria-pressed="layers[layer.key]" class="inline-flex items-center gap-1.5"
-          ${toggle("layers[layer.key]", CHIP_ON, CHIP_OFF)}>
-          <span class="size-2 rounded-full border border-line" :style="{ background: layer.colour }"></span><span x-text="layer.label"></span>
-        </button>
-      </template>
-      <span class="ml-auto text-xs text-muted">showing <span data-testid="shown" class="tabular-nums text-ink" x-text="shown"></span></span>
-    </div>
+    ${editRow}
     <div x-ref="timeline" data-testid="timeline" class="relative min-h-0 flex-1 overflow-hidden"></div>
+    ${layerRow}
   </div>`;
 
 const mapTitle = `Map <span class="normal-case" x-text="mapTitle"></span>`;
 
-/** The Replay page's cards in a grid of three rows: the session and its summary, the blocks with the map, the playback and the review, the timeline. */
+/** The Replay page's cards in a grid of three rows: the session status and its summary, the blocks with the map and the playback, the timeline with the editing buttons above the lanes and the layers below them. */
 export const replayGrid = `
-  <div x-data="replayPage" @mousedown="$event.target.closest('button') && $event.preventDefault()"
-    class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,4fr)_minmax(0,3fr)] gap-4">
+  <div x-data="replayPage" @mousedown="$event.target.closest('button, label, input[type=checkbox]') && $event.preventDefault()"
+    class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,5fr)_minmax(0,6fr)] gap-4">
     ${card("Session", sessionBody, "col-span-5", sessionActions)}
     ${card("Summary", summaryBody, "col-span-7")}
-    ${card("Blocks", blocksBody, "col-span-2", `<button type="button" @click="act('accept-all')" :disabled="loading" class="${BUTTON}">Accept all</button>`)}
-    ${card(mapTitle, mapBody, "col-span-4", helpPopover("About the map", MAP_HELP))}
-    ${card("Playback", playbackCard, "col-span-3")}
-    ${card("Review", reviewBody, "col-span-3")}
+    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" :disabled="loading" class="${BUTTON}">Accept all</button>`)}
+    ${card(mapTitle, mapBody, "col-span-5", helpPopover("About the map", MAP_HELP))}
+    ${card("Playback", playbackCard, "col-span-4")}
     ${card("Timeline", timelineBody, "col-span-12", timelineActions)}
   </div>`;

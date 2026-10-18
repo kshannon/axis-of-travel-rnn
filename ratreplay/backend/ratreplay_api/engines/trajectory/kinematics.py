@@ -1,5 +1,5 @@
 """
-Motion from the positions: the smoothed pixel speed and direction the registration reads, and speed, direction and turn rate in metres from Savitzky-Golay derivatives.
+Motion from the positions: the smoothed pixel speed and direction the registration reads, speed, direction and turn rate in metres from Savitzky-Golay derivatives, and the Savitzky-Golay smoothed position for drawing.
 """
 
 import numpy as np
@@ -38,6 +38,13 @@ def derivative(values, rate_hz, rules):
     return savgol_filter(values, smooth_window(rate_hz, rules), rules["smooth_order"], deriv=1, delta=1 / rate_hz)
 
 
+def fit(values, rate_hz, rules):
+    """
+    The Savitzky-Golay fit of the values over smooth_window samples of order smooth_order, the position the derivative is the slope of.
+    """
+    return savgol_filter(values, smooth_window(rate_hz, rules), rules["smooth_order"])
+
+
 def stretches(mask, breaks):
     """
     The (first, stop) index pairs of every stretch where the mask is true, split where a break starts a new one.
@@ -63,6 +70,18 @@ def kinematics(x, y, heading, breaks, rate_hz, rules):
         if stop - first >= window:
             turn_rate[first:stop] = derivative(np.unwrap(heading[first:stop]), rate_hz, rules)
     return speed, motion, turn_rate
+
+
+def smooth_position(x, y, breaks, rate_hz, rules):
+    """
+    The position the speed is the slope of, for drawing only: the Savitzky-Golay fit over the same window, order and stretches, NaN where x or y is missing or its stretch, split at the breaks, is shorter than the window.
+    """
+    window = smooth_window(rate_hz, rules)
+    x_smooth, y_smooth = (np.full(len(x), np.nan) for _ in range(2))
+    for first, stop in stretches(np.isfinite(x) & np.isfinite(y), breaks):
+        if stop - first >= window:
+            x_smooth[first:stop], y_smooth[first:stop] = fit(x[first:stop], rate_hz, rules), fit(y[first:stop], rate_hz, rules)
+    return x_smooth, y_smooth
 
 
 def stops(speed, frame, rate_hz, rules):

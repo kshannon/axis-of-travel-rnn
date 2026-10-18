@@ -16,8 +16,10 @@ from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
 from ratreplay_api.engines.trajectory import heading as new_heading
+from ratreplay_api.engines.trajectory import kinematics as new_kinematics
 from ratreplay_api.utilities.errors import Invalid
 
+NOISE_PX = 1.0
 ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 SESSION_KEYS = {"rules", "session_id", "rate_hz", "n_frames", "epochs", "runs", "frame", "warnings", "kinematics", "heading_spans",
                 "cut_points", "margins", "stretches", "initial_blocks", "occupancy", "stops"}
@@ -219,6 +221,39 @@ def test_the_kinematics_equal_the_projects_inside_each_initial_block(transformed
         assert np.isfinite(speed[inner]).all() and np.nanmax(np.abs(turn_rate[inner])) > 0.01 and np.isnan(turn_rate[inner]).any() == (block["epoch"] == "track")
 
 
+def test_the_smoothed_position_of_a_straight_line_at_constant_speed_is_the_line_and_is_missing_where_the_position_or_a_stretch_is():
+    t = np.arange(300) / 60
+    x, y = 0.5 * t, 1.0 - 0.2 * t
+    x[100:103] = np.nan
+    breaks = np.zeros(300, bool)
+    breaks[250] = True
+    x_smooth, y_smooth = new_kinematics.smooth_position(x, y, breaks, 60, RULES)
+    kept = np.isfinite(x_smooth)
+    np.testing.assert_allclose(x_smooth[kept], x[kept], atol=1e-12)
+    np.testing.assert_allclose(y_smooth[kept], y[kept], atol=1e-12)
+    assert np.isnan(x_smooth[100:103]).all() and np.isnan(y_smooth[100:103]).all()
+    # The three frames missing split the line into stretches that are each longer than the window, so only they are missing.
+    assert kept[:100].all() and kept[103:].all()
+    short = new_kinematics.smooth_position(x[:20], y[:20], np.zeros(20, bool), 60, RULES)[0]
+    assert np.isfinite(short).all()
+    assert np.isnan(new_kinematics.smooth_position(x[:8], y[:8], np.zeros(8, bool), 60, RULES)[0]).all()
+
+
+def test_the_smoothed_position_of_a_noisy_circle_stays_near_the_registered_one_with_less_jitter(transformed):
+    found, environment = loaded(transformed, S1)
+    noise = np.random.default_rng(0)
+    for name in ("mashup_x", "mashup_y"):
+        found["arrays"][name] += noise.normal(0, NOISE_PX, len(found["arrays"][name]))
+    session = TrajectoryEngine().session(found, environment, RULES)
+    kin, scale = session["kinematics"], session["frame"]["track"]["scale_px_per_m"]
+    inside = slice(2200, 3500)
+    for raw, smooth in (("x", "x_smooth"), ("y", "y_smooth")):
+        assert np.abs(kin[smooth][inside] - kin[raw][inside]).max() < 5 * NOISE_PX / scale
+        assert np.abs(np.diff(kin[smooth][inside], 2)).sum() < np.abs(np.diff(kin[raw][inside], 2)).sum() / 2
+    assert np.isnan(kin["x_smooth"][np.isnan(kin["x"])]).all() and np.isnan(kin["x"]).any()
+    assert np.isfinite(kin["x_smooth"][inside]).all()
+
+
 def test_the_kinematics_do_not_differentiate_across_a_pause(transformed):
     found, environment = loaded(transformed, S6)
     handled_at_pause(found["arrays"])
@@ -261,7 +296,7 @@ def test_the_session_carries_what_apply_reads_and_only_the_epochs_the_rules_sele
     assert set(session) == SESSION_KEYS and session["session_id"] == S6 and session["rate_hz"] == 60 and session["n_frames"] == 5400
     assert [e["epoch"] for e in session["epochs"]] == ["track"] and session["runs"] == found["runs"]
     assert session["rules"] == RULES and session["rules"] is not RULES
-    assert set(session["kinematics"]) == {"t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights"}
+    assert set(session["kinematics"]) == {"t", "x", "y", "x_smooth", "y_smooth", "heading", "speed", "turn_rate", "motion", "n_lights"}
     assert {len(values) for values in session["kinematics"].values()} == {5400}
 
 

@@ -45,13 +45,15 @@ def build(arrays, environment, rules):
     x, y = room.to_metres(frames, epochs, registration)
     breaks = cuts.pauses(t, rules) | np.concatenate(([False], np.diff(cuts.epoch_index(frames, epochs)) != 0))
     speed, motion, turn_rate = kinematics.kinematics(x, y, room.heading_to_room(frames["head_dir"], offset, rotation), breaks, rate_hz, rules)
+    x_smooth, y_smooth = kinematics.smooth_position(x, y, breaks, rate_hz, rules)
     pieces, margins = zip(*[cuts.cut_epoch(frames, e, max_gap, rate_hz, rules) for e in epochs])
     return {
         "rules": dict(rules), "session_id": row["session_id"], "rate_hz": rate_hz, "n_frames": len(t), "epochs": epochs, "runs": runs,
         "frame": {"led_offset_rad": offset, "led_offset_r": concentration, "led_offset_n": n_running, **registration},
         "warnings": warnings_of(row["session_id"], registration, rules),
-        "kinematics": {"t": t, "x": x, "y": y, "heading": room.heading_to_room(filled, offset, rotation), "speed": speed,
-                       "turn_rate": turn_rate, "motion": motion, "n_lights": (2 - frames["unfilled_front"] - frames["unfilled_back"]).astype(np.int8)},
+        "kinematics": {"t": t, "x": x, "y": y, "x_smooth": x_smooth, "y_smooth": y_smooth, "heading": room.heading_to_room(filled, offset, rotation),
+                       "speed": speed, "turn_rate": turn_rate, "motion": motion,
+                       "n_lights": (2 - frames["unfilled_front"] - frames["unfilled_back"]).astype(np.int8)},
         "heading_spans": heading.fill_spans(frames["frame"], filled, kind),
         "cut_points": cuts.cut_points(frames, epochs, max_gap, rules),
         "margins": [m for found in margins for m in found],

@@ -22,6 +22,13 @@ RATE_HZ = 60
 # of S1's track block in some windows.
 PARITY = [{}, {"window_s": 5.0}, {"window_s": 10.0, "stride_s": 2.5}]
 
+# The reasons as the pages show them, each naming the setting that decides it.
+NO_WINDOW_REASON = "no window of 40 s plus 0.5 s horizon fits in this {} s block"
+BLOCK_HEADING_REASON = "head dir measured on {} of frames, under the minimum measured heading setting of 80%"
+WINDOW_HEADING_REASON = "head dir measured on {} of this window, under the minimum measured heading setting of 80%"
+POSITION_REASON = "position missing on {} of this window"
+TRIPS_REASON = "{} in this track block, under the minimum complete trips setting of {}"
+
 # A scripted block's trips (number, first, stop), runs (run, path_id, first, stop) and pauses (first, stop), all in frames:
 # one complete trip over the whole block with an outbound run on path 1 and a return run on path 9.
 TRIPS = ((1, 0, None),)
@@ -68,6 +75,13 @@ def windows(block, **changes):
     return TrajectoryEngine().windows(block, {**SETTINGS, **changes}, RULES)
 
 
+def kind(reason):
+    """
+    Which rule a reason text is about, whether the old logic's wording or the engine's.
+    """
+    return None if reason is None else "window" if "no window" in reason else "heading" if "heading" in reason else "trips"
+
+
 def test_the_windows_of_the_fixture_blocks_equal_the_old_counts_rows_and_verdicts(built):
     seen = {"rows": 0, "trips": 0, "failing": 0, "reasons": set()}
     for changes in PARITY:
@@ -79,20 +93,20 @@ def test_the_windows_of_the_fixture_blocks_equal_the_old_counts_rows_and_verdict
             for mine, theirs in zip(found["rows"], rows):
                 assert {name: mine[name] for name in theirs} == theirs and (mine["reason"] is None) == mine["ok"]
             ok, reason = old.verdict(row, arrays, settings)
-            assert found["verdict"]["ok"] == ok and found["verdict"]["reasons"][:1] == ([] if ok else [reason])
+            assert found["verdict"]["ok"] == ok and [kind(text) for text in found["verdict"]["reasons"][:1]] == ([] if ok else [kind(reason)])
             seen["rows"] += len(rows)
             seen["trips"] += sum(theirs["trips_complete"] for theirs in rows)
             seen["failing"] += sum(not theirs["ok"] for theirs in rows)
-            seen["reasons"].add(reason)
+            seen["reasons"].add(kind(reason))
     assert seen["rows"] > 0 and seen["trips"] > 0 and seen["failing"] > 0
-    assert seen["reasons"] == {None, "no window fits", "0 complete trips under 1"}
+    assert seen["reasons"] == {None, "window", "trips"}
 
 
 def test_a_block_exactly_one_window_plus_horizon_long_yields_one_window_and_one_frame_less_yields_none():
     exact = round((SETTINGS["window_s"] + SETTINGS["horizon_s"]) * RATE_HZ)
     assert windows(scripted(exact))["count"] == 1 and windows(scripted(exact))["verdict"] == {"ok": True, "reasons": []}
     short = windows(scripted(exact - 1))
-    assert short["count"] == 0 and short["rows"] == [] and short["verdict"] == {"ok": False, "reasons": ["no window fits"]}
+    assert short["count"] == 0 and short["rows"] == [] and short["verdict"] == {"ok": False, "reasons": [NO_WINDOW_REASON.format(40)]}
     # 16.3 s minus 16.1 s minus 0.2 s comes out just under zero in floats, the tolerance keeps the window.
     assert 978 / RATE_HZ - 16.1 - 0.2 < 0
     assert windows(scripted(978), window_s=16.1, horizon_s=0.2)["count"] == 1
@@ -104,25 +118,28 @@ def test_heading_lost_on_more_than_the_allowed_share_fails_the_block_and_the_win
     settings = {"window_s": 5.0, "stride_s": 5.0, "horizon_s": 0.0}
     allowed = windows(scripted(1200, lost=240), **settings)
     assert allowed["count"] == 4 and allowed["verdict"]["ok"] and [row["ok"] for row in allowed["rows"]] == [False, True, True, True]
-    assert allowed["rows"][0]["reason"] == "measured heading 20% under 80%"
+    assert allowed["rows"][0]["reason"] == WINDOW_HEADING_REASON.format("20%")
     over = windows(scripted(1200, lost=360), **settings)
-    assert over["verdict"] == {"ok": False, "reasons": ["measured heading 70% under 80%"]}
-    assert [(row["ok"], row["reason"]) for row in over["rows"]] == [(False, "measured heading 0% under 80%"), (True, None), (True, None), (True, None)]
+    assert over["verdict"] == {"ok": False, "reasons": [BLOCK_HEADING_REASON.format("70%")]}
+    assert [(row["ok"], row["reason"]) for row in over["rows"]] == [(False, WINDOW_HEADING_REASON.format("0%")), (True, None), (True, None), (True, None)]
 
 
 def test_a_window_with_a_frame_whose_position_is_not_finite_fails_on_position_and_the_block_verdict_does_not_read_it():
     block = scripted(1200)
-    block["arrays"]["x"][700] = np.nan
+    block["arrays"]["x"][700], block["arrays"]["y"][701] = np.nan, np.nan
     found = windows(block, window_s=5.0, stride_s=5.0, horizon_s=0.0)
-    assert [row["reason"] for row in found["rows"]] == [None, None, "position not finite", None] and found["verdict"]["ok"]
+    assert [row["reason"] for row in found["rows"]] == [None, None, POSITION_REASON.format("2 frames"), None] and found["verdict"]["ok"]
+    block["arrays"]["y"][701] = 0.0
+    found = windows(block, window_s=5.0, stride_s=5.0, horizon_s=0.0)
+    assert found["rows"][2]["reason"] == POSITION_REASON.format("1 frame")
 
 
 def test_a_block_without_a_complete_trip_fails_on_trips_with_the_count_in_the_reason_on_the_track_only():
     cut = scripted(2430, trips=((-1, 0, None),))
-    assert windows(cut)["verdict"] == {"ok": False, "reasons": ["0 complete trips under 1"]}
-    assert windows(scripted(2430), min_complete_trips=2)["verdict"] == {"ok": False, "reasons": ["1 complete trips under 2"]}
+    assert windows(cut)["verdict"] == {"ok": False, "reasons": [TRIPS_REASON.format("0 complete trips", 1)]}
+    assert windows(scripted(2430), min_complete_trips=2)["verdict"] == {"ok": False, "reasons": [TRIPS_REASON.format("1 complete trip", 2)]}
     assert windows(scripted(2430, kind="arena", trips=()))["verdict"]["ok"]
-    assert windows(scripted(100, trips=((-1, 0, None),)))["verdict"]["reasons"] == ["no window fits", "0 complete trips under 1"]
+    assert windows(scripted(100, trips=((-1, 0, None),)))["verdict"]["reasons"] == [NO_WINDOW_REASON.format(2), TRIPS_REASON.format("0 complete trips", 1)]
 
 
 def test_a_trip_is_inside_a_window_when_its_outbound_start_and_its_return_end_both_are_a_pause_in_the_return_run_included():

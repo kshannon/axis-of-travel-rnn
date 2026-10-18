@@ -7,21 +7,37 @@ import type { Backdrop, Extent, Projection } from "./map";
 
 const OCCUPANCY_ALPHA = 0.55;
 
-export const CURRENT = "current";
-export const ALL = "all";
+/**
+ * What the map draws of the room, each on or off on its own: the occupancy, the geometry of the environments, the epoch kinds
+ * (arena and track) and whether only the epoch under the cursor is drawn. The trail is the map view's.
+ */
+export interface MapChoice {
+  occupancy: boolean;
+  geometry: boolean;
+  /** Only the epoch under the cursor, out of the kinds that are on. */
+  follow: boolean;
+  /** Which epoch kinds are on, by name. A page adds each kind of a session as on when it opens it. */
+  kinds: Record<string, boolean>;
+}
+
+/** Occupancy and geometry on, following the epoch under the cursor. */
+export function defaultMapChoice(): MapChoice {
+  return { occupancy: true, geometry: true, follow: true, kinds: {} };
+}
 
 type Drawn = Pick<SessionHeader, "occupancy" | "epochs" | "selected_epochs" | "environments">;
 
-/** The epoch kinds a choice shows at a frame index: the epoch under the cursor, every epoch the rules cut, or one by name. */
-export function epochsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs">, choice: string, index: number): string[] {
-  if (choice === ALL) return header.selected_epochs;
-  return [choice === CURRENT ? epochAt(header.epochs, index + 1) : choice];
+/** The epoch kinds a choice shows at a frame index: those that are on, and with follow only the one under the cursor. */
+export function epochsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs">, choice: MapChoice, index: number): string[] {
+  const on = header.selected_epochs.filter((kind) => choice.kinds[kind]);
+  return choice.follow ? on.filter((kind) => kind === epochAt(header.epochs, index + 1)) : on;
 }
 
 /** The environments of the epochs a choice shows at a frame index, each once, an epoch the rules do not cut having none. */
-export function environmentsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs" | "environments">, choice: string, index: number): string[] {
+export function environmentsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs" | "environments">, choice: MapChoice, index: number): string[] {
   const frame = index + 1;
-  const shown = (e: Epoch) => (choice === CURRENT ? e.frame_start <= frame && frame <= e.frame_end : header.selected_epochs.includes(e.epoch) && (choice === ALL || e.epoch === choice));
+  const kinds = epochsShown(header, { ...choice, follow: false }, index);
+  const shown = (e: Epoch) => kinds.includes(e.epoch) && (!choice.follow || (e.frame_start <= frame && frame <= e.frame_end));
   return [...new Set(header.epochs.filter(shown).map((e) => e.environment).filter((name) => header.environments[name]))];
 }
 
@@ -36,11 +52,11 @@ export function rowsFromTop(counts: number[], bins: number): number[] {
   return Array.from({ length: bins }, (_, row) => counts.slice((bins - 1 - row) * bins, (bins - row) * bins)).flat();
 }
 
-/** The room in metres, y up, behind the map: the occupancy of the epochs shown with the geometry of their environments over it. */
+/** The room in metres, y up, behind the map: the occupancy of the epochs shown and the geometry of their environments, each when it is on. */
 export class OccupancyBackdrop implements Backdrop {
   readonly yUp = true;
   readonly extent: Extent;
-  choice = CURRENT;
+  choice: MapChoice = defaultMapChoice();
   private images = new Map<string, HTMLCanvasElement>();
   private environments = new Map<string, EnvironmentBackdrop>();
 
@@ -58,14 +74,15 @@ export class OccupancyBackdrop implements Backdrop {
   }
 
   draw(ctx: CanvasRenderingContext2D, project: Projection, colours: Palette, index: number): void {
-    const kinds = epochsShown(this.header, this.choice, index);
     const { left, top, width, height } = roomRect(project, this.extent);
     ctx.imageSmoothingEnabled = false;
-    for (const kind of kinds) {
-      const image = this.image(kind, colours.ink);
-      if (image) ctx.drawImage(image, left, top, width, height);
+    if (this.choice.occupancy) {
+      for (const kind of epochsShown(this.header, this.choice, index)) {
+        const image = this.image(kind, colours.ink);
+        if (image) ctx.drawImage(image, left, top, width, height);
+      }
     }
-    for (const name of environmentsShown(this.header, this.choice, index)) this.environments.get(name)!.draw(ctx, project, colours);
+    if (this.choice.geometry) for (const name of environmentsShown(this.header, this.choice, index)) this.environments.get(name)!.draw(ctx, project, colours);
   }
 
   /** The counts of an epoch as a small image, one pixel per bin and the row of the highest y first, drawn in the ink of the theme. */

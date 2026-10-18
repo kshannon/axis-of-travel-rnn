@@ -1,4 +1,5 @@
-import type { Edit, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
+import type { Edit, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, Span, WindowSettings } from "../api/types";
+import { HEAD_DIR } from "../draw/layers";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { cutsOf } from "../session/cuts";
@@ -6,7 +7,7 @@ import { label as editLabel } from "../session/editor";
 import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
 import { counted } from "../ui/text";
-import { stampWithSince } from "../ui/time";
+import { formatStamp, stampWithSince } from "../ui/time";
 import { ANNOTATED_NOTE } from "./exclusion-view";
 
 const SECONDS_PER_MINUTE = 60;
@@ -38,6 +39,8 @@ export interface BlockCard {
   ok: boolean;
   /** What is wrong with the block's frames, as the build found it. */
   problems: string[];
+  /** The seconds of the block whose head direction RatReplay filled or that has none, empty when all of it was measured. */
+  heading: string;
   status: ReviewBlock["status"];
   glyph: string;
   chip: string;
@@ -57,13 +60,29 @@ function yieldOf(block: MadeBlock) {
   return { windows: count, windowsText: counted(count, "training window"), verdict: verdict.ok ? "ok" : verdict.reasons.join(", "), ok: verdict.ok };
 }
 
+const DECIMALS = 1;
+
+/** The frames of a block that lie in the spans, both ends included. */
+const framesIn = (spans: Span[], block: Pick<ReviewBlock, "frame_start" | "frame_end">) =>
+  spans.reduce((total, [first, last]) => total + Math.max(0, Math.min(last, block.frame_end) - Math.max(first, block.frame_start) + 1), 0);
+
+/** What happened to the head direction inside a block, in seconds and in the words of the timeline's layers, nothing when all of it was measured. */
+export function headingText(block: Pick<ReviewBlock, "frame_start" | "frame_end">, header: Pick<SessionHeader, "heading_spans" | "rate_hz">): string {
+  const { heading_spans: spans } = header;
+  const parts = (["filled", "held", "lost"] as const)
+    .map((kind) => [framesIn(spans[kind], block), HEAD_DIR[kind]] as const)
+    .filter(([frames]) => frames > 0)
+    .map(([frames, words]) => `${(frames / header.rate_hz).toFixed(DECIMALS)} s ${words}`);
+  return parts.length ? `head dir: ${parts.join(", ")}` : "";
+}
+
 /** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first. */
 export function blockCards(blocks: MadeBlock[], header: SessionHeader, selected: MadeBlock | null): BlockCard[] {
   return blocks.map((block, position) => ({
     position, name: blockName(position), epoch: block.epoch,
     minutes: (framesOf(block) / header.rate_hz / SECONDS_PER_MINUTE).toFixed(2),
     runs: header.runs.filter((r) => block.frame_start <= r.frame_start && r.frame_start <= block.frame_end).length,
-    ...yieldOf(block), problems: block.problems,
+    ...yieldOf(block), problems: block.problems, heading: headingText(block, header),
     status: block.status, glyph: STATUS_GLYPHS[block.status], chip: STATUS_CHIPS[block.status],
     selected: block === selected,
     accepted: block.status === "confirmed" || block.status === "edited", removed: block.status === "dropped",
@@ -88,12 +107,12 @@ export function summaryTiles(preview: Preview, header: SessionHeader, settings: 
     { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.selected_epochs.join(" and ")}` },
     { label: "windows", value: String(windows), note: `${settings.window_s} s each`, title: `${settings.window_s} s windows every ${settings.stride_s} s, ${counted(trouble, "block")} not ok` },
     { label: "flagged", value: String(preview.flagged_runs.length), note: `of ${header.runs.length} runs`, title: "runs flagged as mislabelled" },
-    { label: "pauses, jumps, gaps", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "what the rules cut at", wide: true },
+    { label: "paused, jumped, lost", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "how often the recording paused, the position jumped and tracking was lost, which is where the rules cut", wide: true },
   ];
 }
 
 export function factsLine(header: SessionHeader): string {
-  return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames, ${counted(header.n_initial_blocks, "block")} cut by the rules`;
+  return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames, ${counted(header.n_initial_blocks, "block")} automatically derived`;
 }
 
 /** The window settings in use as one line, what the counts on the cards and tiles are at. */
@@ -111,12 +130,18 @@ export interface Note {
 const WARN = "text-warn";
 const QUIET = "text-muted";
 
-/** What the Session card says besides the facts: why the tool cannot work with the session, the lab annotation that marks it excluded, the header's warnings, the saved edits that no longer apply and the positions off the map. */
+// The two warnings of the manager that the status header shows as chips, by the words the manager gives them and the words the chips say.
+const FLAG_WARNINGS: Record<string, string> = {
+  "reviewed under other rules": "reviewed under other rules",
+  "saved blocks differ from the blocks today's rules give": "saved blocks differ from today's rules",
+};
+
+/** What the Session card says besides the facts and the status: why the tool cannot work with the session, the lab annotation that marks it excluded, the header's other warnings, the saved edits that no longer apply and the positions off the map. */
 export function sessionNotes(header: SessionHeader, refusals: Refusal[], edits: Edit[]): Note[] {
   const notes: Note[] = [];
   if (!header.in_dataset) notes.push({ text: `Not in the dataset: ${header.reason}. It can be viewed and previewed, Save blocks is disabled.`, tone: WARN });
   if (header.annotated_exclude) notes.push({ text: ANNOTATED_NOTE, tone: QUIET });
-  for (const warning of header.warnings) notes.push({ text: warning, tone: WARN });
+  for (const warning of header.warnings) if (!(warning in FLAG_WARNINGS)) notes.push({ text: warning, tone: WARN });
   for (const { index, op, reason } of refusals) {
     notes.push({ text: `Edit ${index + 1} (${edits[index] ? editLabel(edits[index]) : op}) is not applied under the current rules: ${reason}`, tone: WARN });
   }
@@ -143,14 +168,50 @@ export function saveToast(saved: SavedBlocks): SaveToast {
   return { kind: "success", text: `${wrote}, ${built}`, path: saved.file };
 }
 
-/** Which state is on screen: the automatic blocks, or the saved review with its edit count, then what changed since. */
-export function stateLine(saved: Review | null, edits: number, dirty: boolean, skipped: number): string {
-  // A review that only records an exclusion has no reviewer and no time, nothing was reviewed.
-  const base = saved?.reviewed_at ? `saved ${stampWithSince(saved.reviewed_at)} by ${saved.reviewed_by}, ${counted(saved.edits.length, "edit")}` : "automatic";
-  const skips = skipped ? `, ${skipped} skipped under the current rules` : "";
-  if (!dirty) return base + skips;
-  if (!edits && saved) return "automatic, the saved review on disk is not loaded";
-  return `${base}${skips}, now ${counted(edits, "edit")} not saved yet`;
+const STATE_BASE = "rounded-md border-2 px-3 py-1 text-base font-semibold";
+const STATE_TONES = {
+  warn: `${STATE_BASE} border-warn bg-warn/15 text-warn`,
+  ok: `${STATE_BASE} border-ok bg-ok/15 text-ok`,
+  muted: `${STATE_BASE} border-line bg-ink/5 text-muted`,
+  neutral: `${STATE_BASE} border-ink/40 text-ink`,
+};
+const DATE_CHARS = 10;
+
+export interface Chip {
+  text: string;
+  /** The classes that colour it. */
+  chip: string;
+  /** What it hovers as. */
+  title: string;
+}
+
+export interface Status {
+  /** The one chip that says where the review stands. */
+  state: Chip;
+  /** What else to know, beside it. */
+  flags: Chip[];
+}
+
+const stateChip = (text: string, tone: keyof typeof STATE_TONES, title = ""): Chip => ({ text, chip: STATE_TONES[tone], title });
+
+/**
+ * Where the review stands as one strong chip, excluded, edits not saved, saved by whom and when, or automatic with nothing reviewed, and beside it
+ * the edits the current rules skip and the manager's two warnings about the saved review.
+ */
+export function sessionStatus(header: Pick<SessionHeader, "warnings">, saved: Review | null, edits: number, dirty: boolean, skipped: number, excluded: boolean): Status {
+  const unsaved = !edits && saved ? "edits cleared, the saved review is not loaded" : `${counted(edits, "edit")} not saved`;
+  const reviewed = saved?.reviewed_at ? `saved by ${saved.reviewed_by} on ${formatStamp(saved.reviewed_at).slice(0, DATE_CHARS)}, ${counted(saved.edits.length, "edit")}` : "";
+  const flags: Chip[] = [];
+  let state: Chip;
+  if (excluded) {
+    state = stateChip("excluded", "muted", saved?.excluded_at ? `excluded by ${saved.excluded_by} ${stampWithSince(saved.excluded_at)}` : "");
+    if (dirty) flags.push({ text: unsaved, chip: CHIP_WARN, title: "" });
+  } else if (dirty) state = stateChip(unsaved, "warn", reviewed ? `the review on disk: ${reviewed}` : "");
+  else if (reviewed) state = stateChip(reviewed, "ok", `saved ${stampWithSince(saved!.reviewed_at)}`);
+  else state = stateChip("automatic, nothing reviewed yet", "neutral");
+  if (skipped) flags.push({ text: `${counted(skipped, "edit")} skipped under today's rules`, chip: CHIP_WARN, title: "see the notes below for each one" });
+  for (const warning of header.warnings) if (warning in FLAG_WARNINGS) flags.push({ text: FLAG_WARNINGS[warning], chip: CHIP_WARN, title: warning });
+  return { state, flags };
 }
 
 export function marksLine(markIn: number | null, markOut: number | null, rateHz: number): string {

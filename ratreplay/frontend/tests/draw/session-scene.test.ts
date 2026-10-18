@@ -26,7 +26,13 @@ test("a dirty run is hatched, a flagged run outlined and said so", () => {
 
 test("blocks are named by their place in time order, can be picked by it and a removed one is faint", () => {
   const blocks = scene([block(1, 100, "confirmed"), block(200, 300, "dropped")]).bars.filter((bar) => bar.lane === "blocks");
-  expect(blocks.map((bar) => [bar.text, bar.pick, bar.fill])).toEqual([["block 1", 0, "ok"], ["block 2", 1, "muted"]]);
+  expect(blocks.map((bar) => [bar.text, bar.short, bar.pick, bar.fill])).toEqual([["block 1", "1", 0, "ok"], ["block 2", "2", 1, "muted"]]);
   expect(blocks[1].alpha).toBeLessThan(blocks[0].alpha!);
   expect(blockName(2)).toBe("block 3");
+});
+
+test("epochs and runs can be picked by their place in the header, as the blocks are by their place in time", () => {
+  const bars = scene([block(1, 100, "confirmed")]).bars;
+  expect(bars.filter((bar) => bar.lane === "session").map((bar) => bar.pick)).toEqual([0]);
+  expect(bars.filter((bar) => bar.lane === "runs").map((bar) => bar.pick)).toEqual([0, 1]);
 });

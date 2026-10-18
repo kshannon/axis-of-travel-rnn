@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
-import { barBox, barSpan, baseScale, hitBar, indexAt, inPlot, keepVisible, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
+import { barBox, barSpan, baseScale, fittingLabel, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
 import type { Bar, LaneSpec } from "../../src/draw/lanes";
+import { SESSION_LANES } from "../../src/draw/session-scene";
 
 const RATE_HZ = 60;
 const N_FRAMES = 36_000; // ten minutes
@@ -8,7 +9,7 @@ const WIDTH = 1000;
 const HEIGHT = 200;
 const base = baseScale(N_FRAMES / RATE_HZ, WIDTH);
 
-const LANES: LaneSpec[] = [{ name: "session", weight: 1 }, { name: "runs", weight: 2 }, { name: "frames", weight: 3 }, { name: "blocks", weight: 2 }];
+const LANES: readonly LaneSpec[] = SESSION_LANES;
 const bands = laneBands(HEIGHT, LANES);
 const middle = (lane: string) => (bands[lane].top + bands[lane].bottom) / 2;
 
@@ -52,7 +53,10 @@ test("the lanes fill the plot in order by their weights", () => {
   expect(bands.session.top).toBe(PLOT.top);
   expect(bands.blocks.bottom).toBeCloseTo(HEIGHT - PLOT.bottom);
   LANES.slice(1).forEach(({ name }, i) => expect(bands[name].top).toBeGreaterThan(bands[LANES[i].name].bottom));
-  expect(bands.frames.bottom - bands.frames.top).toBeCloseTo(1.5 * (bands.runs.bottom - bands.runs.top));
+  const height = (name: string) => bands[name].bottom - bands[name].top;
+  expect(height("frames")).toBeCloseTo(3 * height("runs"));
+  expect(height("runs")).toBeCloseTo(height("session")); // the runs lane is as thin as the epochs lane
+  expect(height("blocks")).toBeCloseTo(2 * height("runs"));
   expect(laneBands(HEIGHT, [{ name: "only", weight: 1 }]).only).toEqual({ top: PLOT.top, bottom: HEIGHT - PLOT.bottom });
   expect(inPlot({ x: 500, y: middle("runs") }, WIDTH, HEIGHT)).toBe(true);
   expect(inPlot({ x: 10, y: middle("runs") }, WIDTH, HEIGHT)).toBe(false);
@@ -100,4 +104,22 @@ test("ticks are round seconds inside the window and labels read as a clock", () 
   expect(timeTicks([95, 125], 3)).toEqual([100, 110, 120]);
   expect(timeTicks([95, 125], 8)).toEqual([95, 100, 105, 110, 115, 120, 125]);
   expect([0, 65, 600, 3725].map(timeLabel)).toEqual(["0:00", "1:05", "10:00", "1:02:05"]);
+});
+
+test("a bar writes its name when it fits, else its short name, else nothing, measured in the text's own width", () => {
+  const measure = (text: string) => 8 * text.length; // 8 px a letter
+  const names = ["block 5", "5"];
+  expect(fittingLabel(names, 100, measure)).toBe("block 5"); // 56 px and the room to breathe
+  expect(fittingLabel(names, 60, measure)).toBe("5"); // too narrow for the name, wide enough for the number
+  expect(fittingLabel(names, 14, measure)).toBe("5");
+  expect(fittingLabel(names, 13, measure)).toBeNull(); // not even the number fits
+  expect(fittingLabel(["track", undefined], 20, measure)).toBeNull(); // a bar with no short name goes bare
+  expect(fittingLabel([undefined, undefined], 500, measure)).toBeNull();
+});
+
+test("a height falls in the lane it is in, and in none over the gap between lanes", () => {
+  expect(laneAt(bands, middle("runs"))).toBe("runs");
+  expect(laneAt(bands, middle("frames"))).toBe("frames");
+  expect(laneAt(bands, (bands.runs.bottom + bands.frames.top) / 2)).toBeNull();
+  expect(laneAt(bands, HEIGHT - 2)).toBeNull();
 });
