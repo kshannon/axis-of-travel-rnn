@@ -205,6 +205,22 @@ export interface Review {
   excluded_at: string | null;
 }
 
+/** The rules the engine cut and filled the session under, the ones the timeline's layers explain. The header carries all of them, these are the ones the page reads. */
+export interface SessionRules {
+  /** A step in time over this many seconds is a pause. */
+  pause_step_s: number;
+  /** Whether a tracking gap needs "both" lights unfilled or "either". */
+  gap_lights: string;
+  /** A step in position over this many pixels is a jump. */
+  jump_px: number;
+  /** Seconds trimmed inward from the edge of a stretch beside a pause, a jump or an epoch bound. */
+  pause_margin_s: number;
+  /** The longest heading gap filled along the shortest arc, in seconds. */
+  heading_fill_s: number;
+  /** The speed in m/s under which the rat is still, which lets a longer heading gap be held. */
+  running_floor_m_per_s: number;
+}
+
 /** A session for the replay: its facts, what the engine draws, its saved review and the blocks the review or the rules make. */
 export interface SessionHeader {
   session_id: string;
@@ -213,6 +229,7 @@ export interface SessionHeader {
   protocol: string;
   date: string;
   rate_hz: number;
+  /** The lab's max gap in frames: lights unfilled for longer than this make a tracking gap. */
   max_gap: number;
   n_frames: number;
   in_dataset: boolean;
@@ -221,6 +238,7 @@ export interface SessionHeader {
   excluded: boolean;
   epochs: Epoch[];
   runs: Run[];
+  rules: SessionRules;
   /** The epochs the rules cut into blocks. */
   selected_epochs: string[];
   n_initial_blocks: number;
@@ -382,6 +400,36 @@ export interface Geometry {
   centerline: { name: string; p0: [number, number]; p1: [number, number]; axis_deg: number }[];
   reward_sites: Record<string, [number, number]>;
   circle: { center: [number, number]; radius: number } | null;
+}
+
+/** The registration a built session was given in an environment, for one epoch kind, as its build recorded it: angles in radians, lengths in metres, scales in pixels per metre. */
+export interface RegisteredSession {
+  session_id: string;
+  kind: string;
+  scale_px_per_m: number;
+  led_separation_m: number;
+  rotation_rad: number;
+  flip: boolean;
+  offset_m: [number, number];
+  /** The two axis estimates of the scale, on a track only. */
+  scale_x?: number;
+  scale_y?: number;
+  led_offset_rad: number;
+  /** How concentrated the running frames' LED offsets are, 0 to 1. */
+  led_offset_r: number;
+  led_offset_n: number;
+  warnings: string[];
+  built_at: string;
+}
+
+/** An environment of the folder with its yaml parameters, geometry and the built sessions registered in it. */
+export interface EnvironmentEntry {
+  name: string;
+  kind: string;
+  params: Record<string, unknown>;
+  geometry: Geometry;
+  sessions: RegisteredSession[];
+  summary: { n_sessions: number; n_warned: number };
 }
 
 /** A built block for the player. Every span holds indices into the block's arrays. */

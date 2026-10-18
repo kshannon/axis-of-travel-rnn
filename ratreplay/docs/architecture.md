@@ -82,7 +82,7 @@ Arrows point in the direction of the call.
 ```mermaid
 flowchart TB
     subgraph Clients["Clients (who)"]
-        UI["Web app. Pages as views: Data, Sessions, Replay, Blocks, Windows, Synthetic. About and API are client only"]
+        UI["Web app. Pages as views: Incoming, Settings, Replay, Blocks, Windows, Outgoing, Environments, About, Synthetic later"]
     end
     subgraph Managers["Managers (what), stateless classes, one family of use cases each"]
         RM["ReviewManager: index, load, preview edits, save blocks, exclude, rebuild all"]
@@ -507,24 +507,38 @@ whether it overwrote one. Essential keys only: space, left and right (frame, wit
 
 ## Pages
 
-1. Data: the three folders as cards (root, exists, problems, counts, times), the config file, Reload,
-   Rebuild all on the processed card with a confirmation, and the data formats the folders must follow
-   (the transformed and processed files, columns, types, the settings defaults). The entry point. The
-   other pages gate on the health of the folder they need. The path the data takes is explained on the
-   About page.
-2. Sessions: a sortable index, a row expands to its details, Open in replay.
-3. Replay: the review. Map, playback, timeline with lanes and feature chips, zoom controls, block cards
-   with window counts at the settings being tried, accept, reject, marks, split, remove, flag, notes,
-   undo, Save blocks with its result toast.
-4. Blocks: readiness. Real or a synthetic set, the settings being tried, a sortable index with verdicts
-   and the settings each session was built with, totals, Select these settings, a block player in metres
-   with the environment and lanes for runs, trips and windows.
+Each page is one step of the flow, in the order a person walks it (decided 2026-10-18 after the first
+run on real data).
+
+1. Incoming: the entry point. A compact config strip (the lab data read path, the environment geometry
+   read path, the config file, Reload, a status mark each, problems unfold only when there are any),
+   then the sessions: a row of tiles (in the dataset of the total, reviewed, excluded, blocks confirmed,
+   confirmed hours per kind, built), the sortable index, a row expands to its details, Exclude and
+   Include, Open in replay, and the incoming data format collapsed at the bottom.
+2. Settings: the seven window settings, each with a one line hint of what it protects and its default,
+   the spelled out sentence, Select these settings for export with the current selection shown, reset to
+   the defaults, and the engine's rules read only with their values and meanings (changing one is a code
+   change and a Rebuild all today).
+3. Replay: the review. A status header (the session id large, the facts, the state as one strong chip,
+   warnings as chips), the map in metres with layer checkboxes, playback with notes and flag a run under
+   it, the timeline with its lanes, the editing buttons in one row under the lanes, the zoom block (Reset
+   view, +, -, Zoom to block), a side panel of layer toggles each with its meaning and the rule's number,
+   block cards with window counts and verdicts at the settings in use, Save blocks with its result toast.
+   Errors and warnings stack at the top right with their time until closed by hand.
+4. Blocks: readiness. Real or a synthetic set, a compact read only line of the settings in use with a link
+   to Settings, a sortable index with verdicts and the settings each session was built with, totals, a
+   block player in metres with the environment and lanes for runs, trips and windows.
 5. Windows: step through the windows of one block, each with its checks and verdict.
-6. Synthetic: the sets with their provenance and comparison, generate (sources, parameters, seed, length),
-   delete.
-7. About: what the tool is and the rules it follows, the process and how to use it, what each action
+6. Outgoing: the block write path with its status, per session the blocks built, the settings they were
+   built with, failed blocks and their problems, excluded and skipped sessions, the selected
+   `windows.json`, Rebuild all with its confirmation, later the synthetic sets, and the processed data
+   format collapsed at the bottom.
+7. Environments: every environment with its parameters, its geometry drawn, and per built session the
+   registration it was given (scale, rotation, LED separation and offset, warnings), read only.
+8. About: what the tool is and the rules it follows, the process and how to use it, what each action
    writes, and "Under the hood", the internal routes the browser uses as a cheat sheet (not a public API).
 
+A Synthetic page arrives with the synthetic slice, between Windows and Outgoing.
 
 ## Testing
 

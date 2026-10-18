@@ -268,3 +268,9 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
   two reasons and `annotated_exclude` is a note. On the fixtures no new session enters the dataset (the
   sessions the old rules excluded also have no frames), on the real data the JL1 and rotation protocol
   sessions appear as in the dataset until Kyle excludes them.
+- Proposed with the Incoming and Outgoing shape: a Settings page after Data, so a person meets the window
+  settings before the first session, with the rules shown read only (K13). Navigation would read
+  Incoming, Settings, Replay, Blocks, Windows, Outgoing, Environments, About.
+- Kyle, 2026-10-18: yes to the page shape. Incoming, Settings, Replay, Blocks, Windows, Outgoing,
+  Environments, About, each one step of the flow in order (K7, K8, K13 as one restructuring after K11
+  and K3 land).

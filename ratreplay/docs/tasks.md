@@ -95,7 +95,7 @@ anything that touches real data.
       the synthetic circle. [Page 3]
 - [x] K2 Rebuild all skips the reviews of sessions the funnel leaves out and lists them as skipped with
       the reason, not as errors. The toast says so. [ReviewManager]
-- [ ] K3 Environments page: every environment with its yaml parameters, its geometry drawn, and per built
+- [x] K3 Environments page: every environment with its yaml parameters, its geometry drawn, and per built
       session the registration it was given (scale, rotation, LED offset and separation, warnings) from
       the metadata. Read only. [new page, ValidationManager]
 - [x] K4 The data formats move from the API page to the Data page, the API page is removed, its OpenAPI
@@ -140,3 +140,19 @@ anything that touches real data.
       "0 complete trips, the setting needs 1", each naming the setting that decides it, the window
       row's reason likewise, and the Blocks page settings fields get a one line hint of what each setting
       protects. Tests and e2e strings follow. Kyle, 2026-10-18. [TrajectoryEngine.windows]
+- [ ] K13 Decided by Kyle 2026-10-18: a Settings page after Incoming, the seven window settings with a hint and
+      the default each, the spelled out sentence, Select these settings and the selection, reset to the
+      defaults, and the engine's rules read only with their meanings. Blocks keeps a compact read only
+      line with a link. Lands with K7 and K8 as one restructuring. [Pages]
+- [ ] K7 Decided by Kyle 2026-10-18: the Incoming page replaces Data and Sessions. A compact config strip
+      (the lab data read path, the environment geometry read path, the config file, Reload, a status dot
+      each, problems unfold only when there are any), the sessions index with the K10 tiles, details,
+      Exclude and Include, Open in replay, the incoming data format collapsed at the bottom. [Pages]
+- [ ] K8 Decided by Kyle 2026-10-18: the Outgoing page after Windows. The block write path with its
+      status, per session the blocks built, the settings they were built with, failed blocks and their
+      problems, excluded and skipped sessions, the selected windows.json, Rebuild all with its
+      confirmation, later the synthetic sets, the processed data format collapsed at the bottom. [Pages]
+- [ ] K14 The Replay trail is drawn from the engine's smoothed position (the Savitzky-Golay position
+      kinematics already uses for speed), handed out by `session()` as display arrays beside the raw x
+      and y, never into the blocks, and the trail is drawn a little wider. Kyle, 2026-10-18.
+      [TrajectoryEngine.session, Page 3]

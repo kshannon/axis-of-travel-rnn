@@ -1,6 +1,6 @@
 import { decodeColumns } from "./arrow";
 import type {
-  BlockArrays, BlockHeader, BlockWindows, ExclusionSaved, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
+  BlockArrays, BlockHeader, BlockWindows, EnvironmentEntry, ExclusionSaved, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
   SaveBody, SavedBlocks, Selected, SelectedResult, SessionArrays, SessionHeader, SessionRow, WindowSettings,
 } from "./types";
 
@@ -76,6 +76,9 @@ export const getBlockWindows = (blockId: string, settings: Partial<WindowSetting
   json<BlockWindows>("GET", withSettings(`${BLOCKS}/${blockId}/windows`, settings));
 export const getSelected = () => json<Selected>("GET", WINDOWS);
 export const selectSettings = (settings: WindowSettings) => json<SelectedResult>("PUT", WINDOWS, { settings });
+
+// The Environments page.
+export const getEnvironments = () => json<EnvironmentEntry[]>("GET", "/api/environments");
 
 export const getFormat = () => json<FormatContract>("GET", "/api/format");
 export const getOpenApi = () => json<OpenApiDocument>("GET", "/api/openapi.json");
