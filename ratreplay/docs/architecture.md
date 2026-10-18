@@ -88,7 +88,7 @@ flowchart TB
         VM["ValidationManager: folder health, readiness at settings, select the settings, windows of a block, replay a built block"]
     end
     subgraph Engines["Engines (how), stateless classes, one contract each, a few operations"]
-        TE["TrajectoryEngine: session, apply, blocks, windows, recipe"]
+        TE["TrajectoryEngine: funnel, session, apply, blocks, windows, recipe"]
         GE["GeneratorEngine: session(recipe, environment, seed, length)"]
     end
     subgraph RA["ResourceAccess (how, for state), one per resource, schema and validation inside, atomic verbs"]
@@ -162,15 +162,18 @@ flowchart TB
 
 ### TrajectoryEngine
 
-One contract, five operations, every rule and threshold a parameter (`rules`, `settings`).
+One contract, six operations, every rule and threshold a parameter (`rules`, `settings`).
 
+- `funnel(tables, rules)`: from the sessions, epochs and annotations tables alone, per session whether
+  it is in the dataset and why not (protocol, condition, excluded group, annotation), and the epochs the
+  rules select. What the index shows without reading frames.
 - `session(arrays, environment, rules)`: kinematics in metres, heading offset and fills (interpolated up
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
-  margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks. What
-  the Replay page draws.
+  margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and
+  the rules it used. What the Replay page draws, and what `apply` reads its rules from.
 - `apply(blocks, edits, session)`: the edit legality rules (no overlap with a kept block, no kept block
-  under the minimum length, no block outside its epoch, no edit on a removed block), the resulting
-  blocks and the refusals with reasons.
+  under the minimum length, no block outside its epoch, no edit on a removed block, a moved edge snaps
+  to a run edge within `snap_s`), the resulting blocks and the refusals with reasons.
 - `blocks(arrays, review, environment, rules)`: the labelled blocks (trip, phase, frames in metres at
   the output rate) for a session, from the review's blocks or the initial blocks when there is none.
   The same call for real and generated arrays.

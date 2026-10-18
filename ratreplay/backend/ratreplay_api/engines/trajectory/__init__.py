@@ -1,0 +1,118 @@
+"""
+TrajectoryEngine: the one contract for selecting, cutting, labelling and windowing trajectories, six operations over arrays with every rule a parameter.
+"""
+
+# The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
+# beside the rules and settings it used.
+VERSION = 1
+
+# The default of every rule, today's constants of src/process_lab_data and src/axis_of_travel_rnn.trajectory under
+# snake_case names. A caller passes its own dict to session and blocks. The tuples stay tuples here.
+RULES = {
+    # Which sessions and epochs are cut: the protocol and condition kept, the epoch kinds cut, the groups left out.
+    "protocol": "standard",
+    "condition": "baseline",
+    "epochs": ("arena", "track"),
+    "excluded_groups": ("JL1HPCData",),
+
+    # Cut points: a step in t over this is a pause, the lights whose loss makes a tracking gap ("either" or "both"),
+    # and the step in pixels that is a tracking jump.
+    "pause_step_s": 0.1,
+    "gap_lights": "both",
+    "jump_px": 40.0,
+
+    # Blocks: trimmed inward from a stretch edge beside a pause, a jump or an epoch bound, the shortest block kept, and
+    # how close in seconds a moved edge snaps to a run's start or end.
+    "pause_margin_s": 5.0,
+    "min_block_s": 10.0,
+    "snap_s": 1.0,
+
+    # Heading: the longest gap filled along the shortest arc, and the speed under which the rat is still (held fill, pause label).
+    "heading_fill_s": 3.0,
+    "running_floor_m_per_s": 0.03,
+
+    # Labels: the lab's path ids of the outbound and return runs, and the shortest stillness in a run that is a pause.
+    "outbound_paths": (1, 2, 3, 4),
+    "return_paths": (9, 10),
+    "pause_min_s": 1.0,
+
+    # Frame, the track scale from the running positions: histogram bin, peak smoothing, peak prominence, axis agreement.
+    "histogram_bin_px": 2.0,
+    "peak_smooth_bins": 5,
+    "peak_prominence": 0.1,
+    "axis_agree": 0.05,
+
+    # Frame, the arena against the track: the heights behind the parallax ratio (camera - track) / (camera - arena), in metres.
+    "camera_height_m": 2.6,
+    "track_height_m": 0.2,
+    "arena_height_m": 0.4,
+
+    # Frame, the paper's LED separation used by the still floor, and the percentiles of the arena's moving positions.
+    "nominal_led_separation_m": 0.05,
+    "extent_percentiles": (1, 99),
+
+    # Frame, motion: frames averaged for speed and direction, the speed in pixels per second that is running, and the
+    # offset in degrees from a rat's median over which its LEDs are reported swapped.
+    "speed_smooth_frames": 6,
+    "running_px_per_s": 20.0,
+    "offset_warn_deg": 30.0,
+
+    # Kinematics: the Savitzky-Golay window in seconds and order, and the version naming this derivation in a build.
+    "smooth_window_s": 0.15,
+    "smooth_order": 2,
+    "kinematics_version": 1,
+}
+
+# The default window settings: a window, the stride between windows, the burn-in inside it, the future position
+# predicted, the rate after resampling, and the two block checks (measured heading share, complete trips).
+SETTINGS = {
+    "window_s": 40.0,
+    "stride_s": 10.0,
+    "burn_in_s": 1.0,
+    "horizon_s": 0.5,
+    "rate_hz": 20,
+    "min_heading_measured": 0.8,
+    "min_complete_trips": 1,
+}
+
+
+class TrajectoryEngine:
+    """
+    Stateless: arrays in, arrays and plain data out, called by the managers alone.
+    """
+
+    def funnel(self, tables, rules):
+        """
+        Per session whether it is in the dataset and why not, and the epochs the rules select, from the sessions, epochs and annotations tables alone.
+        """
+        raise NotImplementedError("task E1")
+
+    def session(self, arrays, environment, rules):
+        """
+        Kinematics in metres, heading offset and fills, stops, cut points, spans, occupancy, the initial blocks and the rules used, what the Replay page draws and what apply reads.
+        """
+        raise NotImplementedError("task E1")
+
+    def apply(self, blocks, edits, session):
+        """
+        The blocks that result from the edits and the refusals with their reasons, under the edit legality rules the session carries.
+        """
+        raise NotImplementedError("task E2")
+
+    def blocks(self, arrays, review, environment, rules):
+        """
+        The labelled blocks (trip, phase, frames in metres at the output rate) of a session from the review's blocks or the initial blocks, for real and generated arrays alike.
+        """
+        raise NotImplementedError("task E3")
+
+    def windows(self, block, settings):
+        """
+        The window rows of a block with the verdict of each, and the verdict of the block.
+        """
+        raise NotImplementedError("task E4")
+
+    def recipe(self, blocks):
+        """
+        The statistics the generator fits and the numbers real and synthetic blocks are compared on.
+        """
+        raise NotImplementedError("task E5")

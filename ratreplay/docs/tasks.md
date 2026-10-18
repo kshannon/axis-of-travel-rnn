@@ -24,7 +24,7 @@ anything that touches real data.
 
 ## Engines
 
-- [ ] E0 `engines/trajectory/__init__.py` with the five operation signatures, the `rules` and `settings`
+- [x] E0 `engines/trajectory/__init__.py` with the six operation signatures (funnel added for the index), the `rules` and `settings`
       objects with today's constants as defaults, stubs that raise. Test: the layering test sees engines
       importing utilities only. [TrajectoryEngine]
 - [ ] E1 `session`: kinematics, heading offset and fills, stops, cut points, spans, occupancy, initial

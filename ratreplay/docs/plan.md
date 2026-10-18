@@ -113,3 +113,8 @@ client.
   returns were dropped (nothing on the registration path uses them, a generator derives them from the
   centerline). The old EnvSpec hash is gone, so A4 decides how a synthetic set's provenance names its
   exact geometry (store the geometry whole or hash it in the access).
+- E0: a sixth operation, `funnel(tables, rules)`, so the index can say which sessions are in the dataset
+  without reading frames and the session selection stays a rule in the engine. `session()` returns the
+  rules it used and `apply` reads `min_block_s` and `snap_s` from there. `VERSION` is an int, M1 forms
+  the metadata's `code_version` string from it and the commit. PHASES and KINDS are output vocabulary,
+  E3 defines them in its labels module. Each E task removes its case from the stub test.
