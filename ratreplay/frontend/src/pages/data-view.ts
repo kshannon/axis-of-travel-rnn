@@ -73,10 +73,11 @@ export function rebuildPrompt(reviews: number, settings: WindowSettings, root: s
     `Their built blocks and metadata in ${root} are replaced, the reviews are not changed.`;
 }
 
-/** What the toast says of a rebuild: the totals, and the first error when a build stopped. */
+/** What the toast says of a rebuild: the totals, the first review skipped with its reason and the first error when a build stopped. */
 export function rebuildSummary(result: Rebuilt): string {
-  const { sessions, built, failed, errors } = result.totals;
+  const { sessions, built, failed, errors, skipped } = result.totals;
+  const [left] = Object.entries(result.skipped);
   const stopped = Object.entries(result.sessions).find(([, build]) => build.build_error);
-  const first = stopped ? `. ${stopped[0]}: ${stopped[1].build_error}` : "";
-  return `Rebuilt ${counted(sessions, "session")}, ${counted(built, "block")} built, ${failed} failed, ${counted(errors, "error")}${first}`;
+  const first = (left ? `. Skipped ${left[0]}: ${left[1]}` : "") + (stopped ? `. ${stopped[0]}: ${stopped[1].build_error}` : "");
+  return `Rebuilt ${counted(sessions, "session")}, ${counted(built, "block")} built, ${failed} failed, ${skipped} skipped (not in the dataset), ${counted(errors, "error")}${first}`;
 }

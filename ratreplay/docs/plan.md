@@ -240,3 +240,15 @@ layout, or review session by session with Save blocks. Then the Blocks page at t
 Select these settings, and report: the health counts, how many sessions built, failed blocks and their
 problems, build errors, the readiness totals, anything that looks wrong, and how long rebuild all and
 readiness took.
+
+## K findings (Kyle's first run, 2026-10-18)
+
+Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
+
+- The Replay map's occupancy and geometry disagree with the trail (K1, a drawing bug: two mappings).
+- Rebuild all reported an excluded session's old review as an error (K2, by design, wrong wording).
+- Wanted: a page showing every environment with the stats used to create it and register sessions to
+  it (K3), and the data formats on the Data page rather than the API page (K4).
+- Kyle, 2026-10-18: no hard rule in the software excludes a session by a tag (group, protocol). Every
+  session is listed and the person excludes, the tool records it in the review (K5). The funnel keeps
+  only what the tool cannot work around. This changes which sessions enter the dataset and is Kyle's call.

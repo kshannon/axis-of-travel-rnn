@@ -100,12 +100,12 @@ def test_save_blocks_names_the_review_file_and_the_blocks_built_and_health_then_
 
 def test_rebuild_all_reports_the_totals_and_builds_at_the_settings_it_is_sent(client):
     empty = client.post("/api/rebuild", json={"settings": SHORT})
-    assert empty.status_code == 200 and empty.json() == {"sessions": {}, "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0}}
+    assert empty.status_code == 200 and empty.json() == {"sessions": {}, "skipped": {}, "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 0}}
     assert save(client, S1, SAVED).status_code == 200 and save(client, S6, ACCEPT).status_code == 200
     done = client.post("/api/rebuild", json={"settings": LONGER})
-    assert done.status_code == 200 and done.json().keys() == {"sessions", "totals"}
+    assert done.status_code == 200 and done.json().keys() == {"sessions", "skipped", "totals"}
     assert done.json()["sessions"] == {S1: {"built": 2, "failed": [], "build_error": None}, S6: {"built": 1, "failed": [], "build_error": None}}
-    assert done.json()["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0}
+    assert done.json()["skipped"] == {} and done.json()["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0}
     built = client.get("/api/blocks", params=SHORT).json()["built"]
     assert {sid: b["settings"]["window_s"] for sid, b in built.items()} == {S1: 10.0, S6: 10.0}
 

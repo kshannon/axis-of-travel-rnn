@@ -153,12 +153,18 @@ class ReviewManager:
 
     def rebuild_all(self, settings):
         """
-        Build the blocks of every reviewed session again, each with its built, failed and build_error, and the totals.
+        Build the blocks of every reviewed session again, each with its built, failed and build_error, a review of a session the rules leave out skipped with the funnel's reason, and the totals.
         """
-        results = {sid: self._built(sid, settings) for sid in self.processed.reviews()}
-        return {"sessions": results, "totals": {"sessions": len(results), "built": sum(r["built"] for r in results.values()),
-                                                "failed": sum(len(r["failed"]) for r in results.values()),
-                                                "errors": sum(r["build_error"] is not None for r in results.values())}}
+        funnel, results, skipped = self.trajectory.funnel(self.transformed.sessions(), RULES), {}, {}
+        for sid in self.processed.reviews():
+            if sid in funnel and not funnel[sid]["in_dataset"]:
+                skipped[sid] = funnel[sid]["reason"]
+            else:
+                results[sid] = self._built(sid, settings)
+        return {"sessions": results, "skipped": skipped,
+                "totals": {"sessions": len(results), "built": sum(r["built"] for r in results.values()),
+                           "failed": sum(len(r["failed"]) for r in results.values()),
+                           "errors": sum(r["build_error"] is not None for r in results.values()), "skipped": len(skipped)}}
 
     def _funnel(self, sid):
         """

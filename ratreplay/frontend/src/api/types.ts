@@ -285,7 +285,9 @@ export interface SavedBlocks extends Build {
 
 export interface Rebuilt {
   sessions: Record<string, Build>;
-  totals: { sessions: number; built: number; failed: number; errors: number };
+  /** The reviews of sessions the rules leave out, not built, by session id with the funnel's reason. */
+  skipped: Record<string, string>;
+  totals: { sessions: number; built: number; failed: number; errors: number; skipped: number };
 }
 
 /** One row of the blocks index, a block as the build wrote it. */

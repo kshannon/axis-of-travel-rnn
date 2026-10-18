@@ -30,12 +30,14 @@ test("a key the config lacks shows the problem naming it and no root", () => {
   expect(processed.key).toBe("PROCESSED_LAB_DATA");
 });
 
-test("the rebuild toast gives the totals and names the first build that stopped", () => {
+test("the rebuild toast gives the totals, names the first review skipped and the first build that stopped", () => {
   const done: Rebuilt = {
-    sessions: { A: { built: 2, failed: [], build_error: null }, B: { built: 0, failed: [], build_error: "Invalid: session B is not in the dataset: no frames" } },
-    totals: { sessions: 2, built: 2, failed: 0, errors: 1 },
+    sessions: { A: { built: 2, failed: [], build_error: null }, B: { built: 0, failed: [], build_error: "NotFound: no session B" } },
+    skipped: { C: "protocol is rotation", D: "too short" },
+    totals: { sessions: 2, built: 2, failed: 0, errors: 1, skipped: 2 },
   };
-  expect(rebuildSummary(done)).toBe("Rebuilt 2 sessions, 2 blocks built, 0 failed, 1 error. B: Invalid: session B is not in the dataset: no frames");
-  const clean: Rebuilt = { sessions: { A: done.sessions.A }, totals: { sessions: 1, built: 2, failed: 0, errors: 0 } };
-  expect(rebuildSummary(clean)).toBe("Rebuilt 1 session, 2 blocks built, 0 failed, 0 errors");
+  expect(rebuildSummary(done)).toBe(
+    "Rebuilt 2 sessions, 2 blocks built, 0 failed, 2 skipped (not in the dataset), 1 error. Skipped C: protocol is rotation. B: NotFound: no session B");
+  const clean: Rebuilt = { sessions: { A: done.sessions.A }, skipped: {}, totals: { sessions: 1, built: 2, failed: 0, errors: 0, skipped: 0 } };
+  expect(rebuildSummary(clean)).toBe("Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 errors");
 });

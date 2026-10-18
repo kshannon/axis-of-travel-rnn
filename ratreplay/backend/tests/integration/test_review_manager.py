@@ -120,8 +120,8 @@ def test_a_session_the_rules_leave_out_can_be_viewed_and_previewed_but_not_saved
     assert manager.preview(S1, ACCEPT, SHORT)["refusals"] == []
     with pytest.raises(Invalid, match=re.escape(f"session {S1} is not in the dataset: {header['reason']}")):
         manager.save_blocks(S1, SAVED, "", SHORT)
-    done = manager.rebuild_all(SHORT)
-    assert done["totals"]["errors"] == 1 and done["sessions"][S1]["build_error"].startswith("Invalid: ")
+    assert manager.rebuild_all(SHORT) == {"sessions": {}, "skipped": {S1: header["reason"]},
+                                          "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 1}}
 
 
 def test_a_preview_of_an_illegal_split_returns_the_refusal_and_writes_nothing(folders, manager):
@@ -167,8 +167,22 @@ def test_rebuild_all_rebuilds_every_reviewed_session_with_the_same_bytes(folders
     before = snapshot(folders[1])
     done = manager.rebuild_all(SHORT)
     assert done["sessions"] == {S1: {"built": 2, "failed": [], "build_error": None}, S6: {"built": 1, "failed": [], "build_error": None}}
-    assert done["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0}
+    assert done["skipped"] == {} and done["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0}
     assert snapshot(folders[1]) == before and len(before) == 8
+
+
+def test_rebuild_all_skips_the_review_of_a_session_the_rules_leave_out_and_errors_on_one_the_folder_lacks(folders, manager):
+    manager.save_blocks(S1, SAVED, "", SHORT)
+    access, ghost = ProcessedAccess(folders[1]), "NS14_rec9_20150109_001"
+    for sid in (S2, ghost):
+        access.write_review(sid, {**access.review(S1), "session_id": sid})
+    reason = next(r["reason"] for r in manager.index() if r["session_id"] == S2)
+    done = manager.rebuild_all(SHORT)
+    assert done["skipped"] == {S2: reason} and reason and set(done["sessions"]) == {S1, ghost}
+    assert done["sessions"][S1] == {"built": 2, "failed": [], "build_error": None}
+    assert done["sessions"][ghost] == {"built": 0, "failed": [], "build_error": f"NotFound: no session {ghost}"}
+    assert done["totals"] == {"sessions": 2, "built": 2, "failed": 0, "errors": 1, "skipped": 1}
+    assert S2 not in [row["session_id"] for row in access.blocks()]
 
 
 def test_a_block_with_a_missing_position_lands_in_failed_and_is_not_written(folders):
@@ -209,7 +223,7 @@ def test_only_a_file_or_validation_failure_of_the_build_comes_back_as_build_erro
     assert (saved["built"], saved["failed"], saved["build_error"]) == (0, [], "OSError: disk full")
     access = ProcessedAccess(folders[1])
     assert access.review(S1) is not None and access.blocks() == []
-    assert manager.rebuild_all(SHORT)["totals"] == {"sessions": 1, "built": 0, "failed": 0, "errors": 1}
+    assert manager.rebuild_all(SHORT)["totals"] == {"sessions": 1, "built": 0, "failed": 0, "errors": 1, "skipped": 0}
     monkeypatch.setattr(TrajectoryEngine, "blocks", bug)
     with pytest.raises(ValueError, match="bug"):
         manager.rebuild_all(SHORT)

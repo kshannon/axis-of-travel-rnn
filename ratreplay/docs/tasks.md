@@ -86,3 +86,23 @@ anything that touches real data.
       tests that import them, `configs/datasets/lab_blocks.yaml`. Check: `pixi run test` green. [Migration]
 - [ ] D debrief appended to `plan.md`: estimation accuracy, design efficacy, the work, issues to avoid,
       recurring problems, commitment to quality. [plan.md]
+
+## K findings, fixed before the synthetic slice
+
+- [ ] K1 Replay map: the occupancy image and the environment geometry are drawn over the canvas range
+      while the trail goes through the projection, so they disagree when positions fall outside the room.
+      Draw both through the one projection in room metres. Vitest on the backdrop placement, a check on
+      the synthetic circle. [Page 3]
+- [x] K2 Rebuild all skips the reviews of sessions the funnel leaves out and lists them as skipped with
+      the reason, not as errors. The toast says so. [ReviewManager]
+- [ ] K3 Environments page: every environment with its yaml parameters, its geometry drawn, and per built
+      session the registration it was given (scale, rotation, LED offset and separation, warnings) from
+      the metadata. Read only. [new page, ValidationManager]
+- [ ] K4 The data formats move from the API page to the Data page, the API page keeps the OpenAPI
+      schema. [Pages 1 and 7]
+- [ ] K5 Exclusion is the person's: the funnel drops `protocol` and `excluded_groups` and keeps only "no
+      frames" and "no arena or track epoch under the condition", the review file gains `excluded` with a
+      note, who and when, ReviewManager gains `exclude(sid, excluded, note)`, an excluded session is not
+      built and Rebuild all lists it as excluded, the Sessions index and Replay get Exclude and Include,
+      `annotations.csv` exclude shows as a note and is not applied. Decided by Kyle 2026-10-18. [funnel,
+      ReviewManager, Pages 2 and 3]
