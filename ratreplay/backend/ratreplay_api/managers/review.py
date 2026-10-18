@@ -162,9 +162,12 @@ class ReviewManager:
 
     def _funnel(self, sid):
         """
-        Whether the rules keep the session in the dataset and the reason when not.
+        Whether the rules keep the session in the dataset and the reason when not, NotFound when the transformed folder has no such session.
         """
-        return self.trajectory.funnel(self.transformed.sessions(), RULES)[sid]
+        funnel = self.trajectory.funnel(self.transformed.sessions(), RULES)
+        if sid not in funnel:
+            raise NotFound(f"no session {sid}")
+        return funnel[sid]
 
     def _require_in_dataset(self, sid):
         """

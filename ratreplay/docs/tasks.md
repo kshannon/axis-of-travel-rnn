@@ -68,12 +68,12 @@ anything that touches real data.
 - [x] F3 Blocks and Windows pages on ValidationManager: real or set, settings being tried, built settings
       shown, Select these settings. [Pages 4, 5]
 - [ ] F4 Synthetic page: sets with provenance and comparison, generate, delete. [Page 6]
-- [ ] F5 move `src/**/*.test.ts` to `frontend/tests/`, keep the pure modules only (timeline geometry,
+- [x] F5 move `src/**/*.test.ts` to `frontend/tests/`, keep the pure modules only (timeline geometry,
       editor, keys, format), cut the rest. Check: `vitest run` green with the smaller count. [Testing]
 
 ## System tests, docs, removal
 
-- [ ] S1 `backend/tests/system/`: save blocks, rebuild all, health, readiness, the session header with
+- [x] S1 `backend/tests/system/`: save blocks, rebuild all, health, readiness, the session header with
       query settings, the Arrow arrays, preview, and a 422 on a malformed edit, through the HTTP client
       over the synthetic folders. [Testing]
 - [ ] S2 `frontend/e2e/`: two or three flows (review and save, readiness and select, generate a set), the

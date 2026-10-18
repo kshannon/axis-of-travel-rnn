@@ -2,11 +2,14 @@
 Fixtures for the backend tests: the synthetic folders under tmp_path and an app whose local.yaml there names them, never the real configs/local.yaml.
 """
 
+import shutil
+
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from fixtures import write_processed, write_transformed
+from fixtures import write_transformed
+from ratreplay_api import app as app_module
 from ratreplay_api.app import create_app
 
 
@@ -21,17 +24,28 @@ def transformed(tmp_path):
 
 
 @pytest.fixture
-def processed(tmp_path, transformed):
+def processed(tmp_path):
     """
-    The processed folder the processor builds from the synthetic transformed one.
+    An empty processed folder, what the tool finds before the first save.
     """
     root = tmp_path / "processed"
-    write_processed(transformed, root)
+    root.mkdir()
     return root
 
 
 @pytest.fixture
-def client_on(tmp_path):
+def environments(tmp_path, monkeypatch):
+    """
+    A copy of the repository's environment yaml files, which the app reads in place of the originals.
+    """
+    root = tmp_path / "environments"
+    shutil.copytree(app_module.ENVIRONMENTS, root)
+    monkeypatch.setattr(app_module, "ENVIRONMENTS", root)
+    return root
+
+
+@pytest.fixture
+def client_on(tmp_path, environments):
     """
     A function making a test client on an app whose local.yaml under tmp_path holds the given config.
     """
@@ -44,6 +58,6 @@ def client_on(tmp_path):
 @pytest.fixture
 def client(client_on, transformed, processed):
     """
-    A test client on an app whose config names the synthetic folders.
+    A test client on an app whose config names the synthetic transformed folder and the empty processed one.
     """
     return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)})

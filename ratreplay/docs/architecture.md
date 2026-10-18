@@ -439,7 +439,7 @@ query parameters on GET and in the body otherwise.
     GET  /api/blocks?which=real|set:{id}     readiness: block rows with verdicts at settings, totals, built settings
     GET  /api/blocks/{bid}                   header: row with rate_hz, environment geometry, runs, trips, phases, heading spans (and /arrays as Arrow)
     GET  /api/blocks/{bid}/windows           window rows with their checks at settings
-    GET  /api/windows   PUT /api/windows     windows.json, read and select
+    GET  /api/windows   PUT /api/windows     the selection {"selected": windows.json or null}, and select (returns replaced and file)
     GET  /api/sets   POST /api/sets          synthetic sets, and generate one (body: sources, params, seed, length, settings)
     DELETE /api/sets/{id}
     GET  /api/openapi.json                   FastAPI's schema, the API page renders it with /api/format
