@@ -14,12 +14,12 @@ export function folderStatus(folder: Folder, held: number | undefined): Status {
   return folder.root && folder.exists && !held ? "nothing yet" : "ok";
 }
 
-// What each state looks like: its word and dot in its colour, and the left edge of the card that owns it. A state the
-// page does not name reads as nothing yet.
+// What each state looks like: its word and its solid dot in its colour, and the left edge of the card that owns it. A
+// state the page does not name reads as nothing yet.
 const STATES: Record<Status, { text: string; dot: string; edge: string }> = {
-  ok: { text: "text-ok", dot: "bg-ok ring-ok/25", edge: "border-l-4 border-l-ok" },
-  problem: { text: "text-bad", dot: "bg-bad ring-bad/25", edge: "border-l-4 border-l-bad" },
-  "nothing yet": { text: "text-muted", dot: "bg-muted ring-muted/25", edge: "border-l-4 border-l-muted" },
+  ok: { text: "text-ok", dot: "bg-ok", edge: "border-l-4 border-l-ok" },
+  problem: { text: "text-bad", dot: "bg-bad", edge: "border-l-4 border-l-bad" },
+  "nothing yet": { text: "text-muted", dot: "bg-muted", edge: "border-l-4 border-l-muted" },
 };
 
 /** An Alpine expression that gives the classes of one part of the state, `status` being an Alpine expression that gives a state. */
@@ -28,11 +28,11 @@ function classesOf(status: string, part: "text" | "dot" | "edge"): string {
   return `({ ${cases.join(", ")} })[${status}] ?? '${STATES["nothing yet"][part]}'`;
 }
 
-/** A strong filled dot with its plain word, `status` being an Alpine expression that gives "ok", "problem" or "nothing yet". */
+/** A solid 12 px dot and the word beside it in the same colour, bold and on the text baseline, `status` being an Alpine expression that gives "ok", "problem" or "nothing yet". */
 export function statusMark(status: string): string {
   return `
-    <span class="inline-flex shrink-0 items-center gap-2 text-sm font-semibold" :class="${classesOf(status, "text")}">
-      <span class="size-3.5 rounded-full ring-4" :class="${classesOf(status, "dot")}"></span>
+    <span class="inline-flex shrink-0 items-baseline gap-2 text-sm font-semibold" :class="${classesOf(status, "text")}">
+      <span class="size-3 shrink-0 rounded-full" :class="${classesOf(status, "dot")}"></span>
       <span x-text="${status}"></span>
     </span>`;
 }

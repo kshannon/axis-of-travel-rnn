@@ -24,7 +24,7 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
 
   // Reload ends in a toast. A click dismisses it, so the next Reload's toast is the only one on screen.
   const reload = async () => {
-    await page.getByRole("button", { name: "Reload" }).click();
+    await page.getByRole("button", { name: "Reload config file" }).click();
     const done = toast(page, "Read the config file again and checked the folders");
     await expect(done).toBeVisible();
     await done.click();

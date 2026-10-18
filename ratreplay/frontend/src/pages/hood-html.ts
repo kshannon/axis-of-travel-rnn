@@ -1,7 +1,7 @@
 import { tableHtml, tableMarkup } from "./tables-html";
 
 export const METHOD_COLOURS: Record<string, string> = {
-  GET: "text-ok",
+  GET: "text-accent",
   POST: "text-accent",
   PUT: "text-warn",
   DELETE: "text-bad",

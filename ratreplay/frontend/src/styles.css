@@ -5,9 +5,10 @@
 
 /*
  * Colours are named by role so the pages never write a light and a dark pair. The two themes share one palette taken
- * from the San Diego Gulls and used sparingly: marine blue is the accent and what is ok, orange is only a problem or a
- * refusal, amber a warning, silver the muted text, and black and white are the grounds. The light theme has deeper
- * shades of the same blue, orange and amber so they read on white.
+ * from the San Diego Gulls and used sparingly: marine blue is the accent (the buttons, the links, the focus), orange is
+ * only a problem or a refusal, amber a warning, silver the muted text, and black and white are the grounds. What is ok,
+ * a saved review, a state that checks out, is its own calm green, which reaches 4.5:1 as text on the card in both
+ * themes. The light theme has deeper shades of the blue, green, orange and amber so they read on white.
  */
 :root {
   color-scheme: light;
@@ -17,7 +18,7 @@
   --ink: #0b0d0f;
   --muted: #55626c;
   --accent: #0077ae;
-  --ok: #0077ae;
+  --ok: #14773e;
   --warn: #9a5b00;
   --bad: #c73c00;
   /* What the timeline lanes draw: the margins beside a cut (dark on the light theme), the grey of what is neither good nor bad, the two epochs and the paler blue. */
@@ -39,7 +40,7 @@
   --ink: #f4f7f9;
   --muted: #c0cdd5;
   --accent: #0083bf;
-  --ok: #0083bf;
+  --ok: #3ccf7a;
   --warn: #cc7f00;
   --bad: #ff4c00;
   --margin: #c0cdd5;

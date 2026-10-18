@@ -6,6 +6,8 @@ const PRIMARY_DISABLED = "disabled:bg-ink/10 disabled:font-normal disabled:text-
 const BUTTON_BASE = "rounded-md px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40";
 export const BUTTON = `${BUTTON_BASE} border border-ink/30 bg-ink/5 text-ink enabled:hover:bg-ink/15`;
 export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent font-medium text-page enabled:hover:opacity-90 ${PRIMARY_DISABLED}`;
+// A button that is only a glyph, square, the glyph an inline svg and the words in its aria-label and title.
+export const BUTTON_ICON = "rounded-md border border-ink/30 bg-ink/5 p-1.5 text-ink enabled:hover:bg-ink/15 disabled:cursor-not-allowed disabled:opacity-40";
 export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabled:hover:bg-bad/10`;
 
 // Buttons of one group as one block, such as the zoom controls: SEGMENTS holds the SEGMENT buttons divided by lines, and

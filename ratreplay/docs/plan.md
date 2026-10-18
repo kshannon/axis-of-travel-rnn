@@ -274,3 +274,6 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
 - Kyle, 2026-10-18: yes to the page shape. Incoming, Settings, Replay, Blocks, Windows, Outgoing,
   Environments, About, each one step of the flow in order (K7, K8, K13 as one restructuring after K11
   and K3 land).
+- Kyle, 2026-10-18, note for later: the Incoming index's "Protocol" and "In dataset" columns go once the
+  converter joins RatReplay and the ingestion is redone from the MATLAB files (the funnel's two remaining
+  reasons become ingestion facts). Nothing changes now.

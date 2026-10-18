@@ -1,25 +1,34 @@
 import { card, foldedCard } from "../ui/card";
 import { factsList } from "../ui/facts";
 import { statusEdge, statusMark } from "../ui/status";
-import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_DANGER, BUTTON_ICON, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { sortableTable } from "../ui/table";
 import { ANNOTATED_NOTE } from "./exclusion-view";
 import { formatBody, formatChip } from "./tables-html";
 
 const SECONDS_PER_MINUTE = 60;
+const RELOAD = "Reload config file";
+const RELOAD_NOTE = "If you update the config file, or change its location, you will need to reload it to view data";
+
+// The circular arrows glyph of the Reload button at the card's top right.
+const reloadButton = `
+  <button type="button" :disabled="busy" @click="reload()" aria-label="${RELOAD}" title="${RELOAD}" class="${BUTTON_ICON}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-4">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+    </svg>
+  </button>`;
 
 const stripBody = `
   <div data-testid="strip" class="flex flex-col gap-2">
     <p x-show="!lines.length" class="text-sm text-muted">Reading the data folders</p>
-    <div class="grid grid-cols-[auto_15rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 text-sm">
+    <div class="grid grid-cols-[auto_15rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm">
       <template x-for="line in lines" :key="line.label">
         <div class="contents">
           ${statusMark("line.status")}
           <span class="text-muted" x-text="line.label"></span>
-          <div class="flex min-w-0 items-center gap-3">
+          <div class="flex min-w-0 items-baseline gap-3">
             <code :data-testid="line.reloads ? 'config-path' : null" class="min-w-0 break-all font-mono text-xs" :title="line.path" x-text="line.path"></code>
             <span x-show="line.detail" class="shrink-0 text-xs text-muted" x-text="line.detail"></span>
-            <button type="button" x-show="line.reloads" :disabled="busy" @click="reload()" class="${BUTTON_PRIMARY} shrink-0">Reload</button>
           </div>
         </div>
       </template>
@@ -27,9 +36,7 @@ const stripBody = `
     <ul x-show="problems.length" data-testid="strip-problems" class="list-disc space-y-0.5 pl-5 text-xs text-bad">
       <template x-for="problem in problems"><li><span x-text="problem.label + ': '"></span><span x-text="problem.text"></span></li></template>
     </ul>
-    <p x-show="lines.length" class="text-xs text-muted">
-      Changing a folder means editing the config file, then pressing Reload, which reads it again and checks the folders it names.
-    </p>
+    <p x-show="lines.length" class="text-xs text-muted">${RELOAD_NOTE}</p>
   </div>`;
 
 const openButtons = `
@@ -133,7 +140,7 @@ const sessionsGate = `
 /** The Incoming page: the strip of read paths, the sessions of the lab data with their tiles and details, and the transformed files' format folded at the bottom. */
 export const incomingRoot = `
   <div x-data="incomingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
-    ${card("Read from", stripBody, "col-span-12", "", `lines.length ? ${statusEdge("status")} : ''`)}
+    ${card("Read from", stripBody, "col-span-12", reloadButton, `lines.length ? ${statusEdge("status")} : ''`)}
     ${card("Sessions", sessionsGate, "col-span-12")}
     ${foldedCard("Incoming data format", formatBody, "col-span-12", formatChip)}
   </div>`;

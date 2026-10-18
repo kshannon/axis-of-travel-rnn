@@ -12,7 +12,7 @@ const writeBody = `
     <p x-show="!view" class="text-sm text-muted">Reading the data folders</p>
     <template x-if="view">
       <div class="flex flex-col gap-3">
-        <div class="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-3 text-sm">
+        <div class="grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-x-3 text-sm">
           ${statusMark("view.status")}
           <span class="text-muted">blocks written to</span>
           <code class="min-w-0 break-all font-mono text-xs" :title="view.root" x-text="view.root"></code>

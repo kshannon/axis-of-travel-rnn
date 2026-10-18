@@ -159,3 +159,7 @@ anything that touches real data.
 - [x] K15 Environments page redesign: one environment shown large with its parameters, ranges and its
       sessions table in a vertically scrolling area, the other environments as a row of thumbnails about
       the size of today's drawings to pick from, no unused space. Kyle, 2026-10-18. [Page 7]
+- [x] K16 Incoming strip: ok gets its own green (the accent stays marine blue), the status mark reads
+      cleanly in both themes, Reload moves to the card's top right as an icon button "Reload config
+      file" so the rows align, and the note reads "If you update the config file, or change its location,
+      you will need to reload it to view data". Kyle, 2026-10-18. [Page 1]
