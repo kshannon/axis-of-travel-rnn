@@ -1,21 +1,24 @@
 import { expect, test } from "vitest";
-import type { ReviewBlock, ReviewPreview, SessionArrays, SessionHeader } from "../api/types";
+import type { MadeBlock, Preview, ReviewBlock, SessionArrays, SessionHeader } from "../api/types";
 import { blockCards, liveTiles, marksLine, stateLine, summaryTiles } from "./replay-view";
 
-const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, train_rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
+const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
 const header = {
-  rate_hz: 60, n_frames: 6000, subject_id: "NS14", date: "2015-01-01", protocol: "standard", group: "NS14Data", block_epochs: ["arena", "track"],
+  rate_hz: 60, n_frames: 6000, subject_id: "NS14", date: "2015-01-01", protocol: "standard", group: "NS14Data", selected_epochs: ["arena", "track"],
   epochs: [{ epoch: "arena", frame_start: 1, frame_end: 1800, duration_s: 30 }, { epoch: "variant", frame_start: 1801, frame_end: 3600, duration_s: 30 }],
   runs: [{ run: 1, epoch: "track", path_id: 1, clean: true, frame_start: 400, frame_end: 500 }, { run: 2, epoch: "track", path_id: 9, clean: false, frame_start: 1600, frame_end: 1700 }],
-  cuts: { pauses: [10], jumps: [20, 30], gaps: [[40, 50]], margins: [] }, heading_lost: [[1, 60]], heading_filled: [[100, 129]],
+  cut_points: [
+    { frame: 10, reason: "pause" }, { frame: 20, reason: "jump" }, { frame: 30, reason: "jump" }, { frame: 40, frame_end: 50, reason: "gap" },
+  ],
+  margins: [],
 } as unknown as SessionHeader;
 
-const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"]): ReviewBlock =>
-  ({ block_id: `S_${frame_start}`, epoch: "arena", environment: "e", frame_start, frame_end, status, note: "" });
+const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"]): MadeBlock =>
+  ({ block_id: `S_${frame_start}`, epoch: "arena", environment: "e", frame_start, frame_end, status, note: null, windows: null, problems: [] });
 
 const blocks = [block(301, 900, "confirmed"), block(901, 1500, "auto"), block(1501, 1800, "dropped")];
-const preview: ReviewPreview = { blocks, cuts: [], flagged_runs: [2], skipped: [] };
+const preview: Preview = { blocks, cuts: [], flagged_runs: [2], refusals: [] };
 
 test("a card per block in time order, with the runs that start inside it and what its toggles may do", () => {
   const cards = blockCards(blocks, header, blocks[1], SETTINGS);

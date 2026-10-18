@@ -30,25 +30,25 @@ function fileTable(file: FormatFile): Table {
   return { title, head: ["column", "type", "use"], rows };
 }
 
-/** The data format contract as groups of tables, one table per file. */
+/** The data format contract as groups of tables, one table per file, the review file's keys, statuses and edits after the processed folder's. */
 export function formatGroups(contract: FormatContract): FormatGroup[] {
-  const { review, window_settings: settings } = contract;
+  const review = contract.processed.files.find((file) => file.edits);
   return [
     { title: "Transformed folder", tables: contract.transformed.files.map(fileTable) },
-    { title: `Processed folder, kinds ${contract.processed.kinds.join(" and ")}`, tables: contract.processed.files.map(fileTable) },
-    {
-      title: "Review file",
-      tables: [
-        { title: review.path, head: ["key"], rows: review.keys.map((key) => [key]) },
-        { title: "block keys", head: ["key"], rows: review.block_keys.map((key) => [key]) },
-        { title: "block statuses", head: ["status"], rows: review.statuses.map((status) => [status]) },
-        { title: "edits", head: ["op", "fields"], rows: Object.entries(review.edits).map(([op, fields]) => [op, fields.join(", ")]) },
-      ],
-    },
+    { title: "Processed folder", tables: contract.processed.files.map(fileTable) },
+    ...(review ? [{ title: "Review file", tables: reviewTables(review) }] : []),
     {
       title: "Window settings",
-      tables: [{ title: "defaults", head: ["setting", "value"], rows: Object.entries(settings).map(([name, value]) => [name, String(value)]) }],
+      tables: [{ title: "defaults", head: ["setting", "value"], rows: Object.entries(contract.settings).map(([name, value]) => [name, String(value)]) }],
     },
+  ];
+}
+
+function reviewTables(review: FormatFile): Table[] {
+  return [
+    { title: "block keys", head: ["key"], rows: (review.block_keys ?? []).map((key) => [key]) },
+    { title: "block statuses", head: ["status"], rows: (review.statuses ?? []).map((status) => [status]) },
+    { title: "edits", head: ["op", "fields"], rows: Object.entries(review.edits ?? {}).map(([op, fields]) => [op, fields.join(", ")]) },
   ];
 }
 

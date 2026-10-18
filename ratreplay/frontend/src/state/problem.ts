@@ -1,11 +1,14 @@
-import type { Kind, Sources } from "../api/types";
+import type { Health, Kind } from "../api/types";
 
 const READING = "Reading the data folders.";
-const NAMES: Record<Kind, string> = { transformed: "The transformed lab data", processed: "The processed lab data" };
+const NAMES: Record<Kind, string> = { transformed: "The transformed lab data", processed: "The processed lab data", environments: "The environments" };
 
-/** Why a page that needs these folders cannot show, none when each is ok. */
-export function problemWith(sources: Sources | null, kinds: readonly Kind[]): string {
-  if (!sources) return READING;
-  const broken = kinds.find((kind) => sources[kind].status !== "ok");
-  return broken ? `${NAMES[broken]} cannot be used: ${sources[broken].problems.join(", ")}` : "";
+/**
+ * Why a page that needs these folders cannot show, none when each is usable. A folder is unusable when it has problems,
+ * which a missing folder gives too. A processed folder that does not exist yet has none, the first save creates it.
+ */
+export function problemWith(health: Health | null, kinds: readonly Kind[]): string {
+  if (!health) return READING;
+  const broken = kinds.find((kind) => health[kind].problems.length);
+  return broken ? `${NAMES[broken]} cannot be used: ${health[broken].problems.join(", ")}` : "";
 }

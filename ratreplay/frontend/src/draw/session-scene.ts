@@ -1,4 +1,5 @@
 import type { ReviewBlock, SessionHeader, Span } from "../api/types";
+import { cutsOf } from "../session/cuts";
 import { colourOf } from "./layers";
 import type { LayerKey, Layers } from "./layers";
 import { FRAMES_LANE, runFill, runKind } from "./lanes";
@@ -53,11 +54,11 @@ function frameLayers(header: SessionHeader, layers: Layers, speed: Float64Array,
   const span = (spans: Span[], key: LayerKey, from: number, alpha = 1): FrameLayer[] =>
     layers[key] ? [{ kind: "span", spans, colour: colourOf(key), alpha, from, to: 1 }] : [];
   const tick = (frames: number[], key: LayerKey, to: number): FrameLayer[] => (layers[key] ? [{ kind: "tick", frames, colour: colourOf(key), to }] : []);
-  const { gaps, margins, jumps, pauses } = header.cuts;
+  const { gaps, margins, jumps, pauses } = cutsOf(header);
+  const { lost, filled, held } = header.heading_spans;
   return [
     ...span(gaps, "gaps", 0, GAP_ALPHA), ...span(margins, "margins", 0, MARGIN_ALPHA),
-    ...span(header.heading_filled, "filled", 1 - HEADING_BAND), ...span(header.heading_held, "held", 1 - HEADING_BAND),
-    ...span(header.heading_lost, "lost", 1 - HEADING_BAND),
+    ...span(filled, "filled", 1 - HEADING_BAND), ...span(held, "held", 1 - HEADING_BAND), ...span(lost, "lost", 1 - HEADING_BAND),
     ...(layers.speed ? [{ kind: "trace" as const, values: speed, top: speedTop }] : []),
     ...tick(jumps, "jumps", 1), ...tick(pauses, "pauses", PAUSE_TICK),
   ];

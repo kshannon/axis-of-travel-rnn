@@ -1,7 +1,7 @@
 import Alpine from "alpinejs";
 import { PAGES } from "./pages";
+import { healthStore, registerHealth } from "./state/health";
 import { registerShell } from "./state/shell";
-import { registerSources, sourcesStore } from "./state/sources";
 import { shellHtml } from "./ui/shell";
 import { initTheme } from "./ui/theme";
 import { registerToasts } from "./ui/toast";
@@ -11,7 +11,7 @@ initTheme();
 document.getElementById("app")!.innerHTML = shellHtml(PAGES);
 registerShell(PAGES.map((page) => page.id));
 registerToasts();
-registerSources();
+registerHealth();
 PAGES.forEach((page) => page.register?.());
 Alpine.start();
-void sourcesStore().load();
+void healthStore().load();

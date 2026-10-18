@@ -1,14 +1,15 @@
 import { expect, test } from "vitest";
-import type { BlockHeader, BlockWindow, WindowSettings } from "../api/types";
+import type { BlockWindow, WindowSettings } from "../api/types";
+import type { BlockView } from "../session/block";
 import { blockScene, windowRows } from "./block-scene";
 
 const SETTINGS: WindowSettings = {
-  window_s: 5, stride_s: 2.5, burn_in_s: 1, horizon_s: 0.5, train_rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1,
+  window_s: 5, stride_s: 2.5, burn_in_s: 1, horizon_s: 0.5, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1,
 };
 
 const window = (index: number, ok = true): BlockWindow => ({
   index, first: 150 * index, burn_in_stop: 150 * index + 60, window_stop: 150 * index + 300, stop: 150 * index + 330,
-  position_finite: 1, heading_measured: 1, trips_complete: 1, trips_partial: 0, ok,
+  start_s: 2.5 * index, stop_s: 2.5 * index + 5.5, position_finite: 1, heading_measured: 1, trips_complete: 1, trips_partial: 0, ok, reason: null,
 });
 
 const header = (settings: WindowSettings, windows: BlockWindow[]) => ({
@@ -16,7 +17,7 @@ const header = (settings: WindowSettings, windows: BlockWindow[]) => ({
   runs: [{ run: 1, path_id: 1, clean: true, first: 99, last: 199 }],
   trips: [{ trip: 1, partial: true, first: 0, last: 98 }, { trip: 2, partial: false, first: 99, last: 498 }],
   heading_filled: [[10, 19]], heading_held: [], one_light: [[699, 818]],
-}) as unknown as BlockHeader;
+}) as unknown as BlockView;
 
 const scene = (settings = SETTINGS, windows = [window(0), window(1, false)]) => blockScene(header(settings, windows), new Float64Array(10), 1);
 const lane = (name: string, settings = SETTINGS, windows = [window(0), window(1, false)]) => scene(settings, windows).bars.filter((bar) => bar.lane === name);

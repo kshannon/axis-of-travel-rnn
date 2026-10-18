@@ -1,7 +1,7 @@
 import type { Kind } from "../api/types";
 import { card, pageGrid } from "./card";
 
-const problemOf = (kinds: readonly Kind[]) => `$store.sources.problem(${kinds.map((kind) => `'${kind}'`).join(", ")})`;
+const problemOf = (kinds: readonly Kind[]) => `$store.health.problem(${kinds.map((kind) => `'${kind}'`).join(", ")})`;
 
 /** Why the page cannot show yet, with the way to the Data page. */
 function notice(kinds: readonly Kind[]): string {

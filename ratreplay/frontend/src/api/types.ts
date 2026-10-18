@@ -1,10 +1,11 @@
-// The shapes the API answers with, as ratreplay/backend/README.md lists them.
+// The shapes the API answers with, read from ratreplay/backend/ratreplay_api (routers, managers, engines) and its integration tests.
 
-export type Kind = "transformed" | "processed";
+export type Kind = "transformed" | "processed" | "environments";
 export type Span = [first: number, last: number];
 
+/** The times a folder reports. The converter run's timestamp is the transformed folder's alone. */
 export interface ManifestInfo {
-  timestamp: string;
+  timestamp?: string;
   modified: string;
 }
 
@@ -13,22 +14,24 @@ export interface Counts {
   epochs?: number;
   runs?: number;
   frames?: number;
-  blocks?: number;
   reviews?: number;
+  blocks?: number;
+  environments?: number;
 }
 
-/** One data folder the config names. The path is null when the config lacks the key, the manifest when the processor has not run. */
-export interface Source {
-  path: string | null;
-  status: "ok" | "invalid";
+/** One folder as its access reports it. The root is null when the config lacks the key, the counts are empty while it has problems. */
+export interface Folder {
+  root: string | null;
+  exists: boolean;
   problems: string[];
   counts: Counts;
   manifest: ManifestInfo | null;
 }
 
-export interface Sources {
-  transformed: Source;
-  processed: Source;
+export interface Health {
+  transformed: Folder;
+  processed: Folder;
+  environments: Folder;
   config_path: string;
 }
 
@@ -50,17 +53,24 @@ export interface Run {
   frame_end: number;
 }
 
-export interface AutomaticBlock {
-  block_id: string;
-  session_id: string;
-  epoch: string;
-  environment: string;
-  frame_start: number;
-  frame_end: number;
-  n_frames: number;
-  duration_s: number;
+/** The window settings, every key the API knows and no other, since it refuses an unknown one. */
+export interface WindowSettings {
+  window_s: number;
+  stride_s: number;
+  burn_in_s: number;
+  horizon_s: number;
+  rate_hz: number;
+  min_heading_measured: number;
+  min_complete_trips: number;
 }
 
+/** Whether a block is fit for training and every rule it breaks. */
+export interface Verdict {
+  ok: boolean;
+  reasons: string[];
+}
+
+/** One row of the sessions index. The review facts are empty for a session no one reviewed. */
 export interface SessionRow {
   session_id: string;
   subject_id: string;
@@ -73,7 +83,10 @@ export interface SessionRow {
   n_runs: number;
   n_clean_runs: number;
   in_dataset: boolean;
-  n_automatic: number | null;
+  /** Why the rules leave the session out, none when they keep it. */
+  reason: string | null;
+  /** The blocks built from the session on disk. */
+  built: number;
   reviewed: boolean;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -82,47 +95,46 @@ export interface SessionRow {
   notes: string;
 }
 
-export interface SessionHeader {
-  session_id: string;
-  subject_id: string;
-  date: string;
-  protocol: string;
-  group: string;
-  rate_hz: number;
-  max_gap: number;
-  n_frames: number;
-  epochs: Epoch[];
-  /** The epochs the processor cuts into blocks. */
-  block_epochs: string[];
-  runs: Run[];
-  cuts: { pauses: number[]; jumps: number[]; gaps: Span[]; margins: Span[] };
-  heading_lost: Span[];
-  heading_filled: Span[];
-  heading_held: Span[];
-  led_offset: { rad: number; r: number };
-  occupancy: { bins: number; x: [number, number]; y: [number, number]; counts: Record<string, number[]> };
-  blocks: AutomaticBlock[];
+/** What cut a session: an epoch start, a pause, a jump, or a gap that runs to frame_end. */
+export interface CutPoint {
+  frame: number;
+  frame_end?: number;
+  reason: "epoch" | "pause" | "jump" | "gap";
 }
 
-// One typed array per column of the Arrow streams, one row per frame.
-export interface SessionArrays {
-  t: Float64Array;
-  x: Float64Array;
-  y: Float64Array;
-  heading: Float64Array;
-  speed: Float64Array;
-  motion: Float64Array;
-  n_lights: Int8Array;
+export interface Stretch {
+  epoch: string;
+  frame_start: number;
+  frame_end: number;
 }
 
-export interface BlockArrays {
-  frame: Int32Array;
-  t: Float64Array;
-  x: Float64Array;
-  y: Float64Array;
-  heading: Float64Array;
-  speed: Float64Array;
-  n_lights: Int8Array;
+export interface Occupancy {
+  bins: number;
+  x: [number, number];
+  y: [number, number];
+  counts: Record<string, number[]>;
+  /** The positions that fell outside the room. */
+  outside: number;
+}
+
+/** The registration of the session: the LED offset and the pixel scale of each epoch kind. */
+export interface SessionFrame {
+  led_offset_rad: number;
+  led_offset_r: number;
+  led_offset_n: number;
+  start_px: [number, number];
+  goals_px: [number, number];
+  arena?: Registration;
+  track: Registration;
+}
+
+export interface Registration {
+  scale_px_per_m: number;
+  led_separation_m: number;
+  rotation_rad: number;
+  rotation_concentration: number;
+  flip: boolean;
+  offset_m: [number, number];
 }
 
 export interface ReviewBlock {
@@ -132,7 +144,14 @@ export interface ReviewBlock {
   frame_start: number;
   frame_end: number;
   status: "auto" | "confirmed" | "edited" | "dropped";
-  note: string;
+  /** None for a block no one has annotated, the old review files hold an empty text. */
+  note: string | null;
+}
+
+/** A block the edits make, with its windows at the settings (none for a removed block) and the problems of its frames. */
+export interface MadeBlock extends ReviewBlock {
+  windows: { count: number; verdict: Verdict } | null;
+  problems: string[];
 }
 
 export type Edit =
@@ -145,54 +164,125 @@ export type Edit =
   | { op: "cut"; frame_start: number; frame_end: number }
   | { op: "flag"; run: number };
 
+/** An edit the rules refused, by its place in the list. */
+export interface Refusal {
+  index: number;
+  op: string;
+  reason: string;
+}
+
+export interface Cut {
+  frame_start: number;
+  frame_end: number;
+  reason: string;
+}
+
 export interface Review {
   session_id: string;
   reviewed_by: string;
   reviewed_at: string;
   converter_manifest_timestamp: string;
-  rules: Record<string, number | string>;
+  rules: Record<string, unknown>;
   blocks: ReviewBlock[];
-  cuts: { frame_start: number; frame_end: number; reason: string }[];
+  cuts: Cut[];
   flagged_runs: number[];
   notes: string;
   edits: Edit[];
 }
 
-export interface ReviewBody {
+/** A session for the replay: its facts, what the engine draws, its saved review and the blocks the review or the rules make. */
+export interface SessionHeader {
+  session_id: string;
+  subject_id: string;
+  group: string;
+  protocol: string;
+  date: string;
+  rate_hz: number;
+  max_gap: number;
+  n_frames: number;
+  in_dataset: boolean;
+  reason: string | null;
+  epochs: Epoch[];
+  runs: Run[];
+  /** The epochs the rules cut into blocks. */
+  selected_epochs: string[];
+  n_initial_blocks: number;
+  frame: SessionFrame;
+  heading_spans: { lost: Span[]; filled: Span[]; held: Span[] };
+  cut_points: CutPoint[];
+  margins: Span[];
+  stretches: Stretch[];
+  occupancy: Occupancy;
+  stops: Span[];
+  warnings: string[];
+  review: Review | null;
+  blocks: MadeBlock[];
+  refusals: Refusal[];
+  cuts: Cut[];
+  flagged_runs: number[];
+}
+
+// One typed array per column of the Arrow streams, one row per frame.
+export interface SessionArrays {
+  t: Float64Array;
+  x: Float64Array;
+  y: Float64Array;
+  heading: Float64Array;
+  speed: Float64Array;
+  turn_rate: Float64Array;
+  motion: Float64Array;
+  n_lights: Int8Array;
+}
+
+export interface BlockArrays {
+  frame: Int32Array;
+  t: Float64Array;
+  x: Float64Array;
+  y: Float64Array;
+  heading: Float64Array;
+  speed: Float64Array;
+  turn_rate: Float64Array;
+  n_lights: Int8Array;
+  trip: Int32Array;
+}
+
+/** The body of a preview: the whole edit list and the settings the window counts are at. */
+export interface PreviewBody {
   edits: Edit[];
+  settings: WindowSettings;
+}
+
+/** The body of a save: the whole edit list, the free text note and the settings the build's window counts are at. */
+export interface SaveBody extends PreviewBody {
   notes: string;
 }
 
-export interface SavedReview {
+export interface Preview {
+  blocks: MadeBlock[];
+  refusals: Refusal[];
+  cuts: Cut[];
+  flagged_runs: number[];
+}
+
+/** The outcome of building a session's blocks: how many were written, which failed and why, or the error that stopped the build. */
+export interface Build {
+  built: number;
+  failed: { block_id: string; problems: string[] }[];
+  build_error: string | null;
+}
+
+export interface SavedBlocks extends Build {
   review: Review;
-  path: string;
-  overwrote: boolean;
+  /** Whether the save replaced an earlier review. */
+  replaced: boolean;
 }
 
-export interface ReviewPreview {
-  blocks: ReviewBlock[];
-  cuts: Review["cuts"];
-  flagged_runs: number[];
-  skipped: (Edit & { reason: string })[];
+export interface Rebuilt {
+  sessions: Record<string, Build>;
+  totals: { sessions: number; built: number; failed: number; errors: number };
 }
 
-export interface WindowSettings {
-  window_s: number;
-  stride_s: number;
-  burn_in_s: number;
-  horizon_s: number;
-  train_rate_hz: number;
-  min_heading_measured: number;
-  min_complete_trips: number;
-}
-
-export interface Totals {
-  blocks_ok: number;
-  blocks_trouble: number;
-  windows: number;
-  hours_ok: number;
-}
-
+/** One row of the blocks index, a block as the build wrote it. */
 export interface BlockRow {
   block_id: string;
   session_id: string;
@@ -215,20 +305,34 @@ export interface BlockRow {
   heading_lost_s: number;
   heading_filled_s: number;
   heading_held_s: number;
-  heading_measured: number;
   scale_px_per_m: number;
   rotation_rad: number;
   led_offset_rad: number;
   kinematics_version: number;
-  n_windows: number;
-  ok: boolean;
-  reason: string | null;
 }
 
-export interface BlockIndex {
-  blocks: BlockRow[];
-  totals: Record<string, Totals>;
+export interface ReadinessBlock extends BlockRow {
+  /** The windows the block yields at the settings. */
+  count: number;
+  verdict: Verdict;
+}
+
+export interface ReadinessTotals {
+  blocks: number;
+  ok: number;
+  trouble: number;
+  windows: number;
+  windows_ok: number;
+}
+
+/** Readiness: every built block with its window count and verdict at the settings, judged under the rules its session was built with. */
+export interface Readiness {
+  which: string;
   settings: WindowSettings;
+  blocks: ReadinessBlock[];
+  totals: ReadinessTotals;
+  /** Per built session, the settings and the time its blocks were built at. */
+  built: Record<string, { settings: WindowSettings; built_at: string }>;
 }
 
 export interface Geometry {
@@ -242,6 +346,18 @@ export interface Geometry {
   circle: { center: [number, number]; radius: number } | null;
 }
 
+/** A built block for the player. Every span holds indices into the block's arrays. */
+export interface BlockHeader {
+  row: BlockRow;
+  geometry: Geometry;
+  runs: { run: number; path_id: number; clean: boolean; first: number; last: number }[];
+  trips: { trip: number; partial: boolean; first: number; last: number }[];
+  phases: { phase: string; first: number; last: number }[];
+  heading_filled: Span[];
+  heading_held: Span[];
+  one_light: Span[];
+}
+
 /** Indices into the block's arrays with the stops exclusive, `stop` being the window's end plus its horizon, and the checks taken over that whole range. */
 export interface BlockWindow {
   index: number;
@@ -249,6 +365,8 @@ export interface BlockWindow {
   burn_in_stop: number;
   window_stop: number;
   stop: number;
+  start_s: number;
+  stop_s: number;
   /** The share of the frames with a finite position. */
   position_finite: number;
   heading_measured: number;
@@ -257,40 +375,24 @@ export interface BlockWindow {
   /** The other trips touching that range: cut by it or by the end of the block. */
   trips_partial: number;
   ok: boolean;
+  /** The first check the window fails, none when it passes. */
+  reason: string | null;
 }
 
-export interface BlockHeader {
-  block_id: string;
-  session_id: string;
-  kind: string;
-  status: string;
-  environment: string;
-  geometry: Geometry;
-  n_frames: number;
-  duration_s: number;
-  rate_hz: number;
-  frame_start: number;
-  runs: { run: number; path_id: number; clean: boolean; first: number; last: number }[];
-  trips: { trip: number; partial: boolean; first: number; last: number }[];
-  phases: { phase: string; first: number; last: number }[];
-  heading_filled: Span[];
-  heading_held: Span[];
-  one_light: Span[];
-  verdict: { ok: boolean; reason: string | null };
-  settings: WindowSettings;
-  windows: BlockWindow[];
+export interface BlockWindows {
+  rows: BlockWindow[];
+  verdict: Verdict;
+  count: number;
 }
 
-export interface SettingsAnswer {
-  settings: WindowSettings;
-  saved: {
-    settings: WindowSettings;
-    processed_manifest_timestamp: string;
-    rules: Record<string, number | string>;
-    totals: Record<string, Totals>;
-    written_at: string;
-  } | null;
-  path: string;
+/** The window settings selected for export with the readiness totals they gave, none when none were selected. */
+export interface Selected {
+  selected: { settings: WindowSettings; totals: ReadinessTotals; selected_at: string; selected_by: string } | null;
+}
+
+export interface SelectedResult {
+  replaced: boolean;
+  file: string;
 }
 
 export interface FormatColumn {
@@ -299,25 +401,23 @@ export interface FormatColumn {
   required: boolean;
 }
 
+/** A file an access declares. A review file also lists its block keys, statuses and the fields of each edit. */
 export interface FormatFile {
   path: string;
   optional: boolean;
   columns?: FormatColumn[];
   keys?: string[];
+  block_keys?: string[];
+  statuses?: string[];
+  edits?: Record<string, string[]>;
 }
 
 export interface FormatContract {
   version: number;
   transformed: { files: FormatFile[] };
-  processed: { kinds: string[]; files: FormatFile[] };
-  review: {
-    path: string;
-    keys: string[];
-    block_keys: string[];
-    statuses: string[];
-    edits: Record<string, string[]>;
-  };
-  window_settings: WindowSettings;
+  processed: { files: FormatFile[] };
+  /** The default window settings. */
+  settings: WindowSettings;
 }
 
 // The parts of FastAPI's OpenAPI document the API page reads.

@@ -61,7 +61,7 @@ anything that touches real data.
 
 ## Frontend
 
-- [ ] F1 api client for the new routes, `state/health.ts` replacing `state/sources.ts`, Data page with
+- [x] F1 api client for the new routes, `state/health.ts` replacing `state/sources.ts`, Data page with
       Rebuild all, Sessions page. Check: Data page shows three folders. [Pages 1, 2]
 - [ ] F2 Replay page on ReviewManager: block cards show the manager's window counts, Save blocks and its
       result toast, `session/windows.ts` deleted. [Page 3]

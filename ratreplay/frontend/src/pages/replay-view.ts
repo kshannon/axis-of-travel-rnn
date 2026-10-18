@@ -1,6 +1,7 @@
-import type { ReviewBlock, Review, ReviewPreview, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
+import type { Preview, Review, ReviewBlock, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
+import { cutsOf } from "../session/cuts";
 import { windowCount } from "../session/windows";
 import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
@@ -63,19 +64,19 @@ export function blockCards(blocks: ReviewBlock[], header: SessionHeader, selecte
 }
 
 /** The stat tiles of the Summary card: the blocks by status, the time kept, the windows at the settings, the cuts and the flagged runs. */
-export function summaryTiles(preview: ReviewPreview, header: SessionHeader, settings: WindowSettings): Tile[] {
+export function summaryTiles(preview: Preview, header: SessionHeader, settings: WindowSettings): Tile[] {
   const { blocks } = preview;
   const count = (status: ReviewBlock["status"]) => String(blocks.filter((b) => b.status === status).length);
   const kept = blocks.filter((b) => b.status !== "dropped");
   const keptS = kept.reduce((total, b) => total + framesOf(b), 0) / header.rate_hz;
-  const epochS = header.epochs.filter((e) => header.block_epochs.includes(e.epoch)).reduce((total, e) => total + e.duration_s, 0);
+  const epochS = header.epochs.filter((e) => header.selected_epochs.includes(e.epoch)).reduce((total, e) => total + e.duration_s, 0);
   const windows = kept.reduce((total, b) => total + windowCount(framesOf(b), header.rate_hz, settings), 0);
-  const { pauses, jumps, gaps } = header.cuts;
+  const { pauses, jumps, gaps } = cutsOf(header);
   const byStatus = (label: string, key: ReviewBlock["status"]): Tile => ({ label, value: count(key), note: "", title: "" });
   const keptNote = percent(epochS ? keptS / epochS : 0);
   return [
     byStatus("automatic", "auto"), byStatus("confirmed", "confirmed"), byStatus("edited", "edited"), byStatus("removed", "dropped"),
-    { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.block_epochs.join(" and ")}` },
+    { label: "kept", value: `${minutes(keptS)} min`, note: keptNote, title: `${keptNote} of the ${minutes(epochS)} min of ${header.selected_epochs.join(" and ")}` },
     { label: "windows", value: String(windows), note: `${settings.window_s} s each`, title: `${settings.window_s} s windows every ${settings.stride_s} s` },
     { label: "flagged", value: String(preview.flagged_runs.length), note: `of ${header.runs.length} runs`, title: "runs flagged as mislabelled" },
     { label: "pauses, jumps, gaps", value: [pauses, jumps, gaps].map((cuts) => cuts.length).join(", "), note: "", title: "what the processor cuts at", wide: true },

@@ -57,16 +57,21 @@ test("a list of alternatives reads as words", () => {
   expect(typeText({ type: "array", items: { oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }] } })).toBe("list of A or B");
 });
 
-test("the contract gives one table per file, marking the columns the tool reads", () => {
+test("the contract gives one table per file, marking the columns the tool reads, and the review file's vocabulary", () => {
   const contract = {
     transformed: { files: [{ path: "runs.csv", optional: false, columns: [{ name: "run", type: "int64", required: true }, { name: "notes", type: "string", required: false }] }] },
-    processed: { kinds: ["track", "arena"], files: [{ path: "manifest.json", optional: false, keys: ["run.timestamp"] }] },
-    review: { path: "review/<session_id>.json", keys: ["session_id"], block_keys: ["block_id"], statuses: ["auto"], edits: { move: ["frame", "edge", "at"] } },
-    window_settings: { window_s: 40 },
+    processed: {
+      files: [
+        { path: "windows.json", optional: true, keys: ["settings", "totals"] },
+        { path: "review/<session_id>.json", optional: true, keys: ["session_id"], block_keys: ["block_id"], statuses: ["auto"], edits: { move: ["frame", "edge", "at"] } },
+      ],
+    },
+    settings: { window_s: 40 },
   } as unknown as FormatContract;
-  const [transformed, processed, review] = formatGroups(contract);
+  const [transformed, processed, review, settings] = formatGroups(contract);
   expect(transformed.tables[0].rows).toEqual([["run", "int64", "read by the tool"], ["notes", "string", ""]]);
-  expect(processed.title).toBe("Processed folder, kinds track and arena");
-  expect(processed.tables[0].rows).toEqual([["run.timestamp"]]);
-  expect(review.tables[3].rows).toEqual([["move", "frame, edge, at"]]);
+  expect(processed.tables.map((table) => table.title)).toEqual(["windows.json (optional)", "review/<session_id>.json (optional)"]);
+  expect(processed.tables[0].rows).toEqual([["settings"], ["totals"]]);
+  expect(review.tables[2].rows).toEqual([["move", "frame, edge, at"]]);
+  expect(settings.tables[0].rows).toEqual([["window_s", "40"]]);
 });

@@ -2,16 +2,17 @@ import Alpine from "alpinejs";
 import { errorText, getSession, listSessions } from "../api/client";
 import type { SessionHeader, SessionRow } from "../api/types";
 import { Workspace } from "../session/workspace";
-import { sourcesStore } from "../state/sources";
+import { healthStore } from "../state/health";
 import { card, pageGrid } from "../ui/card";
 import { factsList } from "../ui/facts";
 import { folderGate } from "../ui/gate";
 import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH } from "../ui/style";
 import { clickHeader, sortableTable, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
+import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
 import type { Page } from "./page";
-import { COLUMNS, filterRows, reviewText, sessionFacts, totalsLine } from "./sessions-rows";
+import { blockText, COLUMNS, filterRows, reviewText, rowTitle, sessionFacts, totalsLine } from "./sessions-rows";
 
 const REPLAY_HASH = "#/replay";
 const SECONDS_PER_MINUTE = 60;
@@ -50,20 +51,19 @@ const details = `
           </tbody>
         </table>
         ${factsList("facts(row)")}
+        <ul x-show="header && header.warnings.length" class="list-disc space-y-0.5 pl-5 text-warn">
+          <template x-for="warning in (header ? header.warnings : [])"><li x-text="warning"></li></template>
+        </ul>
         <p x-show="detailsError" x-text="detailsError" class="text-bad"></p>
       </div>
       <div class="flex flex-col gap-3">
         <div>
-          <h3 class="mb-1 font-medium">Automatic blocks</h3>
-          <p x-show="!header" class="text-muted">Loading</p>
-          <p x-show="header && !header.blocks.length" class="text-muted">The processor builds none from this session.</p>
+          <h3 class="mb-1 font-medium">Blocks</h3>
+          <p x-show="!header && !detailsError" class="text-muted">Loading</p>
+          <p x-show="header" class="text-muted" x-text="blocksNote()"></p>
           <ul class="space-y-0.5">
             <template x-for="block in (header ? header.blocks : [])" :key="block.block_id">
-              <li class="tabular-nums">
-                <span x-text="block.block_id.replace(row.session_id + '_', '')"></span>,
-                frames <span x-text="block.frame_start + ' to ' + block.frame_end"></span>,
-                <span x-text="block.duration_s.toFixed(0)"></span> s
-              </li>
+              <li class="tabular-nums" x-text="blockText(block, row.rate_hz)"></li>
             </template>
           </ul>
         </div>
@@ -88,7 +88,7 @@ const sessionsTable = `
     <p x-show="loading" class="text-sm text-muted">Loading the sessions</p>
     <p x-show="!loading && !error && !rows.length" class="text-sm text-muted">The transformed lab data has no session with an arena or track epoch.</p>
     <template x-if="rows.length">
-      ${sortableTable({ rowKey: "row.session_id", rowTitle: "row.session_id", rowClass: "row.in_dataset ? '' : 'text-muted'", details })}
+      ${sortableTable({ rowKey: "row.session_id", rowTitle: "titleOf(row)", rowClass: "row.in_dataset ? '' : 'text-muted'", details })}
     </template>
   </div>`;
 
@@ -150,6 +150,14 @@ function registerSessions(): void {
       return sessionFacts(row, this.header);
     },
     reviewOf: reviewText,
+    titleOf: rowTitle,
+    blockText,
+    /** What the blocks listed are: those of the saved review when there is one, else the ones the rules cut. */
+    blocksNote() {
+      const { header } = this;
+      if (!header) return "";
+      return `${counted(header.n_initial_blocks, "block")} cut by the rules, ${header.review ? "the list is the saved review's" : "not reviewed yet"}`;
+    },
     /** Open the session in the replay, asking first when the session open there has edits that are not saved. */
     openInReplay(row: SessionRow, drop = false) {
       const unsaved = Workspace.unsavedWhenOpening(row.session_id);
@@ -158,7 +166,7 @@ function registerSessions(): void {
         return;
       }
       this.confirming = "";
-      sourcesStore().openSession(row.session_id);
+      healthStore().openSession(row.session_id);
       toast.success(`Opened ${row.session_id} in the replay`);
       location.hash = REPLAY_HASH;
     },
@@ -168,6 +176,6 @@ function registerSessions(): void {
 export const sessionsPage: Page = {
   id: "sessions",
   title: "Sessions",
-  html: pageGrid(card("Sessions", folderGate(`<div x-data="sessionsPage" class="h-full">${sessionsTable}</div>`, "transformed", "processed"))),
+  html: pageGrid(card("Sessions", folderGate(`<div x-data="sessionsPage" class="h-full">${sessionsTable}</div>`, "transformed", "processed", "environments"))),
   register: registerSessions,
 };

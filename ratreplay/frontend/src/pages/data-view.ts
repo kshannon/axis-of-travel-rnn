@@ -1,26 +1,33 @@
-import type { Counts, Kind, Source, Sources } from "../api/types";
+import type { Counts, Folder, Health, Kind, Rebuilt, WindowSettings } from "../api/types";
+import { percent } from "../ui/format";
+import { counted } from "../ui/text";
 
-/** The path the data takes, left to right, and the step this tool is. */
-export const FLOW = ["transformed lab data", "reviewed here", "built by the processor into processed data", "made into training datasets", "stored"];
-export const HERE = "reviewed here";
+/** The steps the work takes, left to right, and the one this page is. */
+export const FLOW = ["Data", "Sessions and Replay", "Blocks and Windows", "Synthetic (later)"];
+export const HERE = "Data";
 
 const NOT_SET = "not set";
-const NOT_BUILT = "Not built yet. Run pixi run process-lab-data to build it, the reviews saved here go in its review folder.";
+const NOT_CREATED = "Does not exist yet, the first save in Replay creates it.";
+const NOTHING_SAVED = "Nothing saved yet, saving blocks in Replay writes here.";
+const ENVIRONMENTS_NOTE = "The repository's configs/environments, the config file does not name it.";
 
-const FOLDERS: Record<Kind, { direction: string; key: string; run: string }> = {
-  transformed: { direction: "incoming", key: "TRANSFORMED_LAB_DATA", run: "converter run" },
-  processed: { direction: "outbound", key: "PROCESSED_LAB_DATA", run: "processor run" },
+const FOLDERS: Record<Kind, { direction: string; key: string }> = {
+  transformed: { direction: "incoming", key: "TRANSFORMED_LAB_DATA" },
+  processed: { direction: "outbound", key: "PROCESSED_LAB_DATA" },
+  environments: { direction: "geometry", key: "" },
 };
 
-const COUNT_LABELS: readonly [keyof Counts, string][] = [
-  ["sessions", "sessions"], ["epochs", "epochs"], ["runs", "runs"], ["frames", "frames files"], ["blocks", "blocks"], ["reviews", "reviews"],
-];
+const COUNT_LABELS: Record<Kind, readonly [keyof Counts, string][]> = {
+  transformed: [["sessions", "sessions"], ["epochs", "epochs"], ["runs", "runs"], ["frames", "frames files"]],
+  processed: [["reviews", "reviews"], ["blocks", "blocks"], ["sessions", "built sessions"]],
+  environments: [["environments", "environments"]],
+};
 
 export interface FolderView {
   direction: string;
   key: string;
-  path: string;
-  status: Source["status"];
+  root: string;
+  status: "ok" | "problem";
   problems: string[];
   note: string;
   counts: { label: string; value: number }[];
@@ -28,22 +35,54 @@ export interface FolderView {
 }
 
 /** The counts the folder has, in reading order. */
-export function countEntries(counts: Counts): { label: string; value: number }[] {
-  return COUNT_LABELS.filter(([key]) => counts[key] !== undefined).map(([key, label]) => ({ label, value: counts[key]! }));
+export function countEntries(kind: Kind, counts: Counts): { label: string; value: number }[] {
+  return COUNT_LABELS[kind].filter(([key]) => counts[key] !== undefined).map(([key, label]) => ({ label, value: counts[key]! }));
 }
 
-/** What a folder card shows: where the folder comes from, its state, what it holds and when its manifest says it was made. */
-export function folderView(kind: Kind, source: Source): FolderView {
-  const { direction, key, run } = FOLDERS[kind];
-  const { manifest } = source;
+/** The note under a folder's path: what its absence or emptiness means, since the processed folder is created by the first save. */
+function noteOf(kind: Kind, folder: Folder): string {
+  if (kind === "environments") return ENVIRONMENTS_NOTE;
+  if (kind !== "processed" || folder.problems.length) return "";
+  if (!folder.exists) return NOT_CREATED;
+  return folder.manifest ? "" : NOTHING_SAVED;
+}
+
+/** What a folder card shows: where the folder comes from, its state, what it holds and the times it reports. */
+export function folderView(kind: Kind, folder: Folder): FolderView {
+  const { direction, key } = FOLDERS[kind];
+  const { manifest } = folder;
+  const times: FolderView["times"] = [];
+  if (manifest?.timestamp) times.push({ label: "converter run", stamp: manifest.timestamp });
+  if (manifest) times.push({ label: "folder last changed", stamp: manifest.modified });
   return {
-    direction, key, path: source.path ?? NOT_SET, status: source.status, problems: source.problems,
-    note: source.status === "ok" && !manifest ? NOT_BUILT : "",
-    counts: countEntries(source.counts),
-    times: manifest ? [{ label: run, stamp: manifest.timestamp }, { label: "folder last changed", stamp: manifest.modified }] : [],
+    direction, key, root: folder.root ?? NOT_SET, status: folder.problems.length ? "problem" : "ok", problems: folder.problems,
+    note: noteOf(kind, folder), counts: countEntries(kind, folder.counts), times,
   };
 }
 
-export function foldersView(sources: Sources): Record<Kind, FolderView> {
-  return { transformed: folderView("transformed", sources.transformed), processed: folderView("processed", sources.processed) };
+export function foldersView(health: Health): Record<Kind, FolderView> {
+  return {
+    transformed: folderView("transformed", health.transformed),
+    processed: folderView("processed", health.processed),
+    environments: folderView("environments", health.environments),
+  };
+}
+
+function settingsText(s: WindowSettings): string {
+  return `a ${s.window_s} s window every ${s.stride_s} s, burn-in ${s.burn_in_s} s, horizon ${s.horizon_s} s, ${s.rate_hz} Hz, ` +
+    `measured heading at least ${percent(s.min_heading_measured)}, at least ${counted(s.min_complete_trips, "complete trip")}`;
+}
+
+/** What the confirmation says before every reviewed session is built again: how many, at which settings, into which folder. */
+export function rebuildPrompt(reviews: number, settings: WindowSettings, root: string): string {
+  return `Build the blocks of ${counted(reviews, "reviewed session")} again at ${settingsText(settings)}? ` +
+    `Their built blocks and metadata in ${root} are replaced, the reviews are not changed.`;
+}
+
+/** What the toast says of a rebuild: the totals, and the first error when a build stopped. */
+export function rebuildSummary(result: Rebuilt): string {
+  const { sessions, built, failed, errors } = result.totals;
+  const stopped = Object.entries(result.sessions).find(([, build]) => build.build_error);
+  const first = stopped ? `. ${stopped[0]}: ${stopped[1].build_error}` : "";
+  return `Rebuilt ${counted(sessions, "session")}, ${counted(built, "block")} built, ${failed} failed, ${counted(errors, "error")}${first}`;
 }

@@ -7,11 +7,12 @@ const header = {
   rate_hz: 60, n_frames: 36_000,
   epochs: [{ epoch: "track", environment: "triple_t", condition: "baseline", frame_start: 1, frame_end: 36_000, duration_s: 600 }],
   runs: [{ run: 1, epoch: "track", path_id: 1, clean: true, frame_start: 6001, frame_end: 6600 }, { run: 2, epoch: "track", path_id: 9, clean: false, frame_start: 7001, frame_end: 7100 }],
-  cuts: { pauses: [2701], jumps: [3000], gaps: [[10, 20]], margins: [[21, 30]] }, heading_lost: [[1, 60]], heading_filled: [[100, 129]], heading_held: [],
+  cut_points: [{ frame: 2701, reason: "pause" }, { frame: 3000, reason: "jump" }, { frame: 10, frame_end: 20, reason: "gap" }], margins: [[21, 30]],
+  heading_spans: { lost: [[1, 60]], filled: [[100, 129]], held: [] },
 } as unknown as SessionHeader;
 
 const block = (frame_start: number, frame_end: number, status: ReviewBlock["status"]): ReviewBlock =>
-  ({ block_id: `S_${frame_start}`, epoch: "track", environment: "triple_t", frame_start, frame_end, status, note: "" });
+  ({ block_id: `S_${frame_start}`, epoch: "track", environment: "triple_t", frame_start, frame_end, status, note: null });
 
 const speed = new Float64Array(10);
 const scene = (blocks: ReviewBlock[], flagged: number[] = [], layers = allLayers()) => sessionScene(header, blocks, flagged, layers, speed, 1);

@@ -1,6 +1,7 @@
-import type { BlockHeader, BlockWindow } from "../api/types";
+import type { BlockWindow } from "../api/types";
 import { THIN_PATH } from "../draw/map";
 import type { Stretch } from "../draw/map";
+import type { BlockView } from "../session/block";
 import { percent } from "../ui/format";
 import { CHIP_BAD, CHIP_MUTED, CHIP_OK } from "../ui/style";
 
@@ -37,7 +38,7 @@ const check = (label: string, value: string, note: string, ok: boolean | null): 
  * inside the window and its horizon (counted only, the minimum applies to the whole block), and the burn-in within the
  * window and the horizon within the block.
  */
-export function windowChecks(window: BlockWindow, header: BlockHeader): Check[] {
+export function windowChecks(window: BlockWindow, header: BlockView): Check[] {
   const { settings } = header;
   return [
     check("position finite", percent(window.position_finite, 1), "of the frames, all of them are needed", window.position_finite === 1),
@@ -62,7 +63,7 @@ export function windowsOk(windows: BlockWindow[]): number {
 }
 
 /** The map's lines for a window: the whole path thin, then the burn-in lighter, the rest of the window and the horizon after it. */
-export function windowStretches(header: BlockHeader, window: BlockWindow): Stretch[] {
+export function windowStretches(header: BlockView, window: BlockWindow): Stretch[] {
   const line = { width: WINDOW_STROKE_PX };
   return [
     { first: 1, last: header.n_frames, ...THIN_PATH },

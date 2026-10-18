@@ -1,13 +1,15 @@
 import { decodeColumns } from "./arrow";
 import type {
-  BlockArrays, BlockHeader, BlockIndex, Edit, FormatContract, OpenApiDocument, Review, ReviewBody, ReviewPreview,
-  SavedReview, SessionArrays, SessionHeader, SessionRow, SettingsAnswer, Sources, WindowSettings,
+  BlockArrays, BlockHeader, BlockWindows, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
+  SaveBody, SavedBlocks, Selected, SelectedResult, SessionArrays, SessionHeader, SessionRow, WindowSettings,
 } from "./types";
 
-const SOURCES = "/api/sources";
+const HEALTH = "/api/health";
 const SESSIONS = "/api/sessions";
+const REBUILD = "/api/rebuild";
 const BLOCKS = "/api/blocks";
-const WINDOW_SETTINGS = "/api/windows/settings";
+const WINDOWS = "/api/windows";
+const REAL = "real";
 const UNREACHABLE = "Cannot reach the API, is it running?";
 
 /** A request the API refused, or could not be made (status 0): the status and the text of its {"error"} body. */
@@ -45,30 +47,33 @@ async function columns<T>(url: string): Promise<T> {
   return decodeColumns(await (await request("GET", url)).arrayBuffer()) as unknown as T;
 }
 
-function withSettings(url: string, settings: Partial<WindowSettings>): string {
+/** The url with the settings as query parameters, which is where a GET carries them. */
+function withSettings(url: string, settings: Partial<WindowSettings> & { which?: string }): string {
   const query = new URLSearchParams(Object.entries(settings).map(([name, value]) => [name, String(value)]));
   return query.size ? `${url}?${query}` : url;
 }
 
-export const getSources = (reload = false) => json<Sources>("GET", reload ? `${SOURCES}?reload=true` : SOURCES);
+// The Data page: the folders, and rebuilding every reviewed session.
+export const getHealth = (reload = false) => json<Health>("GET", reload ? `${HEALTH}?reload=true` : HEALTH);
+export const rebuildAll = (settings: WindowSettings) => json<Rebuilt>("POST", REBUILD, { settings });
 
+// The Sessions and Replay pages.
 export const listSessions = () => json<SessionRow[]>("GET", SESSIONS);
-export const getSession = (sessionId: string) => json<SessionHeader>("GET", `${SESSIONS}/${sessionId}`);
+export const getSession = (sessionId: string, settings: Partial<WindowSettings> = {}) =>
+  json<SessionHeader>("GET", withSettings(`${SESSIONS}/${sessionId}`, settings));
 export const getSessionArrays = (sessionId: string) => columns<SessionArrays>(`${SESSIONS}/${sessionId}/arrays`);
+export const previewEdits = (sessionId: string, body: PreviewBody) => json<Preview>("POST", `${SESSIONS}/${sessionId}/preview`, body);
+export const saveBlocks = (sessionId: string, body: SaveBody) => json<SavedBlocks>("PUT", `${SESSIONS}/${sessionId}/blocks`, body);
 
-export const getReview = (sessionId: string) => json<Review | null>("GET", `${SESSIONS}/${sessionId}/review`);
-export const putReview = (sessionId: string, body: ReviewBody) => json<SavedReview>("PUT", `${SESSIONS}/${sessionId}/review`, body);
-export const previewReview = (sessionId: string, edits: Edit[]) =>
-  json<ReviewPreview>("POST", `${SESSIONS}/${sessionId}/review/preview`, { edits });
-
-export const listBlocks = (settings: Partial<WindowSettings> = {}) => json<BlockIndex>("GET", withSettings(BLOCKS, settings));
-export const getBlock = (blockId: string, settings: Partial<WindowSettings> = {}) =>
-  json<BlockHeader>("GET", withSettings(`${BLOCKS}/${blockId}`, settings));
+// The Blocks and Windows pages.
+export const listBlocks = (settings: Partial<WindowSettings> = {}, which = REAL) =>
+  json<Readiness>("GET", withSettings(BLOCKS, { which, ...settings }));
+export const getBlock = (blockId: string) => json<BlockHeader>("GET", `${BLOCKS}/${blockId}`);
 export const getBlockArrays = (blockId: string) => columns<BlockArrays>(`${BLOCKS}/${blockId}/arrays`);
-
-export const getWindowSettings = () => json<SettingsAnswer>("GET", WINDOW_SETTINGS);
-export const putWindowSettings = (settings: WindowSettings) =>
-  json<SettingsAnswer & { overwrote: boolean }>("PUT", WINDOW_SETTINGS, { settings });
+export const getBlockWindows = (blockId: string, settings: Partial<WindowSettings> = {}) =>
+  json<BlockWindows>("GET", withSettings(`${BLOCKS}/${blockId}/windows`, settings));
+export const getSelected = () => json<Selected>("GET", WINDOWS);
+export const selectSettings = (settings: WindowSettings) => json<SelectedResult>("PUT", WINDOWS, { settings });
 
 export const getFormat = () => json<FormatContract>("GET", "/api/format");
 export const getOpenApi = () => json<OpenApiDocument>("GET", "/api/openapi.json");

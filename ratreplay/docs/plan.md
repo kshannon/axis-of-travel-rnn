@@ -185,3 +185,17 @@ client.
   goes in R2. For Kyle and F3: the old frontend sends `train_rate_hz`, the API now refuses unknown keys
   with 422, so until F3 the Blocks page cannot set settings (it was already broken by M2's route change).
   For R1: backend/README.md and ratreplay/README.md still describe DataSources, stores and /api/sources.
+- F1: the client takes the default settings from GET /api/format (the engine's SETTINGS), never a
+  TypeScript constant. The gate looks at `problems`, not `exists`, since the first save creates the
+  processed folder. The faithful types broke the Replay, Blocks and Windows code, so F1 made mechanical
+  bridge edits there that F2 and F3 redo. For F2: delete session/windows.ts (the last window math in
+  TypeScript) and show the manager's window count and verdict on the cards, the save toast names the
+  review file (the backend adds the file name to the save_blocks result, the client never forms it),
+  warns on build_error and failed and shows per block problems, settings live in one client store and a
+  settings change refreshes the preview, the Replay gate adds environments, the header's warnings and
+  refusals are shown. For F3: replace BlockView, the block header gains `rate_hz` from the backend
+  (ValidationManager.block), show `windows` and `windows_ok`, the per session built settings, the
+  verdict's reasons list, real or set, the row's own `ok` and `reason` instead of client comparisons
+  (windowChecks goes), the Blocks and Windows gates add environments, the file name of windows.json comes
+  from the API, and Rebuild all sends the selected settings when windows.json exists, else the defaults
+  (today it sends the defaults, which rewrites every session's informative metadata settings).

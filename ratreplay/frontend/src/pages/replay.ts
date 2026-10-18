@@ -14,7 +14,7 @@ import { editFor, label, reselected } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { Workspace } from "../session/workspace";
-import { sourcesStore } from "../state/sources";
+import { healthStore } from "../state/health";
 import { card } from "../ui/card";
 import type { Command } from "../ui/keys";
 import { BUTTON_PRIMARY } from "../ui/style";
@@ -26,7 +26,7 @@ import { blockCards, factsLine, liveTiles, marksLine, stateLine, summaryTiles } 
 import type { BlockCard, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Sessions page.";
-const PROBLEM = "$store.sources.problem('transformed', 'processed')";
+const PROBLEM = "$store.health.problem('transformed', 'processed')";
 
 // The chips of the timeline keep their state when the person visits another page and comes back.
 const layers = allLayers();
@@ -101,7 +101,7 @@ function registerReplay(): void {
           timeline.refresh();
           map.refresh();
         });
-        await this.load(sourcesStore().sessionId);
+        await this.load(healthStore().sessionId);
       },
 
       destroy() {
@@ -173,7 +173,7 @@ function registerReplay(): void {
         const { preview, editor, header } = ws;
         this.blocks = blockCards(preview.blocks, header, selected, ws.settings);
         this.summary = summaryTiles(preview, header, ws.settings);
-        this.stateLine = stateLine(ws.saved, editor.edits.length, editor.dirty, preview.skipped.length);
+        this.stateLine = stateLine(ws.saved, editor.edits.length, editor.dirty, preview.refusals.length);
         this.editCount = editor.edits.length;
         this.marksLine = marksLine(editor.markIn, editor.markOut, header.rate_hz);
         this.hasRange = editor.range !== null;
@@ -294,7 +294,9 @@ function registerReplay(): void {
         this.busy = true;
         try {
           const saved = await ws.save(this.notes);
-          toast.success(`Saved, ${saved.overwrote ? "replacing the earlier review" : "a new file"}`, saved.path);
+          const saveText = `Saved, ${saved.replaced ? "replacing the earlier review" : "a new file"}`;
+          if (saved.build_error || saved.failed.length) toast.warning(`${saveText}, but the build had trouble: ${saved.build_error ?? saved.failed.map((f) => f.block_id).join(", ")}`);
+          else toast.success(saveText);
           this.sync();
           await this.openNext();
         } catch (error) {
@@ -305,12 +307,12 @@ function registerReplay(): void {
       },
       async openNext() {
         const rows = await listSessions();
-        const next = rows.find((row) => !row.reviewed && row.n_automatic !== null && row.session_id !== ws.header.session_id);
+        const next = rows.find((row) => !row.reviewed && row.in_dataset && row.session_id !== ws.header.session_id);
         if (!next) {
           toast.success("Every session with frames has a review now.");
           return;
         }
-        sourcesStore().openSession(next.session_id);
+        healthStore().openSession(next.session_id);
         await this.load(next.session_id);
         toast.success(`Opened the next session to review, ${next.session_id}`);
       },
@@ -329,10 +331,10 @@ export const replayPage: Page = {
   title: "Replay",
   html: `
     <div class="h-full">
-      <template x-if="${PROBLEM} || !$store.sources.sessionId">
+      <template x-if="${PROBLEM} || !$store.health.sessionId">
         <div class="grid h-full grid-cols-12 grid-rows-6 gap-4">${card("Replay", noSession)}</div>
       </template>
-      <template x-if="!${PROBLEM} && $store.sources.sessionId">${replayGrid}</template>
+      <template x-if="!${PROBLEM} && $store.health.sessionId">${replayGrid}</template>
     </div>`,
   register: registerReplay,
 };

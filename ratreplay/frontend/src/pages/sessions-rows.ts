@@ -1,4 +1,5 @@
-import type { SessionHeader, SessionRow } from "../api/types";
+import type { MadeBlock, SessionHeader, SessionRow } from "../api/types";
+import { cutsOf } from "../session/cuts";
 import type { Fact } from "../ui/facts";
 import { degrees } from "../ui/format";
 import type { Column } from "../ui/table";
@@ -9,7 +10,6 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
 const NOTES_EXCERPT = 60;
 const LISTED = 6;
-const NOT_AVAILABLE = "n/a";
 
 /** Minutes of the arena, track and variant epochs, which is what the index lists of a session. */
 export function minutesOf(row: SessionRow): number {
@@ -25,8 +25,8 @@ export const COLUMNS: readonly Column<SessionRow>[] = [
   { key: "dataset", label: "In dataset", value: (r) => Number(r.in_dataset), text: (r) => (r.in_dataset ? "yes" : "no") },
   { key: "minutes", label: "Minutes", value: minutesOf, text: (r) => minutesOf(r).toFixed(1), numeric: true },
   { key: "runs", label: "Runs", value: (r) => r.n_runs, text: (r) => String(r.n_runs), numeric: true },
-  { key: "automatic", label: "Automatic blocks", value: (r) => r.n_automatic, text: (r) => String(r.n_automatic ?? NOT_AVAILABLE), numeric: true },
   { key: "confirmed", label: "Confirmed blocks", value: (r) => r.n_confirmed, text: (r) => String(r.n_confirmed), numeric: true },
+  { key: "built", label: "Built blocks", value: (r) => r.built, text: (r) => String(r.built), numeric: true },
   { key: "by", label: "Reviewed by", value: (r) => r.reviewed_by, text: (r) => r.reviewed_by ?? "" },
   { key: "at", label: "Reviewed", value: (r) => r.reviewed_at, text: (r) => stampWithSince(r.reviewed_at) },
   { key: "notes", label: "Notes", value: (r) => r.notes || null, text: (r) => excerpt(r.notes) },
@@ -46,23 +46,35 @@ function numbered(items: string[], where: string): string {
   return items.length ? `${items.length}, ${where} ${briefList(items)}` : "none";
 }
 
+/** The hover title of a row: the session, and why the rules leave it out when they do. */
+export function rowTitle(row: SessionRow): string {
+  return row.in_dataset ? row.session_id : `${row.session_id}, not in the dataset: ${row.reason}`;
+}
+
 /** The facts of the details panel: those the index row has, then those the session header adds once it arrives. */
 export function sessionFacts(row: SessionRow, header: SessionHeader | null): Fact[] {
   const facts = [
+    { label: "in dataset", value: row.in_dataset ? "yes" : `no, ${row.reason}` },
     { label: "group", value: row.group },
     { label: "frame rate", value: `${row.rate_hz} Hz` },
     { label: "runs", value: `${row.n_runs}, ${row.n_clean_runs} clean` },
   ];
   if (!header) return facts;
-  const { pauses, jumps, gaps } = header.cuts;
+  const { pauses, jumps, gaps } = cutsOf(header);
   return [
     ...facts,
     { label: "frames", value: String(header.n_frames) },
     { label: "pauses", value: numbered(pauses.map(String), "at frames") },
     { label: "gaps", value: numbered(gaps.map(([first, last]) => `${first} to ${last}`), "frames") },
     { label: "jumps", value: numbered(jumps.map(String), "at frames") },
-    { label: "LED offset", value: `${degrees(header.led_offset.rad)}, concentration ${header.led_offset.r.toFixed(2)}` },
+    { label: "LED offset", value: `${degrees(header.frame.led_offset_rad)}, concentration ${header.frame.led_offset_r.toFixed(2)}` },
   ];
+}
+
+/** A block of the session header in one line: its name, frames, seconds and status. */
+export function blockText(block: MadeBlock, rateHz: number): string {
+  const seconds = (block.frame_end - block.frame_start + 1) / rateHz;
+  return `${block.epoch} ${block.block_id.slice(-2)}, frames ${block.frame_start} to ${block.frame_end}, ${seconds.toFixed(0)} s, ${block.status}`;
 }
 
 /** The reviews in all: the sessions reviewed, the blocks confirmed and the hours confirmed per epoch kind. */

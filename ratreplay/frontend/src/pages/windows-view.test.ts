@@ -1,13 +1,14 @@
 import { expect, test } from "vitest";
-import type { BlockHeader, BlockWindow, WindowSettings } from "../api/types";
+import type { BlockWindow, WindowSettings } from "../api/types";
+import type { BlockView } from "../session/block";
 import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches } from "./windows-view";
 
 const SETTINGS: WindowSettings = {
-  window_s: 5, stride_s: 10, burn_in_s: 1, horizon_s: 0.5, train_rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1,
+  window_s: 5, stride_s: 10, burn_in_s: 1, horizon_s: 0.5, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1,
 };
-const header = { rate_hz: 60, n_frames: 1200, settings: SETTINGS } as unknown as BlockHeader;
+const header = { rate_hz: 60, n_frames: 1200, settings: SETTINGS } as unknown as BlockView;
 const window = (extra: Partial<BlockWindow> = {}): BlockWindow => ({
-  index: 0, first: 600, burn_in_stop: 660, window_stop: 900, stop: 930, position_finite: 1, heading_measured: 0.9, trips_complete: 1, trips_partial: 1, ok: true, ...extra,
+  index: 0, first: 600, burn_in_stop: 660, window_stop: 900, stop: 930, position_finite: 1, heading_measured: 0.9, trips_complete: 1, trips_partial: 1, ok: true, start_s: 10, stop_s: 15.5, reason: null, ...extra,
 });
 
 test("a step moves one window and stops at the first and the last", () => {

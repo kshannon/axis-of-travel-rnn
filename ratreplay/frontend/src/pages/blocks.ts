@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
-import { errorText, getWindowSettings, listBlocks, putWindowSettings } from "../api/client";
-import type { BlockRow, WindowSettings } from "../api/types";
+import { errorText, getFormat, getSelected, listBlocks, selectSettings } from "../api/client";
+import type { ReadinessBlock, WindowSettings } from "../api/types";
 import { blockScene } from "../draw/block-scene";
 import { EnvironmentBackdrop, extentOf } from "../draw/environment";
 import { timeLabel } from "../draw/lanes";
@@ -20,7 +20,8 @@ import { blockFacts, blockLine, COLUMNS, liveTiles, NO_LINE, SETTING_FIELDS, tes
 import type { TotalsGroup } from "./blocks-view";
 import type { Page } from "./page";
 
-// The settings the verdicts were last tested at, kept while the person visits other pages.
+// The file the selected settings are written to, and the settings the verdicts were last tested at, kept while the person visits other pages.
+const SETTINGS_FILE = "windows.json";
 let testedSettings: WindowSettings | null = null;
 
 function registerBlocks(): void {
@@ -44,7 +45,7 @@ function registerBlocks(): void {
       settingsPath: "",
       verdictsAt: "",
       totals: [] as TotalsGroup[],
-      rows: [] as BlockRow[],
+      rows: [] as ReadinessBlock[],
       columns: COLUMNS,
       sort: null as Sort | null,
       openId: "",
@@ -94,9 +95,9 @@ function registerBlocks(): void {
       /** The index at the settings tested last, the project's settings the first time, and the block that was open when the person left. */
       async start() {
         try {
-          const answer = await getWindowSettings();
-          this.settingsPath = answer.path;
-          this.draft = { ...(testedSettings ?? answer.settings) };
+          const { selected } = await getSelected();
+          this.settingsPath = SETTINGS_FILE;
+          this.draft = { ...(testedSettings ?? selected?.settings ?? (await getFormat()).settings) };
           await this.fetchIndex();
           const open = BlockPlayer.holding();
           if (open) {
@@ -130,7 +131,7 @@ function registerBlocks(): void {
         this.busy = true;
         try {
           await this.retest();
-          const ok = this.rows.filter((row) => row.ok).length;
+          const ok = this.rows.filter((row) => row.verdict.ok).length;
           toast.success(`Tested ${counted(this.rows.length, "block")}, ${ok} ok and ${this.rows.length - ok} in trouble`);
         } catch (error) {
           toast.error(errorText(error));
@@ -143,9 +144,9 @@ function registerBlocks(): void {
       async saveSettings() {
         this.busy = true;
         try {
-          const saved = await putWindowSettings({ ...this.draft });
+          const saved = await selectSettings({ ...this.draft });
           await this.retest();
-          toast.success(`Saved, ${saved.overwrote ? "replacing the earlier file" : "a new file"}`, saved.path);
+          toast.success(`Saved, ${saved.replaced ? "replacing the earlier file" : "a new file"}`, saved.file);
         } catch (error) {
           toast.error(errorText(error));
         } finally {
@@ -159,7 +160,7 @@ function registerBlocks(): void {
       arrow(key: string) {
         return sortArrow(this.sort, key);
       },
-      toggle(row: BlockRow) {
+      toggle(row: ReadinessBlock) {
         this.openId = this.openId === row.block_id ? "" : row.block_id;
       },
       facts: blockFacts,
@@ -182,7 +183,7 @@ function registerBlocks(): void {
         this.show();
       },
 
-      async open(row: BlockRow) {
+      async open(row: ReadinessBlock) {
         this.opening = true;
         try {
           await this.load(row.block_id);

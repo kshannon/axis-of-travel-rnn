@@ -1,12 +1,12 @@
-import { getReview, getSession, getSessionArrays, getWindowSettings, previewReview, putReview } from "../api/client";
-import type { Edit, Review, ReviewPreview, SavedReview, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
+import { getFormat, getSession, getSessionArrays, previewEdits, saveBlocks } from "../api/client";
+import type { Edit, Preview, Review, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Clock } from "./clock";
 import { Editor } from "./editor";
 import { speedTop } from "./speed";
 
 const NO_CHANGE = "That changes nothing.";
 
-const sameResult = (a: ReviewPreview, b: ReviewPreview) =>
+const sameResult = (a: Preview, b: Preview) =>
   JSON.stringify([a.blocks, a.flagged_runs, a.cuts]) === JSON.stringify([b.blocks, b.flagged_runs, b.cuts]);
 
 export interface Loaded {
@@ -14,7 +14,7 @@ export interface Loaded {
   arrays: SessionArrays;
   settings: WindowSettings;
   saved: Review | null;
-  preview: ReviewPreview;
+  preview: Preview;
 }
 
 /**
@@ -32,7 +32,7 @@ export class Workspace {
   readonly editor: Editor;
   readonly speedTop: number;
   saved: Review | null;
-  preview: ReviewPreview;
+  preview: Preview;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(loaded: Loaded) {
@@ -50,14 +50,13 @@ export class Workspace {
   static async open(sessionId: string): Promise<Workspace> {
     const kept = Workspace.current;
     if (kept?.holds(sessionId)) {
-      kept.settings = (await getWindowSettings()).settings; // the Blocks page may have saved new ones
+      kept.settings = (await getFormat()).settings; // F2 takes the settings from the settings state
       return kept;
     }
-    const [header, arrays, saved, { settings }] = await Promise.all([
-      getSession(sessionId), getSessionArrays(sessionId), getReview(sessionId), getWindowSettings(),
-    ]);
-    const preview = await previewReview(sessionId, saved?.edits ?? []);
-    return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview }));
+    const { settings } = await getFormat();
+    const [header, arrays] = await Promise.all([getSession(sessionId, settings), getSessionArrays(sessionId)]);
+    const { review: saved, blocks, refusals, cuts, flagged_runs } = header;
+    return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview: { blocks, refusals, cuts, flagged_runs } }));
   }
 
   /** The open session when opening this one would throw away its unsaved edits, none when they are saved or it is the one asked for. */
@@ -77,8 +76,8 @@ export class Workspace {
     return next;
   }
 
-  private previewOf(edits: Edit[]): Promise<ReviewPreview> {
-    return previewReview(this.header.session_id, edits);
+  private previewOf(edits: Edit[]): Promise<Preview> {
+    return previewEdits(this.header.session_id, { edits, settings: this.settings });
   }
 
   /** Add the edit made when the server applies it and it changes something. Gives back the edit added, or the reason it was not. */
@@ -87,7 +86,7 @@ export class Workspace {
       const edit = make();
       if (typeof edit === "string") return edit;
       const next = await this.previewOf([...this.editor.edits, edit]);
-      if (next.skipped.length > this.preview.skipped.length) return next.skipped[next.skipped.length - 1].reason;
+      if (next.refusals.length > this.preview.refusals.length) return next.refusals[next.refusals.length - 1].reason;
       if (sameResult(this.preview, next)) return NO_CHANGE;
       this.editor.push(edit);
       this.preview = next;
@@ -115,9 +114,9 @@ export class Workspace {
   }
 
   /** Write the review whole, replacing the earlier one. */
-  save(notes: string): Promise<SavedReview> {
+  save(notes: string): Promise<SavedBlocks> {
     return this.serially(async () => {
-      const saved = await putReview(this.header.session_id, { edits: this.editor.edits, notes });
+      const saved = await saveBlocks(this.header.session_id, { edits: this.editor.edits, notes, settings: this.settings });
       this.saved = saved.review;
       this.editor.markSaved();
       return saved;
