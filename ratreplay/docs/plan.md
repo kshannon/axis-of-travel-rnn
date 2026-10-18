@@ -155,3 +155,15 @@ client.
   the whole block, a window needs no trip. `settings["rate_hz"]` is unused by `windows`, it is the RNN
   project's resampling rate. Window counts use the rounded block rate, a 1e-15 s difference from the old
   code, inside the tolerance.
+- M1: ReviewManager has a sixth operation `arrays(sid)` for the Arrow stream so load does not redo the
+  window work. The index carries no initial block count (that needed every session's frames and a cache
+  the rules forbid), the Replay page shows it on load. An excluded session can be loaded and previewed,
+  only save and rebuild are refused with the funnel reason. Load re-applies a saved review's edits to
+  today's initial blocks and reports refusals and a warning when the result differs from the saved
+  blocks. The build uses today's RULES with the saved review and warns "reviewed under other rules" when
+  they differ (for Kyle: the alternative is building with the review's saved rules). code_version is
+  "trajectory {VERSION} {commit}" with the commit read once at the composition root. The manager is built
+  per request from DataSources until L builds the components once. The `train_rate_hz` to `rate_hz`
+  rename in schemas.py also reaches the old blocks and windows routes, which M2 replaces, and the old
+  frontend's training rate field is blank until F3. Timing on a 216,000 frame session: load 184 ms,
+  preview 179 ms, so no engine contract change is needed for live window counts.

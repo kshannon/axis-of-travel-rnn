@@ -1,8 +1,9 @@
 """
-The config utility answers a key's path and names the file when it cannot, the folder time is the newest file's and tables read back what they wrote.
+The config utility answers a key's path and names the file when it cannot, the folder time is the newest file's, tables read back what they wrote and the version names the commit.
 """
 
 import os
+import subprocess
 from datetime import datetime, timezone
 
 import numpy as np
@@ -10,7 +11,7 @@ import pyarrow as pa
 import pytest
 import yaml
 
-from ratreplay_api.utilities import paths, tables
+from ratreplay_api.utilities import paths, tables, version
 from ratreplay_api.utilities.config import Config
 from ratreplay_api.utilities.errors import Invalid
 
@@ -60,3 +61,18 @@ def test_tables_read_back_what_they_wrote_with_their_columns(tmp_path):
     read = tables.read_parquet(tmp_path / "sub" / "cols.parquet")
     assert tables.parquet_columns(tmp_path / "sub" / "cols.parquet") == ["name", "n", "x"]
     assert read["name"].tolist() == ["a", "b"] and read["n"].tolist() == [1, 2] and np.isnan(read["x"][1])
+
+
+def test_the_version_is_the_short_commit_dirty_when_a_tracked_file_changed_and_unknown_without_git(tmp_path):
+    def git(*arguments):
+        return subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t", *arguments], check=True, capture_output=True, text=True).stdout.strip()
+    assert version.git_commit(tmp_path) == "unknown"
+    git("init", "-q")
+    (tmp_path / "a.txt").write_text("one\n")
+    git("add", "a.txt")
+    git("commit", "-q", "-m", "one")
+    commit = git("rev-parse", "--short", "HEAD")
+    (tmp_path / "untracked.txt").write_text("x\n")
+    assert version.git_commit(tmp_path) == commit
+    (tmp_path / "a.txt").write_text("two\n")
+    assert version.git_commit(tmp_path) == f"{commit}+dirty"

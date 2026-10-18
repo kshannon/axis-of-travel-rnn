@@ -14,9 +14,10 @@ UTILITIES = ("utilities",)
 PROJECT = ("axis_of_travel_rnn", "process_lab_data", "environments", "proj_helpers")
 
 # The modules of ratreplay_api each layer may import, by prefix. The old flat engine modules may use each other, stores no
-# other store, and environment.py its private builders, the one module of access an access may import.
+# other store, and environment.py its private builders, the one module of access an access may import. The old managers
+# keep contract and stores until task L deletes them.
 ALLOWED = {
-    "managers": ("contract", "engines", "stores", *UTILITIES),
+    "managers": ("access", "contract", "engines", "stores", *UTILITIES),
     "engines": ("engines", *UTILITIES),
     "access": ("access.environment_builders", *UTILITIES),
     "stores": UTILITIES,
@@ -32,8 +33,14 @@ NEW_ENGINES = {
     "engines/generator.py": UTILITIES,
 }
 NEW_ENGINES_EXTERNAL = ("numpy", "scipy", *sys.stdlib_module_names)
+
+# The managers of the rebuild, by their files under ratreplay_api: the new engine and the accesses and utilities, no store,
+# no contract, no old flat engine, and the standard library alone outside the package. Their engines and accesses are handed
+# in at the composition root. The old managers keep the looser rule above until task L.
+NEW_MANAGERS = {"managers/review.py": ("engines.trajectory", "access", *UTILITIES)}
+NEW_MANAGERS_EXTERNAL = sys.stdlib_module_names
 ACCESS_EXTERNAL = ("numpy", "pyarrow", "yaml", *sys.stdlib_module_names)
-PATHS_USER = "data_sources.py"
+PATHS_USERS = ("data_sources.py", "app.py")
 
 
 def imports_of(path):
@@ -97,6 +104,15 @@ def test_the_new_engines_import_only_utilities_themselves_numpy_scipy_and_the_st
             assert may_import(name, NEW_ENGINES[pattern], NEW_ENGINES_EXTERNAL), f"{path.relative_to(PACKAGE)} imports {name}"
 
 
+@pytest.mark.parametrize("pattern", NEW_MANAGERS)
+def test_the_new_managers_import_only_the_new_engine_access_utilities_and_the_standard_library(pattern):
+    files = list(PACKAGE.glob(pattern))
+    assert files, f"no file matches {pattern}"
+    for path in files:
+        for name in imports_of(path) - {"ratreplay_api"}:
+            assert may_import(name, NEW_MANAGERS[pattern], NEW_MANAGERS_EXTERNAL), f"{path.relative_to(PACKAGE)} imports {name}"
+
+
 def test_access_imports_only_numpy_pyarrow_yaml_and_the_standard_library_never_a_project_package():
     for path in (PACKAGE / "access").glob("*.py"):
         for name in imports_of(path):
@@ -110,9 +126,9 @@ def test_an_access_imports_no_other_access_except_environment_its_private_builde
             assert not name.startswith("ratreplay_api.access.") or within(name, allowed), f"access/{path.name} imports {name}"
 
 
-def test_only_the_data_sources_import_the_paths_helper():
+def test_only_the_data_sources_and_the_composition_root_import_the_paths_helper():
     for path in PACKAGE.rglob("*.py"):
-        assert path.name == PATHS_USER or "proj_helpers.paths" not in imports_of(path), f"{path.name} imports proj_helpers.paths"
+        assert path.name in PATHS_USERS or "proj_helpers.paths" not in imports_of(path), f"{path.name} imports proj_helpers.paths"
 
 
 def test_utilities_import_nothing_from_the_package_outside_utilities():

@@ -46,7 +46,7 @@ anything that touches real data.
 
 ## Managers and routers
 
-- [ ] M1 `managers/review.py`, ReviewManager (index, load, preview, save_blocks, rebuild_all) and
+- [x] M1 `managers/review.py`, ReviewManager (index, load, preview, save_blocks, rebuild_all) and
       `routers/review.py`. Integration test: load, preview a refusal, save, load again gets the blocks back,
       rebuild all rebuilds two sessions, an illegal edit refuses the whole save. [ReviewManager, API]
 - [ ] M2 `managers/validation.py`, ValidationManager (health, format, readiness, block, windows,
@@ -73,8 +73,9 @@ anything that touches real data.
 
 ## System tests, docs, removal
 
-- [ ] S1 `backend/tests/system/`: save blocks, rebuild all, health, readiness through the HTTP client over
-      the synthetic folders. [Testing]
+- [ ] S1 `backend/tests/system/`: save blocks, rebuild all, health, readiness, the session header with
+      query settings, the Arrow arrays, preview, and a 422 on a malformed edit, through the HTTP client
+      over the synthetic folders. [Testing]
 - [ ] S2 `frontend/e2e/`: two or three flows (review and save, readiness and select, generate a set), the
       other specs removed. [Testing]
 - [ ] R1 README and `backend/README.md` rewritten for the new tool, pixi tasks checked, `SYNTHETIC_DATA`

@@ -10,15 +10,31 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from proj_helpers import paths
+
+from .access.environment import EnvironmentAccess
+from .access.processed import ProcessedAccess
+from .access.transformed import TransformedAccess
+from .engines.trajectory import TrajectoryEngine
+from .managers.review import ReviewManager
+from .utilities import version
 from .utilities.errors import Invalid, NotFound
-from .routers import blocks, data_format, review, sessions, sources, windows
+from .routers import blocks, data_format, review, sources, windows
 from .stores.data_sources import DataSources
 
 # The frontend is served once it has been built.
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-ROUTERS = (data_format.router, sources.router, sessions.router, review.router, blocks.router, windows.router)
+ROUTERS = (data_format.router, sources.router, review.router, blocks.router, windows.router)
 INVALID = 400
 UNPROCESSABLE = 422
+
+
+def review_manager(data_sources, code_version):
+    """
+    The ReviewManager over the folders the config names now, Invalid or NotFound as the sources say when a folder is not there. The components hold no state, so one is built for each request and Reload takes effect at once.
+    """
+    return ReviewManager(TrajectoryEngine(), TransformedAccess(data_sources.transformed_root()), ProcessedAccess(data_sources.processed_root()),
+                         EnvironmentAccess(paths.environments_dir()), code_version)
 
 
 def create_app(config_path=None, settings_path=None):
@@ -27,6 +43,8 @@ def create_app(config_path=None, settings_path=None):
     """
     app = FastAPI(title="RatReplay", openapi_url="/api/openapi.json", docs_url=None, redoc_url=None)
     app.state.sources = DataSources(config_path, settings_path)
+    code_version = version.git_commit(paths.repo_root())
+    app.state.review = lambda: review_manager(app.state.sources, code_version)
 
     @app.exception_handler(HTTPException)
     def http_error(request, error):

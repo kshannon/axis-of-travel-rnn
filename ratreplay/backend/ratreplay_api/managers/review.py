@@ -1,47 +1,241 @@
 """
-A session's review: the file saved for it, and the blocks a list of edits makes.
+ReviewManager: the sessions index, a session loaded for the replay, the blocks some edits make, and a session's blocks saved and built.
 """
 
 import getpass
+import json
 
-from ..engines import edits
-from ..stores import review as review_files
-from ..stores import transformed
+from ..engines.trajectory import RULES, VERSION
 from ..utilities import clock
-from ..utilities.errors import Invalid
+from ..utilities.errors import Invalid, NotFound
 
+# What the browser gets of a session, an epoch and a run, of the engine's session (the keys the Replay page draws), and the arrays it plays.
+SESSION_KEYS = ("session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap")
+EPOCH_KEYS = ("epoch", "environment", "condition", "frame_start", "frame_end", "duration_s")
+RUN_KEYS = ("run", "epoch", "path_id", "clean", "frame_start", "frame_end")
+DRAWN_KEYS = ("frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops")
+ARRAY_KEYS = ("t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights")
+
+# The statuses of a block: the two a build keeps, a block no one has looked at, and a removed block, and the keys of a review's block.
+CONFIRMED, AUTO, DROPPED = "confirmed", "auto", "dropped"
+KEPT = (CONFIRMED, "edited")
+BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
+
+# What the manager says: a save refused (the edit as a person counts it, from 1), a session the rules leave out, a build that failed,
+# the warnings of a review made under other rules or whose blocks today's rules do not give, and the version of a build.
 STILL_AUTO = "some blocks are still auto: confirm, edit or remove them before saving"
+REFUSED = "edit {number} ({what}): {reason}"
+AT_FRAME, AT_FRAMES = "{op} at frame {frame}", "{op} at frames {frame_start} to {frame_end}"
+NOT_IN_DATASET = "session {sid} is not in the dataset: {reason}"
+BUILD_ERROR = "{kind}: {text}"
+OTHER_RULES = "reviewed under other rules"
+SAVED_DIFFER = "saved blocks differ from the blocks today's rules give"
+CODE_VERSION = "trajectory {} {}"
 
 
-def get(sources, session_id):
+def picked(row, keys):
     """
-    The session's review file, or None when it was not reviewed.
+    The row with only these keys.
     """
-    return review_files.read(sources, session_id)
+    return {key: row[key] for key in keys}
 
 
-def context(sources, session_id):
+def review_facts(review, kinds, rate_hz):
     """
-    The session as the edits read it.
+    What the index shows of a review: when and by whom, the blocks kept and their seconds per epoch kind, the notes.
     """
-    found = transformed.read_session(sources, session_id)
-    return edits.context(found["frames"], found["session"], found["epochs"], found["runs"])
+    review = review or {}
+    kept = [b for b in review.get("blocks", []) if b["status"] in KEPT]
+    return {"reviewed": bool(review), "reviewed_at": review.get("reviewed_at"), "reviewed_by": review.get("reviewed_by"),
+            "n_confirmed": len(kept), "notes": review.get("notes", ""),
+            "confirmed_s": {kind: sum((b["frame_end"] - b["frame_start"] + 1) / rate_hz for b in kept if b["epoch"] == kind) for kind in kinds}}
 
 
-def preview(sources, session_id, edit_list):
+def described(edit):
     """
-    The blocks, cuts and flagged runs the edits make and the edits skipped as no longer applying, nothing written.
+    The edit as a person reads it: its op and, when it has one, the frame or frames it lies at.
     """
-    return edits.preview(context(sources, session_id), edit_list)
+    if "frame" in edit:
+        return AT_FRAME.format(**edit)
+    return AT_FRAMES.format(**edit) if "frame_start" in edit else edit["op"]
 
 
-def save(sources, session_id, edit_list, notes):
+def shaped(blocks):
     """
-    Apply the edits to the automatic blocks and write the review whole, replacing the earlier one. Refused while a block is still auto. Returns the saved review, the file and whether it replaced one.
+    The blocks as compared with the saved ones: the review's keys only, an empty note being no note as the old files wrote it.
     """
-    stamp = transformed.manifest(sources)["run"]["timestamp"]
-    saved = edits.review_of(context(sources, session_id), edit_list, notes, stamp, getpass.getuser(), clock.iso_now())
-    if any(block["status"] == "auto" for block in saved["blocks"]):
-        raise Invalid(STILL_AUTO)
-    path, replaced = review_files.write(sources, saved)
-    return {"review": saved, "path": str(path), "overwrote": replaced}
+    return [{**picked(b, BLOCK_KEYS), "note": b["note"] or None} for b in blocks]
+
+
+def warnings_of(found, review):
+    """
+    The session's warnings, with one more when its review was saved under rules other than today's (the saved rules went through json, so today's do too).
+    """
+    other = review is not None and review["rules"] != json.loads(json.dumps(RULES))
+    return found["warnings"] + ([OTHER_RULES] if other else [])
+
+
+class ReviewManager:
+    """
+    Stateless: the engine and the accesses it works with, handed in at the composition root.
+    """
+
+    def __init__(self, trajectory, transformed, processed, environment, code_version):
+        self.trajectory, self.transformed, self.processed, self.environment = trajectory, transformed, processed, environment
+        self.code_version = code_version
+
+    def index(self):
+        """
+        Every session with an arena or track epoch, the dataset's sessions first, then unreviewed, then the oldest review first.
+        """
+        tables = self.transformed.sessions()
+        funnel, built = self.trajectory.funnel(tables, RULES), [row["session_id"] for row in self.processed.blocks()]
+        rows = []
+        for session in tables["sessions"]:
+            sid = session["session_id"]
+            epochs = [e for e in tables["epochs"] if e["session_id"] == sid]
+            if not any(e["epoch"] in RULES["epochs"] for e in epochs):
+                continue
+            runs = [r for r in tables["runs"] if r["session_id"] == sid]
+            rows.append({**session, "date": str(session["date"]), "epochs": [picked(e, EPOCH_KEYS) for e in epochs],
+                         "n_runs": len(runs), "n_clean_runs": sum(1 for r in runs if r["clean"]),
+                         "in_dataset": funnel[sid]["in_dataset"], "reason": funnel[sid]["reason"], "built": built.count(sid),
+                         **review_facts(self.processed.review(sid), RULES["epochs"], session["rate_hz"])})
+        return sorted(rows, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
+
+    def load(self, sid, settings):
+        """
+        A session for the replay as a header: its facts, epochs, runs, whether the rules keep it, what the engine draws, its review and its blocks with their window counts.
+        """
+        arrays, environments, found = self._session(sid)
+        review = self.processed.review(sid)
+        made = self._made(arrays, environments, found, [] if review is None else review["edits"], settings)
+        warnings = warnings_of(found, review)
+        if review is not None and shaped(made["blocks"]) != shaped(review["blocks"]):
+            warnings.append(SAVED_DIFFER)
+        row, funnel = arrays["session"], self._funnel(sid)
+        return {**picked(row, SESSION_KEYS), "date": str(row["date"]), "n_frames": found["n_frames"], "in_dataset": funnel["in_dataset"],
+                "reason": funnel["reason"], "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
+                "runs": [picked(r, RUN_KEYS) for r in arrays["runs"]], "selected_epochs": [e["epoch"] for e in found["epochs"]],
+                "n_initial_blocks": len(found["initial_blocks"]), **picked(found, DRAWN_KEYS), "warnings": warnings, "review": review, **made}
+
+    def arrays(self, sid):
+        """
+        A session's arrays over every frame in metres, what the page plays, without the blocks and their windows.
+        """
+        return picked(self._session(sid)[2]["kinematics"], ARRAY_KEYS)
+
+    def preview(self, sid, edits, settings):
+        """
+        The blocks the whole edit list makes of the initial blocks with their window counts, the edits refused, the cuts and the flagged runs, nothing written.
+        """
+        arrays, environments, found = self._session(sid)
+        return self._made(arrays, environments, found, edits, settings)
+
+    def save_blocks(self, sid, edits, notes, settings):
+        """
+        Apply the edits and write the review whole, refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error.
+        """
+        self._require_in_dataset(sid)
+        arrays, _, found = self._session(sid)
+        applied = self.trajectory.apply(found["initial_blocks"], edits, found)
+        if applied["refusals"]:
+            first = applied["refusals"][0]
+            raise Invalid(REFUSED.format(number=first["index"] + 1, what=described(edits[first["index"]]), reason=first["reason"]))
+        if any(block["status"] == AUTO for block in applied["blocks"]):
+            raise Invalid(STILL_AUTO)
+        review = {"session_id": sid, "reviewed_by": getpass.getuser(), "reviewed_at": clock.iso_now(), "converter_manifest_timestamp": arrays["stamp"],
+                  "rules": found["rules"], "blocks": applied["blocks"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"],
+                  "notes": notes, "edits": edits}
+        replaced = self.processed.write_review(sid, review)["replaced"]
+        return {"review": review, "replaced": replaced, **self._built(sid, settings)}
+
+    def rebuild_all(self, settings):
+        """
+        Build the blocks of every reviewed session again, each with its built, failed and build_error, and the totals.
+        """
+        results = {sid: self._built(sid, settings) for sid in self.processed.reviews()}
+        return {"sessions": results, "totals": {"sessions": len(results), "built": sum(r["built"] for r in results.values()),
+                                                "failed": sum(len(r["failed"]) for r in results.values()),
+                                                "errors": sum(r["build_error"] is not None for r in results.values())}}
+
+    def _funnel(self, sid):
+        """
+        Whether the rules keep the session in the dataset and the reason when not.
+        """
+        return self.trajectory.funnel(self.transformed.sessions(), RULES)[sid]
+
+    def _require_in_dataset(self, sid):
+        """
+        Invalid with the funnel's reason when the rules leave the session out, since only a session in the dataset is saved and built.
+        """
+        funnel = self._funnel(sid)
+        if not funnel["in_dataset"]:
+            raise Invalid(NOT_IN_DATASET.format(sid=sid, reason=funnel["reason"]))
+
+    def _frames(self, sid):
+        """
+        The session as TransformedAccess gives it and the geometry by name of the environments of its epochs of the rules' kinds, so a session the rules leave out can be viewed too.
+        """
+        arrays = self.transformed.session(sid)
+        return arrays, {e["environment"]: self.environment.environment(e["environment"]) for e in arrays["epochs"] if e["epoch"] in RULES["epochs"]}
+
+    def _session(self, sid):
+        """
+        The session, its environments and the engine's session over them.
+        """
+        arrays, environments = self._frames(sid)
+        return arrays, environments, self.trajectory.session(arrays, environments, RULES)
+
+    def _windows(self, block, settings):
+        """
+        The window count and the verdict of a built block at the settings.
+        """
+        found = self.trajectory.windows(block, settings, RULES)
+        return {"count": found["count"], "verdict": found["verdict"]}
+
+    def _made(self, arrays, environments, found, edits, settings):
+        """
+        The blocks the edits make of the initial blocks, each kept one with its window count and verdict and the problems of the block as built, a dropped one with neither, with the edits refused, the cuts and the flagged runs.
+        """
+        applied = self.trajectory.apply(found["initial_blocks"], edits, found)
+        # The blocks are built as a review that confirms every block not dropped, only their windows are read.
+        kept = [{**b, "status": CONFIRMED} for b in applied["blocks"] if b["status"] != DROPPED]
+        built = self.trajectory.blocks(arrays, {"blocks": kept, "flagged_runs": applied["flagged_runs"], "reviewed_by": None}, environments, RULES)
+        by_id = {b["row"]["block_id"]: b for b in built["blocks"]}
+        blocks = [{**b, "windows": self._windows(by_id[b["block_id"]], settings) if b["block_id"] in by_id else None,
+                   "problems": by_id[b["block_id"]]["problems"] if b["block_id"] in by_id else []} for b in applied["blocks"]]
+        return {"blocks": blocks, "refusals": applied["refusals"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"]}
+
+    def _built(self, sid, settings):
+        """
+        Build the session's blocks and say how many were written and which failed, a file or validation failure of the build as build_error and nothing written, any other error left to crash.
+        """
+        try:
+            return {**self._build(sid, settings), "build_error": None}
+        except (OSError, Invalid, NotFound) as error:
+            return {"built": 0, "failed": [], "build_error": BUILD_ERROR.format(kind=type(error).__name__, text=error)}
+
+    def _build(self, sid, settings):
+        """
+        Write the session's blocks and metadata from the review on disk, the one build step of a save and a rebuild.
+        """
+        self._require_in_dataset(sid)
+        review = self.processed.review(sid)
+        arrays, environments = self._frames(sid)
+        made = self.trajectory.blocks(arrays, review, environments, RULES)
+        kept, failed, windows = [], [], {}
+        for block in made["blocks"]:
+            block_id = block["row"]["block_id"]
+            # The processor's policy for now: a block with a problem is listed in failed and not written. Flip the test to write it anyway.
+            if block["problems"]:
+                failed.append({"block_id": block_id, "problems": block["problems"]})
+                continue
+            kept.append({"row": block["row"], "arrays": block["arrays"]})
+            windows[block_id] = self._windows(block, settings)
+        stamp = {key: review[key] for key in ("reviewed_at", "converter_manifest_timestamp")}
+        metadata = {"rules": RULES, "settings": settings, "review_stamp": stamp, "code_version": CODE_VERSION.format(VERSION, self.code_version),
+                    "built_at": clock.iso_now(), "windows": windows, "frame": made["frame"],
+                    "warnings": warnings_of(made, review), "failed": failed}
+        self.processed.write_blocks(sid, kept, metadata)
+        return {"built": len(kept), "failed": failed}

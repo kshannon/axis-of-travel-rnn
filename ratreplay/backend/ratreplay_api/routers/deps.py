@@ -1,5 +1,5 @@
 """
-What the routes share: the DataSources of the app.
+What the routes share: the DataSources of the app and the ReviewManager built over them.
 """
 
 from fastapi import Depends, Request
@@ -19,3 +19,10 @@ def reread_sources(reload: bool = False, sources=Depends(data_sources)):
     if reload:
         sources.reload()
     return sources
+
+
+def review_manager(request: Request):
+    """
+    The ReviewManager over the folders the config names now.
+    """
+    return request.app.state.review()

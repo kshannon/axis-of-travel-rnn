@@ -6,28 +6,27 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
-from axis_of_travel_rnn.windows import DEFAULTS
-
 from .contract import EDIT_FIELDS
+from .engines.trajectory import SETTINGS
 
 
 class WindowSettings(BaseModel):
     """
-    The training window settings, the project's defaults where a field is left out.
+    The training window settings, the engine's defaults where a field is left out.
     """
 
-    window_s: float = Field(DEFAULTS["window_s"], gt=0)
-    stride_s: float = Field(DEFAULTS["stride_s"], gt=0)
-    burn_in_s: float = Field(DEFAULTS["burn_in_s"], ge=0)
-    horizon_s: float = Field(DEFAULTS["horizon_s"], ge=0)
-    train_rate_hz: int = Field(DEFAULTS["train_rate_hz"], gt=0)
-    min_heading_measured: float = Field(DEFAULTS["min_heading_measured"], ge=0, le=1)
-    min_complete_trips: int = Field(DEFAULTS["min_complete_trips"], ge=0)
+    window_s: float = Field(SETTINGS["window_s"], gt=0)
+    stride_s: float = Field(SETTINGS["stride_s"], gt=0)
+    burn_in_s: float = Field(SETTINGS["burn_in_s"], ge=0)
+    horizon_s: float = Field(SETTINGS["horizon_s"], ge=0)
+    rate_hz: int = Field(SETTINGS["rate_hz"], gt=0)
+    min_heading_measured: float = Field(SETTINGS["min_heading_measured"], ge=0, le=1)
+    min_complete_trips: int = Field(SETTINGS["min_complete_trips"], ge=0)
 
 
 class SettingsBody(BaseModel):
     """
-    The settings to save, with the processed folder's manifest and blocks the file records.
+    The window settings a request works at: the ones to save, or the ones a rebuild computes its window counts at.
     """
 
     settings: WindowSettings
@@ -62,15 +61,16 @@ Edit = Annotated[Union[tuple(edit_model(op, fields) for op, fields in EDIT_FIELD
 
 class EditsBody(BaseModel):
     """
-    The edits of a review, in the order they were made.
+    The edits of a review, in the order they were made, and the window settings the blocks they make are counted at.
     """
 
     edits: list[Edit]
+    settings: WindowSettings = Field(default_factory=WindowSettings)
 
 
 class ReviewBody(EditsBody):
     """
-    The edits and the free text note to save as a session's review.
+    The edits, the free text note and the window settings of a session's save.
     """
 
     notes: str = ""
