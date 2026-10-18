@@ -21,7 +21,7 @@ MALFORMED_EDITS = {
     "a range that ends before it starts": ({"op": "cut", "frame_start": 5, "frame_end": 2}, "edits.0.cut"),
 }
 
-# Each request with window settings the API refuses, as (method, path, how the settings travel, the settings) and the field the 422 names.
+# Each request with window settings or an exclusion flag the API refuses, as (method, path, how it travels, what it carries) and the field the 422 names.
 BAD_SETTINGS = {
     "a window of no length in the query of a header": ("get", f"/api/sessions/{S1}", "params", {"window_s": -1}, "window_s"),
     "a share above one in the query of readiness": ("get", "/api/blocks", "params", {"min_heading_measured": 2}, "min_heading_measured"),
@@ -31,6 +31,9 @@ BAD_SETTINGS = {
     "an unknown key in the body of a save": ("put", f"/api/sessions/{S1}/blocks", "json", {"edits": ACCEPT, "settings": {"bogus": 1}}, "settings.bogus"),
     "an unknown key in the body of a rebuild": ("post", "/api/rebuild", "json", {"settings": {"bogus": 1}}, "settings.bogus"),
     "no settings in the body of a rebuild": ("post", "/api/rebuild", "json", {}, "settings"),
+    "a flag that is not true or false in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"excluded": "yes"}, "excluded"),
+    "no flag in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"note": "x"}, "excluded"),
+    "an unknown key in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"excluded": True, "bogus": 1}, "bogus"),
 }
 
 # Each request for an id the data does not hold, as (method, path, json). S2 is in the index but has no frames file.
@@ -39,6 +42,8 @@ UNKNOWN = [
     ("get", "/api/sessions/nope/arrays", None),
     ("post", "/api/sessions/nope/preview", {"edits": []}),
     ("put", "/api/sessions/nope/blocks", {"edits": ACCEPT}),
+    ("put", "/api/sessions/nope/exclusion", {"excluded": True}),
+    ("put", f"/api/sessions/{S2}/exclusion", {"excluded": True}),
     ("get", f"/api/sessions/{S2}", None),
     ("get", "/api/blocks/nope", None),
     ("get", "/api/blocks/nope/arrays", None),
@@ -56,7 +61,7 @@ def test_a_malformed_edit_is_a_422_naming_the_field_on_preview_and_on_save_and_n
     assert list(processed.iterdir()) == []
 
 
-def test_a_setting_out_of_range_or_unknown_is_a_422_naming_it_on_the_routes_that_take_settings(client):
+def test_a_setting_or_flag_out_of_range_missing_or_unknown_is_a_422_naming_it(client):
     for what, (method, path, how, settings, field) in BAD_SETTINGS.items():
         response = client.request(method, path, **{how: settings})
         assert response.status_code == UNPROCESSABLE and response.json().keys() == {"error"}, what

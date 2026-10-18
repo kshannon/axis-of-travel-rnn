@@ -2,6 +2,8 @@
 ProcessedAccess over small hand made blocks: a build is replaced whole and idempotent, a session never touches another, a failed write leaves the previous build, and health names what is wrong.
 """
 
+import json
+
 import numpy as np
 import pyarrow as pa
 import pytest
@@ -17,7 +19,8 @@ BOOLS = ("heading_filled", "heading_held", "filled_front", "filled_back", "clean
 INTS = {"n_lights": np.int8, "trip": np.int32, "run": np.int32, "path_id": np.int16}
 CELLS = {pa.string(): "text", pa.int64(): 1, pa.float64(): 0.5}
 METADATA = {"rules": {"MIN_BLOCK_S": 10}, "settings": {"window_s": 40.0}, "review_stamp": "2026-10-17T10:00:00+00:00",
-            "code_version": "abc1234", "built_at": "2026-10-17T10:05:00+00:00", "windows": {"S1_track_100": {"count": 3, "verdict": "ok"}}}
+            "code_version": "abc1234", "built_at": "2026-10-17T10:05:00+00:00", "windows": {"S1_track_100": {"count": 3, "verdict": "ok"}},
+            "frame": None, "warnings": [], "failed": [], "excluded": False}
 WINDOWS = {"settings": {"window_s": 40.0}, "totals": {"blocks": 5}, "selected_at": "2026-10-17T11:00:00+00:00", "selected_by": "kyle"}
 
 
@@ -57,7 +60,7 @@ def review_of(sid, status="confirmed"):
     block = {"block_id": f"{sid}_track_100", "epoch": "track", "environment": "triple_t", "frame_start": 100, "frame_end": 399,
              "status": status, "note": ""}
     return {"session_id": sid, "reviewed_by": "kyle", "reviewed_at": "2026-10-17T09:00:00+00:00", "converter_manifest_timestamp": "t",
-            "rules": {}, "blocks": [block], "cuts": [], "flagged_runs": [], "notes": "", "edits": []}
+            "rules": {}, "blocks": [block], "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None}
 
 
 @pytest.fixture
@@ -168,9 +171,35 @@ def test_a_review_with_a_bad_status_or_a_missing_key_is_refused_by_name(access):
         access.write_review(S1, review_of(S1, "maybe"))
     with pytest.raises(Invalid, match="review lacks notes"):
         access.write_review(S1, {key: value for key, value in review_of(S1).items() if key != "notes"})
+    with pytest.raises(Invalid, match="review lacks excluded, excluded_by, excluded_at"):
+        access.write_review(S1, {key: value for key, value in review_of(S1).items() if not key.startswith("excluded")})
+    with pytest.raises(Invalid, match="excluded is not true or false"):
+        access.write_review(S1, {**review_of(S1), "excluded": "yes"})
     with pytest.raises(Invalid, match=f"review is of session {S6}, not {S1}"):
         access.write_review(S1, review_of(S6))
     assert not access.root.exists()
+
+
+def test_a_review_file_written_before_excluded_existed_reads_as_not_excluded(access):
+    access.write_review(S1, review_of(S1))
+    path = access.root / "review" / f"{S1}.json"
+    old = {key: value for key, value in json.loads(path.read_text()).items() if not key.startswith("excluded")}
+    path.write_text(json.dumps(old))
+    assert not [key for key in json.loads(path.read_text()) if key.startswith("excluded")] and access.review(S1) == review_of(S1)
+    assert access.schema()["files"][2]["defaults"] == {"excluded": False, "excluded_by": None, "excluded_at": None}
+
+
+def test_deleting_a_review_removes_its_file_and_deleting_a_build_removes_one_session_whole(built):
+    built.write_review(S1, review_of(S1))
+    before = snapshot(built.root)
+    assert built.delete_review(S6) == {"deleted": False, "file": f"review/{S6}.json"} and snapshot(built.root) == before
+    assert built.delete_review(S1) == {"deleted": True, "file": f"review/{S1}.json"} and built.review(S1) is None
+    assert built.delete_build(S1) == {"blocks": 3} and built.built() == [S6]
+    assert [row["session_id"] for row in built.blocks()] == [S6, S6] and not list((built.root / "blocks").glob(f"{S1}_*"))
+    assert not list(built.root.rglob("*.tmp")) and built.health()["problems"] == []
+    assert built.delete_build(S1) == {"blocks": 0} and built.built() == [S6]
+    assert built.delete_build(S6) == {"blocks": 2} and built.built() == [] and built.blocks() == [] and not (built.root / "blocks.csv").exists()
+    assert [path for path in built.root.rglob("*") if path.is_file()] == [] and built.health()["problems"] == []
 
 
 def test_window_settings_round_trip_with_the_replaced_flag(access):

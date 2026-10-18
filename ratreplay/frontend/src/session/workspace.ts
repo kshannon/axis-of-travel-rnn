@@ -1,5 +1,5 @@
-import { getSession, getSessionArrays, previewEdits, saveBlocks } from "../api/client";
-import type { Edit, Preview, Review, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
+import { getSession, getSessionArrays, previewEdits, saveBlocks, setExclusion } from "../api/client";
+import type { Edit, ExclusionSaved, Preview, Review, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Clock } from "./clock";
 import { Editor } from "./editor";
 import { speedTop } from "./speed";
@@ -32,6 +32,8 @@ export class Workspace {
   readonly editor: Editor;
   readonly speedTop: number;
   saved: Review | null;
+  /** The person excluded the session. */
+  excluded: boolean;
   preview: Preview;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -40,6 +42,7 @@ export class Workspace {
     this.arrays = loaded.arrays;
     this.settings = loaded.settings;
     this.saved = loaded.saved;
+    this.excluded = loaded.header.excluded;
     this.preview = loaded.preview;
     this.clock = new Clock(loaded.header.n_frames, loaded.header.rate_hz);
     this.editor = new Editor(loaded.saved?.edits ?? []);
@@ -56,6 +59,12 @@ export class Workspace {
     const [header, arrays] = await Promise.all([getSession(sessionId, settings), getSessionArrays(sessionId)]);
     const { review: saved, blocks, refusals, cuts, flagged_runs } = header;
     return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview: { blocks, refusals, cuts, flagged_runs } }));
+  }
+
+  /** Exclude a session or include it again: through the open workspace when it holds the session, so its saved review and flag follow, else straight to the API. */
+  static exclude(sessionId: string, excluded: boolean, note: string, settings: WindowSettings): Promise<ExclusionSaved> {
+    const kept = Workspace.current;
+    return kept?.holds(sessionId) ? kept.setExclusion(excluded, note) : setExclusion(sessionId, excluded, note, settings);
   }
 
   /** The open session when opening this one would throw away its unsaved edits, none when they are saved or it is the one asked for. */
@@ -118,6 +127,16 @@ export class Workspace {
     return this.serially(async () => {
       this.preview = await this.previewOf([]);
       this.editor.reset();
+    });
+  }
+
+  /** Exclude the session or include it again: the review on disk is rewritten with the flag and the note (or removed, when it only recorded the exclusion), the edits not saved stay. */
+  setExclusion(excluded: boolean, note: string): Promise<ExclusionSaved> {
+    return this.serially(async () => {
+      const done = await setExclusion(this.header.session_id, excluded, note, this.settings);
+      this.saved = done.review;
+      this.excluded = done.review?.excluded ?? false;
+      return done;
     });
   }
 

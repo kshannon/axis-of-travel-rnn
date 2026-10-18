@@ -17,7 +17,7 @@ from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.processed import METADATA_KEYS, ProcessedAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, VERSION, TrajectoryEngine
-from ratreplay_api.managers.review import OTHER_RULES, SAVED_DIFFER, STILL_AUTO, ReviewManager
+from ratreplay_api.managers.review import EXCLUDED, OTHER_RULES, SAVED_DIFFER, STILL_AUTO, ReviewManager
 from ratreplay_api.utilities.errors import Invalid, NotFound
 
 REAL = Path(__file__).resolve().parents[4] / "configs" / "environments"
@@ -32,7 +32,8 @@ SHORT = {**SETTINGS, "window_s": 5.0}
 SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "drop", "frame": 2701}]
 SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited"), (f"{S1}_track_02", "dropped")]
 ACCEPT = [{"op": "accept"}]
-HEADER_KEYS = {"session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap", "date", "n_frames", "in_dataset", "reason", "epochs", "runs",
+HEADER_KEYS = {"session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap", "date", "n_frames", "in_dataset", "reason", "annotated_exclude", "excluded",
+               "epochs", "runs",
                "selected_epochs", "n_initial_blocks", "environments", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
                "warnings", "review", "blocks", "refusals", "cuts", "flagged_runs"}
 ARRAY_KEYS = ["t", "x", "y", "heading", "speed", "turn_rate", "motion", "n_lights"]
@@ -85,11 +86,12 @@ def snapshot(root):
     return {str(path.relative_to(root)): path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()}
 
 
-def test_the_index_lists_six_sessions_the_dataset_first_with_the_reason_for_the_others(manager):
+def test_the_index_lists_six_sessions_the_dataset_first_with_the_reason_for_the_others_and_the_annotation_as_a_note(manager):
     rows = manager.index()
     assert [r["session_id"] for r in rows] == [S1, S6, S2, S3, S4, S5]
     assert [r["in_dataset"] for r in rows] == [True, True, False, False, False, False]
-    assert [bool(r["reason"]) for r in rows] == [False, False, True, True, True, True]
+    assert [r["reason"] for r in rows] == [None, None, "no frames", "no frames", "no frames", "no arena or track epoch under condition baseline"]
+    assert [(r["annotated_exclude"], r["excluded"]) for r in rows] == [(False, False)] * 2 + [(False, False), (True, False)] + [(False, False)] * 2
     first = rows[0]
     assert first["date"] == "2015-01-01" and (first["n_runs"], first["n_clean_runs"], first["built"], first["reviewed"]) == (4, 3, 0, False)
     assert [e["epoch"] for e in first["epochs"]] == ["arena", "track"] and set(first["epochs"][0]) == set(review_module.EPOCH_KEYS)
@@ -112,16 +114,17 @@ def test_load_gives_the_header_with_the_initial_blocks_and_their_window_counts_a
         manager.load(S2, SHORT)
 
 
-def test_a_session_the_rules_leave_out_can_be_viewed_and_previewed_but_not_saved_or_rebuilt(folders, manager, monkeypatch):
+def test_a_session_the_funnel_leaves_out_is_refused_a_save_and_its_review_is_skipped_by_a_rebuild(folders, manager, monkeypatch):
     manager.save_blocks(S1, SAVED, "", SHORT)
-    monkeypatch.setattr(review_module, "RULES", {**RULES, "protocol": "rotation"})
-    header = manager.load(S1, SHORT)
-    assert header["in_dataset"] is False and header["reason"] and len(manager.arrays(S1)["t"]) == 5400
-    assert manager.preview(S1, ACCEPT, SHORT)["refusals"] == []
-    with pytest.raises(Invalid, match=re.escape(f"session {S1} is not in the dataset: {header['reason']}")):
+    monkeypatch.setattr(review_module, "RULES", {**RULES, "condition": "rot45"})
+    reason = "no arena or track epoch under condition rot45"
+    row = next(r for r in manager.index() if r["session_id"] == S1)
+    assert (row["in_dataset"], row["reason"], row["excluded"]) == (False, reason, False)
+    with pytest.raises(Invalid, match=re.escape(f"session {S1} is not in the dataset: {reason}")):
         manager.save_blocks(S1, SAVED, "", SHORT)
-    assert manager.rebuild_all(SHORT) == {"sessions": {}, "skipped": {S1: header["reason"]},
-                                          "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 1}}
+    done = manager.rebuild_all(SHORT)
+    assert done["sessions"] == {} and done["skipped"] == {S1: reason} and done["excluded"] == {}
+    assert done["totals"] == {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 1, "excluded": 0}
 
 
 def test_a_preview_of_an_illegal_split_returns_the_refusal_and_writes_nothing(folders, manager):
@@ -167,22 +170,113 @@ def test_rebuild_all_rebuilds_every_reviewed_session_with_the_same_bytes(folders
     before = snapshot(folders[1])
     done = manager.rebuild_all(SHORT)
     assert done["sessions"] == {S1: {"built": 2, "failed": [], "build_error": None}, S6: {"built": 1, "failed": [], "build_error": None}}
-    assert done["skipped"] == {} and done["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0}
+    assert done["skipped"] == {} and done["excluded"] == {}
+    assert done["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0}
     assert snapshot(folders[1]) == before and len(before) == 8
 
 
-def test_rebuild_all_skips_the_review_of_a_session_the_rules_leave_out_and_errors_on_one_the_folder_lacks(folders, manager):
+def test_rebuild_all_skips_a_review_whose_session_has_no_frames_and_reports_one_the_folder_lacks_as_build_error(folders, manager):
     manager.save_blocks(S1, SAVED, "", SHORT)
     access, ghost = ProcessedAccess(folders[1]), "NS14_rec9_20150109_001"
     for sid in (S2, ghost):
         access.write_review(sid, {**access.review(S1), "session_id": sid})
-    reason = next(r["reason"] for r in manager.index() if r["session_id"] == S2)
     done = manager.rebuild_all(SHORT)
-    assert done["skipped"] == {S2: reason} and reason and set(done["sessions"]) == {S1, ghost}
+    assert done["skipped"] == {S2: "no frames"} and set(done["sessions"]) == {S1, ghost}
     assert done["sessions"][S1] == {"built": 2, "failed": [], "build_error": None}
     assert done["sessions"][ghost] == {"built": 0, "failed": [], "build_error": f"NotFound: no session {ghost}"}
-    assert done["totals"] == {"sessions": 2, "built": 2, "failed": 0, "errors": 1, "skipped": 1}
-    assert S2 not in [row["session_id"] for row in access.blocks()]
+    assert done["excluded"] == {} and done["totals"] == {"sessions": 2, "built": 2, "failed": 0, "errors": 1, "skipped": 1, "excluded": 0}
+    assert S2 not in access.built()
+
+
+def test_exclude_writes_a_review_of_the_initial_blocks_without_reviewing_the_session_and_builds_it_empty_at_once(folders, manager, monkeypatch):
+    monkeypatch.setattr(review_module.clock, "iso_now", lambda: FROZEN)
+    done = manager.exclude(S1, True, "camera moved", SHORT)
+    review, access = done["review"], ProcessedAccess(folders[1])
+    assert set(done) == {"review", "replaced", "file", "deleted", "built", "failed", "build_error"}
+    assert (done["replaced"], done["file"], done["deleted"], done["built"], done["failed"], done["build_error"]) == (False, f"review/{S1}.json", False, 0, [], None)
+    assert access.review(S1) == json.loads(json.dumps(review))
+    assert (review["excluded"], review["notes"], review["excluded_at"], review["excluded_by"]) == (True, "camera moved", FROZEN, getpass.getuser())
+    assert (review["reviewed_by"], review["reviewed_at"]) == (None, None) and review["converter_manifest_timestamp"] == STAMP
+    assert (review["edits"], review["cuts"], review["flagged_runs"]) == ([], [], [])
+    assert [(b["block_id"], b["status"]) for b in review["blocks"]] == [(f"{S1}_arena_01", "auto"), (f"{S1}_track_01", "auto")]
+    metadata = access.metadata(S1)
+    assert metadata["excluded"] is True and metadata["windows"] == {} and metadata["failed"] == [] and set(metadata) >= set(METADATA_KEYS)
+    assert metadata["review_stamp"] == {"reviewed_at": None, "converter_manifest_timestamp": STAMP} and access.blocks() == [] and access.built() == [S1]
+    row = next(r for r in manager.index() if r["session_id"] == S1)
+    assert (row["excluded"], row["reviewed"], row["n_confirmed"], row["notes"], row["built"]) == (True, True, 0, "camera moved", 0)
+    assert (row["reviewed_by"], row["reviewed_at"], row["excluded_by"], row["excluded_at"]) == (None, None, getpass.getuser(), FROZEN)
+    header = manager.load(S1, SHORT)
+    assert header["excluded"] is True and header["in_dataset"] is True and header["review"] == access.review(S1)
+    with pytest.raises(Invalid, match=re.escape(EXCLUDED.format(sid=S1))):
+        manager.save_blocks(S1, SAVED, "", SHORT)
+    assert access.review(S1) == json.loads(json.dumps(review))
+    with pytest.raises(NotFound):
+        manager.exclude(S2, True, "no frames to cut", SHORT)
+
+
+def test_including_a_session_that_was_only_excluded_removes_its_review_and_build_and_leaves_it_as_before(folders, manager):
+    access = ProcessedAccess(folders[1])
+    manager.save_blocks(S6, ACCEPT, "", SHORT)
+    row_of = lambda sid: next(r for r in manager.index() if r["session_id"] == sid)
+    before = (row_of(S1), access.built(), access.review(S1), access.blocks(), snapshot(folders[1]))
+    manager.exclude(S1, True, "camera moved", SHORT)
+    assert access.built() == [S1, S6] and row_of(S1)["excluded"] is True
+    back = manager.exclude(S1, False, "after all", SHORT)
+    assert (back["review"], back["replaced"], back["deleted"], back["file"], back["built"], back["build_error"]) == (None, False, True, f"review/{S1}.json", 0, None)
+    assert (row_of(S1), access.built(), access.review(S1), access.blocks()) == before[:4]
+    assert {name: data for name, data in snapshot(folders[1]).items() if "metadata" in name or "review" in name} == \
+        {name: data for name, data in before[4].items() if "metadata" in name or "review" in name}
+    assert manager.load(S1, SHORT)["excluded"] is False and manager.save_blocks(S1, SAVED, "", SHORT)["built"] == 2
+
+
+def test_excluding_a_reviewed_session_keeps_its_review_stamp_and_clears_its_blocks_and_include_keeps_the_review(folders, manager, monkeypatch):
+    monkeypatch.setattr(review_module.clock, "iso_now", lambda: FROZEN)
+    manager.save_blocks(S1, SAVED, "shaky", SHORT)
+    manager.save_blocks(S6, ACCEPT, "", SHORT)
+    access = ProcessedAccess(folders[1])
+    saved, built = access.review(S1), {name: data for name, data in snapshot(folders[1]).items() if not name.startswith("review")}
+    done = manager.exclude(S1, True, "bad light", SHORT)
+    assert done["replaced"] is True and done["deleted"] is False and done["review"]["notes"] == "shaky\nbad light" and (done["built"], done["build_error"]) == (0, None)
+    assert {**done["review"], "excluded": False, "notes": "shaky", "excluded_by": None, "excluded_at": None} == saved
+    assert (done["review"]["excluded_by"], done["review"]["excluded_at"]) == (getpass.getuser(), FROZEN)
+    assert [r["session_id"] for r in access.blocks()] == [S6] and not list((folders[1] / "blocks").glob(f"{S1}_*"))
+    assert access.metadata(S1)["excluded"] is True and access.metadata(S1)["review_stamp"] == {"reviewed_at": saved["reviewed_at"], "converter_manifest_timestamp": STAMP}
+    assert manager.rebuild_all(SHORT)["excluded"] == {S1: "shaky\nbad light"}
+    back = manager.exclude(S1, False, "", SHORT)
+    assert (back["replaced"], back["deleted"], back["built"]) == (True, False, 0) and back["review"]["excluded"] is False
+    assert (back["review"]["reviewed_by"], back["review"]["reviewed_at"]) == (saved["reviewed_by"], saved["reviewed_at"])
+    assert (back["review"]["excluded_by"], back["review"]["excluded_at"]) == (getpass.getuser(), FROZEN) and [r["session_id"] for r in access.blocks()] == [S6]
+    again = manager.rebuild_all(SHORT)
+    assert again["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0} and again["excluded"] == {}
+    assert {name: data for name, data in snapshot(folders[1]).items() if not name.startswith("review")} == built
+
+
+def test_an_excluded_session_the_funnel_also_leaves_out_is_still_written_empty(folders, manager, monkeypatch):
+    access = ProcessedAccess(folders[1])
+    manager.save_blocks(S1, SAVED, "", SHORT)
+    access.write_review(S1, {**access.review(S1), "excluded": True})
+    assert len(access.blocks()) == 2
+    monkeypatch.setattr(review_module, "RULES", {**RULES, "condition": "rot45"})
+    done = manager.rebuild_all(SHORT)
+    assert done["excluded"] == {S1: ""} and done["skipped"] == {} and done["sessions"] == {S1: {"built": 0, "failed": [], "build_error": None}}
+    assert access.blocks() == [] and access.metadata(S1)["excluded"] is True and access.metadata(S1)["windows"] == {}
+
+
+def test_a_session_the_funnel_leaves_out_but_that_has_frames_can_be_excluded(folders, manager, monkeypatch):
+    monkeypatch.setattr(review_module, "RULES", {**RULES, "condition": "rot45"})
+    done = manager.exclude(S1, True, "", SHORT)
+    assert done["review"]["blocks"] == [] and done["review"]["excluded"] is True and done["build_error"] is None
+    row = next(r for r in manager.index() if r["session_id"] == S1)
+    assert (row["in_dataset"], row["excluded"], row["built"]) == (False, True, 0) and ProcessedAccess(folders[1]).metadata(S1)["excluded"] is True
+
+
+def test_a_review_file_without_the_excluded_keys_reads_as_not_excluded_and_builds(folders, manager):
+    manager.save_blocks(S1, SAVED, "", SHORT)
+    path = folders[1] / "review" / f"{S1}.json"
+    path.write_text(json.dumps({key: value for key, value in json.loads(path.read_text()).items() if not key.startswith("excluded")}))
+    assert not [key for key in json.loads(path.read_text()) if key.startswith("excluded")]
+    assert manager.load(S1, SHORT)["excluded"] is False and next(r for r in manager.index() if r["session_id"] == S1)["excluded"] is False
+    assert manager.rebuild_all(SHORT)["totals"] == {"sessions": 1, "built": 2, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0}
 
 
 def test_a_block_with_a_missing_position_lands_in_failed_and_is_not_written(folders):
@@ -223,7 +317,7 @@ def test_only_a_file_or_validation_failure_of_the_build_comes_back_as_build_erro
     assert (saved["built"], saved["failed"], saved["build_error"]) == (0, [], "OSError: disk full")
     access = ProcessedAccess(folders[1])
     assert access.review(S1) is not None and access.blocks() == []
-    assert manager.rebuild_all(SHORT)["totals"] == {"sessions": 1, "built": 0, "failed": 0, "errors": 1, "skipped": 0}
+    assert manager.rebuild_all(SHORT)["totals"] == {"sessions": 1, "built": 0, "failed": 0, "errors": 1, "skipped": 0, "excluded": 0}
     monkeypatch.setattr(TrajectoryEngine, "blocks", bug)
     with pytest.raises(ValueError, match="bug"):
         manager.rebuild_all(SHORT)

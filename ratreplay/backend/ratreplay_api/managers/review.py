@@ -1,5 +1,5 @@
 """
-ReviewManager: the sessions index, a session loaded for the replay, the blocks some edits make, and a session's blocks saved and built.
+ReviewManager: the sessions index, a session loaded for the replay, the blocks some edits make, a session's blocks saved and built, and a session excluded or included by the person.
 """
 
 import getpass
@@ -21,9 +21,11 @@ CONFIRMED, AUTO, DROPPED = "confirmed", "auto", "dropped"
 KEPT = (CONFIRMED, "edited")
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 
-# What the manager says: a save refused (the edit as a person counts it, from 1), a session the rules leave out, a build that failed,
-# the warnings of a review made under other rules or whose blocks today's rules do not give, and the version of a build.
+# What the manager says: a save refused (the edit as a person counts it, from 1, or because the person excluded the session), a session the
+# funnel leaves out (no frames, no epoch of the rules), a build that failed, the warnings of a review made under other rules or whose
+# blocks today's rules do not give, and the version of a build.
 STILL_AUTO = "some blocks are still auto: confirm, edit or remove them before saving"
+EXCLUDED = "session {sid} is excluded, include it first"
 REFUSED = "edit {number} ({what}): {reason}"
 AT_FRAME, AT_FRAMES = "{op} at frame {frame}", "{op} at frames {frame_start} to {frame_end}"
 NOT_IN_DATASET = "session {sid} is not in the dataset: {reason}"
@@ -40,13 +42,22 @@ def picked(row, keys):
     return {key: row[key] for key in keys}
 
 
+def nothing_built(error=None):
+    """
+    The outcome of a build that wrote no block: none built, none failed, and the error that stopped it when one did.
+    """
+    return {"built": 0, "failed": [], "build_error": error}
+
+
 def review_facts(review, kinds, rate_hz):
     """
-    What the index shows of a review: when and by whom, the blocks kept and their seconds per epoch kind, the notes.
+    What the index shows of a review: whether a person has reviewed the session (it is excluded, or has edits, or a block no longer auto), when and by whom, the blocks kept and their seconds per epoch kind, the notes.
     """
     review = review or {}
     kept = [b for b in review.get("blocks", []) if b["status"] in KEPT]
-    return {"reviewed": bool(review), "reviewed_at": review.get("reviewed_at"), "reviewed_by": review.get("reviewed_by"),
+    touched = review.get("excluded", False) or bool(review.get("edits")) or any(b["status"] != AUTO for b in review.get("blocks", []))
+    return {"reviewed": touched, "reviewed_at": review.get("reviewed_at"), "reviewed_by": review.get("reviewed_by"),
+            "excluded": review.get("excluded", False), "excluded_by": review.get("excluded_by"), "excluded_at": review.get("excluded_at"),
             "n_confirmed": len(kept), "notes": review.get("notes", ""),
             "confirmed_s": {kind: sum((b["frame_end"] - b["frame_start"] + 1) / rate_hz for b in kept if b["epoch"] == kind) for kind in kinds}}
 
@@ -99,7 +110,8 @@ class ReviewManager:
             runs = [r for r in tables["runs"] if r["session_id"] == sid]
             rows.append({**session, "date": str(session["date"]), "epochs": [picked(e, EPOCH_KEYS) for e in epochs],
                          "n_runs": len(runs), "n_clean_runs": sum(1 for r in runs if r["clean"]),
-                         "in_dataset": funnel[sid]["in_dataset"], "reason": funnel[sid]["reason"], "built": built.count(sid),
+                         "in_dataset": funnel[sid]["in_dataset"], "reason": funnel[sid]["reason"],
+                         "annotated_exclude": funnel[sid]["annotated_exclude"], "built": built.count(sid),
                          **review_facts(self.processed.review(sid), RULES["epochs"], session["rate_hz"])})
         return sorted(rows, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
 
@@ -115,7 +127,8 @@ class ReviewManager:
             warnings.append(SAVED_DIFFER)
         row, funnel = arrays["session"], self._funnel(sid)
         return {**picked(row, SESSION_KEYS), "date": str(row["date"]), "n_frames": found["n_frames"], "in_dataset": funnel["in_dataset"],
-                "reason": funnel["reason"], "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
+                "reason": funnel["reason"], "annotated_exclude": funnel["annotated_exclude"], "excluded": review is not None and review["excluded"],
+                "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
                 "runs": [picked(r, RUN_KEYS) for r in arrays["runs"]], "selected_epochs": [e["epoch"] for e in found["epochs"]],
                 "n_initial_blocks": len(found["initial_blocks"]), "environments": environments, **picked(found, DRAWN_KEYS), "warnings": warnings,
                 "review": review, **made}
@@ -138,6 +151,9 @@ class ReviewManager:
         Apply the edits and write the review whole, refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
         """
         self._require_in_dataset(sid)
+        previous = self.processed.review(sid) or {}
+        if previous.get("excluded"):
+            raise Invalid(EXCLUDED.format(sid=sid))
         arrays, _, found = self._session(sid)
         applied = self.trajectory.apply(found["initial_blocks"], edits, found)
         if applied["refusals"]:
@@ -147,24 +163,40 @@ class ReviewManager:
             raise Invalid(STILL_AUTO)
         review = {"session_id": sid, "reviewed_by": getpass.getuser(), "reviewed_at": clock.iso_now(), "converter_manifest_timestamp": arrays["stamp"],
                   "rules": found["rules"], "blocks": applied["blocks"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"],
-                  "notes": notes, "edits": edits}
+                  "notes": notes, "edits": edits, "excluded": False, "excluded_by": previous.get("excluded_by"), "excluded_at": previous.get("excluded_at")}
         written = self.processed.write_review(sid, review)
         return {"review": review, "replaced": written["replaced"], "file": written["file"], **self._built(sid, settings)}
 
+    def exclude(self, sid, excluded, note, settings):
+        """
+        Record that the person excluded the session or took it back, in its review rewritten whole with the flag, who and when it was set and the note appended to the notes, or in a new review of the initial blocks as they are when it had none (none when the funnel leaves the session out). Excluding then builds the session empty at once, so its blocks leave the build. Including writes the review only, unless the review was only the exclusion's (never reviewed, no edits, every block auto), which goes with the session's build, leaving the session as before.
+        """
+        review = self.processed.review(sid) or self._exclusion_review(sid)
+        review = {**review, "excluded": excluded, "notes": "\n".join(text for text in (review["notes"], note) if text)}
+        if excluded:
+            review = {**review, "excluded_by": getpass.getuser(), "excluded_at": clock.iso_now()}
+        elif review["reviewed_at"] is None and not review["edits"] and all(b["status"] == AUTO for b in review["blocks"]):
+            gone = self.processed.delete_review(sid)
+            return {"review": None, "replaced": False, "file": gone["file"], "deleted": True, **self._unbuilt(sid)}
+        written = self.processed.write_review(sid, review)
+        return {"review": review, "replaced": written["replaced"], "file": written["file"], "deleted": False, **(self._built(sid, settings) if excluded else nothing_built())}
+
     def rebuild_all(self, settings):
         """
-        Build the blocks of every reviewed session again, each with its built, failed and build_error, a review of a session the rules leave out skipped with the funnel's reason, and the totals.
+        Build the blocks of every reviewed session again, each with its built, failed and build_error. An excluded session is written with no blocks, which removes its stale ones, and listed with its notes. A review of a session the funnel leaves out (no frames, no epoch of the rules) is not built and listed with the funnel's reason. The totals count them all.
         """
-        funnel, results, skipped = self.trajectory.funnel(self.transformed.sessions(), RULES), {}, {}
-        for sid in self.processed.reviews():
-            if sid in funnel and not funnel[sid]["in_dataset"]:
+        funnel = self.trajectory.funnel(self.transformed.sessions(), RULES)
+        reviews, results, skipped = {sid: self.processed.review(sid) for sid in self.processed.reviews()}, {}, {}
+        for sid, review in reviews.items():
+            if not review["excluded"] and sid in funnel and not funnel[sid]["in_dataset"]:
                 skipped[sid] = funnel[sid]["reason"]
             else:
                 results[sid] = self._built(sid, settings)
-        return {"sessions": results, "skipped": skipped,
+        excluded = {sid: review["notes"] for sid, review in reviews.items() if review["excluded"]}
+        return {"sessions": results, "skipped": skipped, "excluded": excluded,
                 "totals": {"sessions": len(results), "built": sum(r["built"] for r in results.values()),
                            "failed": sum(len(r["failed"]) for r in results.values()),
-                           "errors": sum(r["build_error"] is not None for r in results.values()), "skipped": len(skipped)}}
+                           "errors": sum(r["build_error"] is not None for r in results.values()), "skipped": len(skipped), "excluded": len(excluded)}}
 
     def _funnel(self, sid):
         """
@@ -175,9 +207,31 @@ class ReviewManager:
             raise NotFound(f"no session {sid}")
         return funnel[sid]
 
+    def _exclusion_review(self, sid):
+        """
+        The review an exclusion writes for a session with none: the initial blocks as they are, no edits, never reviewed, none when the funnel leaves the session out. NotFound when the session is not in the transformed folder or has no frames.
+        """
+        arrays, environments = self._frames(sid)
+        blocks, rules = [], RULES
+        if self._funnel(sid)["in_dataset"]:
+            found = self.trajectory.session(arrays, environments, RULES)
+            blocks, rules = self.trajectory.apply(found["initial_blocks"], [], found)["blocks"], found["rules"]
+        return {"session_id": sid, "reviewed_by": None, "reviewed_at": None, "converter_manifest_timestamp": arrays["stamp"], "rules": rules, "blocks": blocks,
+                "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None}
+
+    def _unbuilt(self, sid):
+        """
+        Remove the session's blocks and metadata, an I/O failure coming back as build_error like a build's.
+        """
+        try:
+            self.processed.delete_build(sid)
+            return nothing_built()
+        except OSError as error:
+            return nothing_built(BUILD_ERROR.format(kind=type(error).__name__, text=error))
+
     def _require_in_dataset(self, sid):
         """
-        Invalid with the funnel's reason when the rules leave the session out, since only a session in the dataset is saved and built.
+        Invalid with the funnel's reason when the funnel leaves the session out (no frames, no epoch of the rules), since only a session in the dataset is saved and built.
         """
         funnel = self._funnel(sid)
         if not funnel["in_dataset"]:
@@ -224,16 +278,19 @@ class ReviewManager:
         try:
             return {**self._build(sid, settings), "build_error": None}
         except (OSError, Invalid, NotFound) as error:
-            return {"built": 0, "failed": [], "build_error": BUILD_ERROR.format(kind=type(error).__name__, text=error)}
+            return nothing_built(BUILD_ERROR.format(kind=type(error).__name__, text=error))
 
     def _build(self, sid, settings):
         """
-        Write the session's blocks and metadata from the review on disk, the one build step of a save and a rebuild.
+        Write the session's blocks and metadata from the review on disk, the one build step of a save and a rebuild. An excluded session is written with no blocks and metadata saying so.
         """
-        self._require_in_dataset(sid)
         review = self.processed.review(sid)
-        arrays, environments = self._frames(sid)
-        made = self.trajectory.blocks(arrays, review, environments, RULES)
+        if review["excluded"]:
+            made = {"blocks": [], "frame": None, "warnings": []}
+        else:
+            self._require_in_dataset(sid)
+            arrays, environments = self._frames(sid)
+            made = self.trajectory.blocks(arrays, review, environments, RULES)
         kept, failed, windows = [], [], {}
         for block in made["blocks"]:
             block_id = block["row"]["block_id"]
@@ -245,7 +302,7 @@ class ReviewManager:
             windows[block_id] = self._windows(block, settings)
         stamp = {key: review[key] for key in ("reviewed_at", "converter_manifest_timestamp")}
         metadata = {"rules": RULES, "settings": settings, "review_stamp": stamp, "code_version": CODE_VERSION.format(VERSION, self.code_version),
-                    "built_at": clock.iso_now(), "windows": windows, "frame": made["frame"],
+                    "built_at": clock.iso_now(), "windows": windows, "frame": made["frame"], "excluded": review["excluded"],
                     "warnings": warnings_of(made, review), "failed": failed}
         self.processed.write_blocks(sid, kept, metadata)
         return {"built": len(kept), "failed": failed}

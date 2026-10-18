@@ -12,7 +12,7 @@ The folders come from `TRANSFORMED_LAB_DATA` and `PROCESSED_LAB_DATA` in `config
 
 Window settings are seven fields: `window_s` 40, `stride_s` 10, `burn_in_s` 1, `horizon_s` 0.5, `rate_hz` 20,
 `min_heading_measured` 0.8 and `min_complete_trips` 1, the defaults where one is left out and any other key a 422.
-On a GET they are query parameters, elsewhere the body's `settings` object (optional on preview and save).
+On a GET they are query parameters, elsewhere the body's `settings` object (optional on preview, save and exclusion).
 
 ## Routes
 
@@ -20,12 +20,13 @@ On a GET they are query parameters, elsewhere the body's `settings` object (opti
 | --- | --- | --- |
 | `GET /api/health` | `reload=true` | `transformed`, `processed`, `environments`, each `root, exists, problems, counts, manifest`, and `config_path` |
 | `GET /api/format` | | `version`, `transformed` and `processed` (files, columns, keys), `settings` (the defaults) |
-| `GET /api/sessions` | | rows of the sessions.csv columns plus `epochs, n_runs, n_clean_runs, in_dataset, reason, built, reviewed, reviewed_at, reviewed_by, n_confirmed, confirmed_s, notes` |
-| `GET /api/sessions/{sid}` | settings | the session's facts, `n_frames, in_dataset, reason, epochs, runs, selected_epochs, n_initial_blocks, environments, frame, heading_spans, cut_points, margins, stretches, occupancy, stops, warnings, review, blocks, refusals, cuts, flagged_runs` |
+| `GET /api/sessions` | | rows of the sessions.csv columns plus `epochs, n_runs, n_clean_runs, in_dataset, reason, annotated_exclude, built, reviewed, reviewed_at, reviewed_by, excluded, excluded_by, excluded_at, n_confirmed, confirmed_s, notes` |
+| `GET /api/sessions/{sid}` | settings | the session's facts, `n_frames, in_dataset, reason, annotated_exclude, excluded, epochs, runs, selected_epochs, n_initial_blocks, environments, frame, heading_spans, cut_points, margins, stretches, occupancy, stops, warnings, review, blocks, refusals, cuts, flagged_runs` |
 | `GET /api/sessions/{sid}/arrays` | | Arrow: `t, x, y, heading, speed, turn_rate, motion, n_lights` |
 | `POST /api/sessions/{sid}/preview` | `{edits, settings}` | `blocks, refusals, cuts, flagged_runs`, nothing written |
 | `PUT /api/sessions/{sid}/blocks` | `{edits, notes, settings}` | `review, replaced, file, built, failed, build_error` |
-| `POST /api/rebuild` | `{settings}` | `sessions` (each `built, failed, build_error`) and `totals` (`sessions, built, failed, errors`) |
+| `PUT /api/sessions/{sid}/exclusion` | `{excluded, note, settings}` | `review, replaced, file, deleted, built, failed, build_error`. The review is rewritten (or written from the initial blocks) with `excluded`, `excluded_by`, `excluded_at` and the note appended, `reviewed_by` and `reviewed_at` untouched. Excluding builds the session empty at once. Including writes the review only, or removes it (`review` none, `deleted` true) with the session's build when it was only the exclusion's |
+| `POST /api/rebuild` | `{settings}` | `sessions` (each `built, failed, build_error`, an excluded one builds nothing), `skipped` (reviews of sessions the funnel leaves out, with the reason), `excluded` (notes by session id) and `totals` (`sessions, built, failed, errors, skipped, excluded`) |
 | `GET /api/blocks` | settings, `which=real` | `which, settings, blocks, totals, built` |
 | `GET /api/blocks/{bid}` | | `row, rate_hz, geometry, runs, trips, phases, heading_filled, heading_held, one_light` |
 | `GET /api/blocks/{bid}/arrays` | | Arrow: `frame, t, x, y, heading, speed, turn_rate, n_lights, trip` |

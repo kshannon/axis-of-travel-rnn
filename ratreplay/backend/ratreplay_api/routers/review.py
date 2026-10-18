@@ -1,12 +1,12 @@
 """
-The HTTP face of ReviewManager: the sessions index, a session for the replay, a preview of edits, saving blocks and rebuilding every session.
+The HTTP face of ReviewManager: the sessions index, a session for the replay, a preview of edits, saving blocks, excluding or including a session and rebuilding every session.
 """
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from ..schemas import EditsBody, ReviewBody, SettingsBody, WindowSettings
+from ..schemas import EditsBody, ExclusionBody, ReviewBody, SettingsBody, WindowSettings
 from ..utilities import arrow
 from .deps import review_manager
 
@@ -52,6 +52,14 @@ def save_blocks(session_id: str, body: ReviewBody, manager=Depends(review_manage
     Apply the edits, write the review whole and build the session's blocks, returning the review, the file written and whether it replaced one, and the build's outcome.
     """
     return manager.save_blocks(session_id, [edit.model_dump() for edit in body.edits], body.notes, body.settings.model_dump())
+
+
+@router.put("/sessions/{session_id}/exclusion")
+def exclude_session(session_id: str, body: ExclusionBody, manager=Depends(review_manager)):
+    """
+    Exclude the session, which rewrites its review (or writes one of the initial blocks) with the flag, who and when and the note and builds the session empty at once, or include it again, which writes the review only or removes it with the session's build when it was only the exclusion's. Returns the review (none when removed), the file, whether it replaced one, whether it was removed and the build's outcome.
+    """
+    return manager.exclude(session_id, body.excluded, body.note, body.settings.model_dump())
 
 
 @router.post("/rebuild")

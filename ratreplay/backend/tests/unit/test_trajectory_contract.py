@@ -16,8 +16,7 @@ from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
 # Each rule key and the project constant it comes from (snap_s from the old Dash tool, led_separation_m
 # from the processor's checks, as t_step_tolerance_s is).
 SOURCES = {
-    "protocol": (select, "PROTOCOL"), "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"),
-    "excluded_groups": (select, "EXCLUDED_GROUPS"), "pause_step_s": (select, "PAUSE_STEP_S"),
+    "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"), "pause_step_s": (select, "PAUSE_STEP_S"),
     "gap_lights": (select, "GAP_LIGHTS"), "jump_px": (select, "JUMP_PX"), "pause_margin_s": (select, "PAUSE_MARGIN_SEC"),
     "min_block_s": (select, "MIN_BLOCK_S"), "snap_s": (dash, "SNAP_S"), "heading_fill_s": (select, "HEADING_FILL_SEC"),
     "running_floor_m_per_s": (select, "RUNNING_FLOOR_M_PER_S"),

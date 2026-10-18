@@ -62,8 +62,8 @@ class UnsetAccess:
 
     # The verbs of TransformedAccess and ProcessedAccess that need their folder.
     sessions = session = refused
-    reviews = review = write_review = refused
-    blocks = block = built = metadata = write_blocks = refused
+    reviews = review = write_review = delete_review = refused
+    blocks = block = built = metadata = write_blocks = delete_build = refused
     window_settings = write_window_settings = refused
 
 

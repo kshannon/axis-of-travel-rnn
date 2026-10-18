@@ -6,7 +6,7 @@ import io
 
 import pyarrow as pa
 import pytest
-from fixtures import S1, S6
+from fixtures import S1, S2, S6
 
 from ratreplay_api.managers.review import ARRAY_KEYS
 from ratreplay_api.managers.validation import ARRAY_COLUMNS
@@ -22,6 +22,7 @@ TOO_LONG = {"window_s": 1000}
 SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "drop", "frame": 2701}]
 ACCEPT = [{"op": "accept"}]
 SAVE_KEYS = {"review", "replaced", "file", "built", "failed", "build_error"}
+EXCLUSION_KEYS = {"review", "replaced", "file", "deleted", "built", "failed", "build_error"}
 READINESS_KEYS = {"which", "settings", "blocks", "totals", "built"}
 TOTALS_KEYS = {"blocks", "ok", "trouble", "windows", "windows_ok"}
 BLOCK_HEADER_KEYS = {"row", "rate_hz", "geometry", "runs", "trips", "phases", "heading_filled", "heading_held", "one_light"}
@@ -100,14 +101,48 @@ def test_save_blocks_names_the_review_file_and_the_blocks_built_and_health_then_
 
 def test_rebuild_all_reports_the_totals_and_builds_at_the_settings_it_is_sent(client):
     empty = client.post("/api/rebuild", json={"settings": SHORT})
-    assert empty.status_code == 200 and empty.json() == {"sessions": {}, "skipped": {}, "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 0}}
+    assert empty.status_code == 200 and empty.json() == {"sessions": {}, "skipped": {}, "excluded": {},
+                                                           "totals": {"sessions": 0, "built": 0, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0}}
     assert save(client, S1, SAVED).status_code == 200 and save(client, S6, ACCEPT).status_code == 200
     done = client.post("/api/rebuild", json={"settings": LONGER})
-    assert done.status_code == 200 and done.json().keys() == {"sessions", "skipped", "totals"}
+    assert done.status_code == 200 and done.json().keys() == {"sessions", "skipped", "excluded", "totals"}
     assert done.json()["sessions"] == {S1: {"built": 2, "failed": [], "build_error": None}, S6: {"built": 1, "failed": [], "build_error": None}}
-    assert done.json()["skipped"] == {} and done.json()["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0}
+    assert done.json()["skipped"] == {} and done.json()["excluded"] == {}
+    assert done.json()["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0}
     built = client.get("/api/blocks", params=SHORT).json()["built"]
     assert {sid: b["settings"]["window_s"] for sid, b in built.items()} == {S1: 10.0, S6: 10.0}
+
+
+def test_a_session_is_excluded_through_the_api_which_clears_its_blocks_at_once_and_included_again(built):
+    excluded = built.put(f"/api/sessions/{S1}/exclusion", json={"excluded": True, "note": "camera moved", "settings": SHORT})
+    assert excluded.status_code == 200 and excluded.json().keys() == EXCLUSION_KEYS
+    assert (excluded.json()["replaced"], excluded.json()["file"], excluded.json()["deleted"], excluded.json()["built"]) == (True, f"review/{S1}.json", False, 0)
+    assert excluded.json()["review"]["excluded"] is True and excluded.json()["review"]["notes"] == "camera moved"
+    assert {b["session_id"] for b in built.get("/api/blocks", params=SHORT).json()["blocks"]} == {S6}  # no rebuild needed, the blocks are gone
+    row = next(r for r in built.get("/api/sessions").json() if r["session_id"] == S1)
+    assert (row["excluded"], row["annotated_exclude"], row["built"]) == (True, False, 0)
+    assert built.get(f"/api/sessions/{S1}", params=SHORT).json()["excluded"] is True
+    refused = save(built, S1, SAVED)
+    assert refused.status_code == 400 and refused.json() == {"error": f"session {S1} is excluded, include it first"}
+    done = built.post("/api/rebuild", json={"settings": SHORT})
+    assert done.json()["excluded"] == {S1: "camera moved"} and done.json()["skipped"] == {}
+    assert done.json()["totals"] == {"sessions": 2, "built": 1, "failed": 0, "errors": 0, "skipped": 0, "excluded": 1}
+    back = built.put(f"/api/sessions/{S1}/exclusion", json={"excluded": False})
+    assert back.json()["review"]["excluded"] is False and back.json()["deleted"] is False and back.json()["built"] == 0
+    assert built.post("/api/rebuild", json={"settings": SHORT}).json()["totals"] == {"sessions": 2, "built": 3, "failed": 0, "errors": 0, "skipped": 0, "excluded": 0}
+
+
+def test_excluding_and_including_a_session_no_one_reviewed_leaves_the_folder_as_it_was(client, processed):
+    def state():
+        row = next(r for r in client.get("/api/sessions").json() if r["session_id"] == S1)
+        return row, client.get("/api/blocks", params=SHORT).json(), sorted(str(path.relative_to(processed)) for path in processed.rglob("*") if path.is_file())
+    before = state()
+    assert client.put(f"/api/sessions/{S1}/exclusion", json={"excluded": True, "note": "x", "settings": SHORT}).json()["review"]["excluded"] is True
+    assert state()[0]["excluded"] is True
+    back = client.put(f"/api/sessions/{S1}/exclusion", json={"excluded": False, "note": "y", "settings": SHORT})
+    assert back.status_code == 200 and back.json()["review"] is None and back.json()["deleted"] is True and back.json()["file"] == f"review/{S1}.json"
+    assert state() == before
+    assert client.put(f"/api/sessions/{S2}/exclusion", json={"excluded": True}).status_code == 404
 
 
 def test_readiness_lists_the_blocks_with_verdicts_and_a_block_gives_its_header_arrays_and_windows(built):
@@ -141,3 +176,15 @@ def test_the_selected_settings_are_written_to_windows_json_read_back_and_replace
     assert built.put("/api/windows", json={"settings": LONGER}).json()["replaced"] is True
     assert built.get("/api/windows").json()["selected"]["settings"]["window_s"] == 10.0
     assert built.get("/api/health").json()["processed"]["problems"] == []
+
+
+def test_environments_are_listed_with_their_geometry_and_the_sessions_registered_against_them_once_built(client):
+    empty = client.get("/api/environments")
+    assert empty.status_code == 200 and [e["name"] for e in empty.json()] == ["open_arena", "plus_maze", "triple_t", "triple_t_rot90"]
+    assert all(e["sessions"] == [] and e["summary"] == {"n_sessions": 0, "n_warned": 0} for e in empty.json())
+    assert save(client, S1, ACCEPT).status_code == 200 and save(client, S6, ACCEPT).status_code == 200
+    by_name = {e["name"]: e for e in client.get("/api/environments").json()}
+    assert "walls" in by_name["triple_t"]["geometry"] and by_name["triple_t"]["summary"].keys() == {"n_sessions", "n_warned"}
+    assert {name: [r["session_id"] for r in e["sessions"]] for name, e in by_name.items()} == {
+        "open_arena": [S1], "plus_maze": [], "triple_t": [S1, S6], "triple_t_rot90": []}
+    assert "scale_px_per_m" in by_name["triple_t"]["sessions"][0]

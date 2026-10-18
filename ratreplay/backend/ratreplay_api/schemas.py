@@ -4,7 +4,7 @@ The request bodies and the query of the API, validated before a manager sees the
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, create_model, model_validator
 
 from .access.processed import EDIT_FIELDS
 from .engines.trajectory import SETTINGS
@@ -84,3 +84,15 @@ class ReviewBody(EditsBody):
     """
 
     notes: str = ""
+
+
+class ExclusionBody(BaseModel):
+    """
+    The person's exclusion of a session or taking it back, with a note that is appended to the review's notes when it is not empty and the window settings the empty build of an exclusion records.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    excluded: StrictBool
+    note: str = ""
+    settings: WindowSettings = Field(default_factory=WindowSettings)

@@ -23,6 +23,7 @@ export const COLUMNS: readonly Column<SessionRow>[] = [
   { key: "date", label: "Date", value: (r) => r.date, text: (r) => r.date },
   { key: "protocol", label: "Protocol", value: (r) => r.protocol, text: (r) => r.protocol },
   { key: "dataset", label: "In dataset", value: (r) => Number(r.in_dataset), text: (r) => (r.in_dataset ? "yes" : "no") },
+  { key: "excluded", label: "Excluded", value: (r) => Number(r.excluded), text: (r) => (r.excluded ? "yes" : "") },
   { key: "minutes", label: "Minutes", value: minutesOf, text: (r) => minutesOf(r).toFixed(1), numeric: true },
   { key: "runs", label: "Runs", value: (r) => r.n_runs, text: (r) => String(r.n_runs), numeric: true },
   { key: "confirmed", label: "Confirmed blocks", value: (r) => r.n_confirmed, text: (r) => String(r.n_confirmed), numeric: true },
@@ -46,7 +47,7 @@ function numbered(items: string[], where: string): string {
   return items.length ? `${items.length}, ${where} ${briefList(items)}` : "none";
 }
 
-/** The hover title of a row: the session, and why the rules leave it out when they do. */
+/** The hover title of a row: the session, and why the tool cannot work with it when it cannot. */
 export function rowTitle(row: SessionRow): string {
   return row.in_dataset ? row.session_id : `${row.session_id}, not in the dataset: ${row.reason}`;
 }
@@ -86,9 +87,10 @@ export function totalsLine(rows: SessionRow[]): string {
   return `${rows.filter((row) => row.reviewed).length} of ${counted(rows.length, "session")} reviewed, ${counted(blocks, "block")} confirmed, confirmed hours: ${hours.join(", ")}`;
 }
 
-/** Who reviewed the session and when, and what the review kept, or that it is still to do. */
+/** Who reviewed the session and when and what the review kept, who excluded it and when, or that it is still to do. */
 export function reviewText(row: SessionRow): string {
-  if (!row.reviewed) return "not reviewed yet";
   const kept = Object.entries(row.confirmed_s).map(([kind, seconds]) => `${kind} ${(seconds / SECONDS_PER_MINUTE).toFixed(1)} min`);
-  return `by ${row.reviewed_by} on ${stampWithSince(row.reviewed_at)}, ${row.n_confirmed} blocks kept (${kept.join(", ")})`;
+  const reviewed = row.reviewed_at ? `reviewed by ${row.reviewed_by} on ${stampWithSince(row.reviewed_at)}, ${row.n_confirmed} blocks kept (${kept.join(", ")})` : "";
+  const excluded = row.excluded ? `excluded by ${row.excluded_by} on ${stampWithSince(row.excluded_at)}` : "";
+  return [reviewed, excluded].filter(Boolean).join(". ") || "not reviewed yet";
 }

@@ -30,14 +30,20 @@ test("a key the config lacks shows the problem naming it and no root", () => {
   expect(processed.key).toBe("PROCESSED_LAB_DATA");
 });
 
-test("the rebuild toast gives the totals, names the first review skipped and the first build that stopped", () => {
+test("the rebuild toast gives the totals, names the first review skipped, the first session you excluded with its note and the first build that stopped", () => {
   const done: Rebuilt = {
-    sessions: { A: { built: 2, failed: [], build_error: null }, B: { built: 0, failed: [], build_error: "NotFound: no session B" } },
-    skipped: { C: "protocol is rotation", D: "too short" },
-    totals: { sessions: 2, built: 2, failed: 0, errors: 1, skipped: 2 },
+    sessions: {
+      A: { built: 2, failed: [], build_error: null }, C: { built: 0, failed: [], build_error: null },
+      B: { built: 0, failed: [], build_error: "NotFound: no session B" },
+    },
+    skipped: { E: "no frames", F: "no arena or track epoch under condition baseline" },
+    excluded: { C: "camera moved\nbad light", D: "" },
+    totals: { sessions: 3, built: 2, failed: 0, errors: 1, skipped: 2, excluded: 2 },
   };
   expect(rebuildSummary(done)).toBe(
-    "Rebuilt 2 sessions, 2 blocks built, 0 failed, 2 skipped (not in the dataset), 1 error. Skipped C: protocol is rotation. B: NotFound: no session B");
-  const clean: Rebuilt = { sessions: { A: done.sessions.A }, skipped: {}, totals: { sessions: 1, built: 2, failed: 0, errors: 0, skipped: 0 } };
-  expect(rebuildSummary(clean)).toBe("Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 errors");
+    "Rebuilt 3 sessions, 2 blocks built, 0 failed, 2 skipped (not in the dataset), 2 excluded by you, 1 error. " +
+    "Skipped E: no frames. Excluded C: camera moved, bad light. B: NotFound: no session B");
+  expect(rebuildSummary({ ...done, skipped: {}, excluded: { D: "" } })).toContain("Excluded D. B: NotFound");
+  const clean: Rebuilt = { sessions: { A: done.sessions.A }, skipped: {}, excluded: {}, totals: { sessions: 1, built: 2, failed: 0, errors: 0, skipped: 0, excluded: 0 } };
+  expect(rebuildSummary(clean)).toBe("Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 excluded by you, 0 errors");
 });

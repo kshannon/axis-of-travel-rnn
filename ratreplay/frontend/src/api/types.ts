@@ -83,10 +83,18 @@ export interface SessionRow {
   n_runs: number;
   n_clean_runs: number;
   in_dataset: boolean;
-  /** Why the rules leave the session out, none when they keep it. */
+  /** Why the tool cannot work with the session (no frames, no arena or track epoch under the condition), none when it can. */
   reason: string | null;
+  /** The lab's annotations mark the session excluded. Shown as a note, never applied. */
+  annotated_exclude: boolean;
+  /** The person excluded the session, in its review. */
+  excluded: boolean;
+  /** Who set the flag and when, none until it was set. */
+  excluded_by: string | null;
+  excluded_at: string | null;
   /** The blocks built from the session on disk. */
   built: number;
+  /** A person has looked at the session: it is excluded, or has edits, or a block no longer auto. */
   reviewed: boolean;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -180,8 +188,9 @@ export interface Cut {
 
 export interface Review {
   session_id: string;
-  reviewed_by: string;
-  reviewed_at: string;
+  /** None for a review that only records an exclusion, which reviews nothing. */
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   converter_manifest_timestamp: string;
   rules: Record<string, unknown>;
   blocks: ReviewBlock[];
@@ -189,6 +198,11 @@ export interface Review {
   flagged_runs: number[];
   notes: string;
   edits: Edit[];
+  /** The person excluded the session. */
+  excluded: boolean;
+  /** Who set the flag and when, none until it was set. */
+  excluded_by: string | null;
+  excluded_at: string | null;
 }
 
 /** A session for the replay: its facts, what the engine draws, its saved review and the blocks the review or the rules make. */
@@ -203,6 +217,8 @@ export interface SessionHeader {
   n_frames: number;
   in_dataset: boolean;
   reason: string | null;
+  annotated_exclude: boolean;
+  excluded: boolean;
   epochs: Epoch[];
   runs: Run[];
   /** The epochs the rules cut into blocks. */
@@ -275,19 +291,31 @@ export interface Build {
   build_error: string | null;
 }
 
-export interface SavedBlocks extends Build {
+/** What writing a review answers: the review as written, whether it replaced an earlier one, and the file relative to the processed folder. */
+export interface Saved {
   review: Review;
-  /** Whether the save replaced an earlier review. */
   replaced: boolean;
-  /** The review file the save wrote, relative to the processed folder. */
   file: string;
 }
 
+export interface SavedBlocks extends Saved, Build {}
+
+/** What excluding or including a session answers: the save's shape, the review being none when including removed it, which it does for a review that only recorded the exclusion. */
+export interface ExclusionSaved extends Build {
+  review: Review | null;
+  replaced: boolean;
+  file: string;
+  deleted: boolean;
+}
+
 export interface Rebuilt {
+  /** Every review's outcome, an excluded session's build writes no blocks. */
   sessions: Record<string, Build>;
-  /** The reviews of sessions the rules leave out, not built, by session id with the funnel's reason. */
+  /** The reviews of sessions the tool cannot work with (no frames, no epoch of the rules), not built, by session id with the reason. */
   skipped: Record<string, string>;
-  totals: { sessions: number; built: number; failed: number; errors: number; skipped: number };
+  /** The sessions the person excluded, by session id with the notes of their review. */
+  excluded: Record<string, string>;
+  totals: { sessions: number; built: number; failed: number; errors: number; skipped: number; excluded: number };
 }
 
 /** One row of the blocks index, a block as the build wrote it. */

@@ -260,3 +260,11 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
   read paths and Reload, the sessions index with stats, Exclude and Include per row, the incoming format
   collapsed), Replay, Blocks, Windows, Outgoing (the write path, what is built per session, failed and
   excluded, windows.json, Rebuild all, later the synthetic sets, the processed format collapsed), About.
+- K5 (exclusion is the person's): exclude writes the review with `excluded`, `excluded_by` and
+  `excluded_at` (the block review's `reviewed_by` and `reviewed_at` never change) and clears the
+  session's blocks at once through the empty build, include writes the flag back and deletes a review
+  that exclude alone created, so the session is exactly as before. Rebuild all lists excluded sessions
+  and keeps `skipped` for reviews the funnel leaves out (no frames, a condition change). The funnel keeps
+  two reasons and `annotated_exclude` is a note. On the fixtures no new session enters the dataset (the
+  sessions the old rules excluded also have no frames), on the real data the JL1 and rotation protocol
+  sessions appear as in the dataset until Kyle excludes them.

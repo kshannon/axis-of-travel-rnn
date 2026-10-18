@@ -32,6 +32,11 @@ LONGER = {**SETTINGS, "window_s": 10.0}
 ACCEPT = [{"op": "accept"}]
 ARENA, TRACK, OTHER = f"{S1}_arena_01", f"{S1}_track_01", f"{S6}_track_01"
 
+# The four environment files, and the registration keys a row holds that the build recorded per epoch kind and for the session.
+YAML_ENVIRONMENTS = ["open_arena", "plus_maze", "triple_t", "triple_t_rot90"]
+PER_KIND = ("scale_px_per_m", "led_separation_m", "rotation_rad", "flip", "offset_m")
+PER_SESSION = ("led_offset_rad", "led_offset_r", "led_offset_n")
+
 
 class Recording(TrajectoryEngine):
     """
@@ -123,6 +128,39 @@ def test_a_broken_processed_folder_names_the_problem_and_leaves_the_others_ok(bu
     health = manager.health(CONFIG)
     assert len(health["processed"]["problems"]) == 1 and health["processed"]["problems"][0].startswith("1 block files missing")
     assert health["transformed"]["problems"] == [] and health["environments"]["problems"] == []
+
+
+def test_environments_list_every_yaml_with_the_registration_each_built_session_was_given(built, manager):
+    found = manager.environments()
+    by_name = {e["name"]: e for e in found}
+    assert [e["name"] for e in found] == YAML_ENVIRONMENTS and all(e.keys() == {"name", "kind", "params", "geometry", "sessions", "summary"} for e in found)
+    access = EnvironmentAccess(built[2])
+    assert all(e["geometry"] == access.environment(e["name"]) and (e["kind"], e["params"]) == (e["geometry"]["kind"], e["geometry"]["params"]) for e in found)
+    assert by_name["open_arena"]["params"]["diameter"] == 0.6 and by_name["triple_t_rot90"]["params"]["rotated_deg"] == 90
+    metadata = {sid: ProcessedAccess(built[1]).metadata(sid) for sid in (S1, S6)}
+    # S1 is registered on its arena and its track, S6 on its track alone (its arena is of another condition), and the rest of the files are used by none.
+    assert [(r["session_id"], r["kind"]) for r in by_name["triple_t"]["sessions"]] == [(S1, "track"), (S6, "track")]
+    assert [(r["session_id"], r["kind"]) for r in by_name["open_arena"]["sessions"]] == [(S1, "arena")]
+    assert by_name["plus_maze"]["sessions"] == by_name["triple_t_rot90"]["sessions"] == []
+    for environment in found:
+        for row in environment["sessions"]:
+            made, frame = metadata[row["session_id"]], metadata[row["session_id"]]["frame"]
+            expected = {**{key: frame[row["kind"]][key] for key in PER_KIND}, **{key: frame[key] for key in PER_SESSION},
+                        "warnings": made["warnings"], "built_at": made["built_at"]}
+            axes = {"scale_x": frame["track"]["scale_x_px_per_m"], "scale_y": frame["track"]["scale_y_px_per_m"]} if row["kind"] == "track" else {}
+            assert row == {"session_id": row["session_id"], "kind": row["kind"], **expected, **axes}
+    assert all(e["summary"] == {"n_sessions": len(e["sessions"]), "n_warned": sum(bool(r["warnings"]) for r in e["sessions"])} for e in found)
+    json.dumps(found)
+
+
+def test_an_excluded_session_has_no_registration_to_show_and_nothing_is_written(built, manager):
+    review = review_over(built)
+    review.exclude(S1, True, "camera moved", SHORT)
+    review.rebuild_all(SHORT)
+    before = snapshot(built[1])
+    by_name = {e["name"]: e for e in manager.environments()}
+    assert [r["session_id"] for r in by_name["triple_t"]["sessions"]] == [S6] and by_name["open_arena"]["sessions"] == []
+    assert by_name["triple_t"]["summary"]["n_sessions"] == 1 and snapshot(built[1]) == before
 
 
 def test_readiness_gives_a_row_per_block_with_count_and_verdict_the_totals_and_the_settings_each_session_was_built_with(manager):

@@ -21,6 +21,7 @@ import type { Command } from "../ui/keys";
 import { BUTTON_PRIMARY } from "../ui/style";
 import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
+import { askAndChange } from "./exclusion";
 import type { Page } from "./page";
 import { replayGrid } from "./replay-html";
 import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, settingsLine, stateLine, summaryTiles } from "./replay-view";
@@ -56,6 +57,7 @@ function registerReplay(): void {
       facts: "",
       stateLine: "",
       inDataset: true,
+      excluded: false,
       reason: "",
       notices: [] as Note[],
       settingsLine: "",
@@ -137,6 +139,7 @@ function registerReplay(): void {
         this.sessionId = header.session_id;
         this.facts = factsLine(header);
         this.inDataset = header.in_dataset;
+        this.excluded = ws.excluded;
         this.reason = header.reason ?? "";
         this.notes = ws.saved?.notes ?? "";
         this.occupancyChoices = [CURRENT, ALL, ...header.selected_epochs];
@@ -310,6 +313,28 @@ function registerReplay(): void {
           this.sync();
         } catch (error) {
           toast.error(errorText(error));
+        }
+      },
+
+      /** Exclude the session or include it again after asking for a note, the edits not saved stay. The notes box takes the review's notes, or keeps what was typed with the note added to it. */
+      async changeExclusion() {
+        this.busy = true;
+        try {
+          const untouched = this.notes === (ws.saved?.notes ?? "");
+          let given = "";
+          const saved = await askAndChange(this.sessionId, !this.excluded, (note) => {
+            given = note;
+            return ws.setExclusion(!this.excluded, note);
+          });
+          if (!saved) return;
+          this.excluded = ws.excluded;
+          if (untouched) this.notes = saved.review?.notes ?? "";
+          else if (saved.review) this.notes = [this.notes, given].filter(Boolean).join("\n");
+          this.sync();
+        } catch (error) {
+          toast.error(errorText(error));
+        } finally {
+          this.busy = false;
         }
       },
 

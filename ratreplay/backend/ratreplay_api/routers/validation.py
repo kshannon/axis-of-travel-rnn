@@ -1,5 +1,5 @@
 """
-The HTTP face of ValidationManager: folder health, the data format, readiness, a built block with its arrays and windows, and the window settings selected for export.
+The HTTP face of ValidationManager: folder health, the data format, the environments with their registrations, readiness, a built block with its arrays and windows, and the window settings selected for export.
 """
 
 from typing import Annotated
@@ -28,6 +28,14 @@ def get_format(manager=Depends(validation_manager)):
     The files, columns and types each access declares and the default window settings.
     """
     return manager.format()
+
+
+@router.get("/environments")
+def get_environments(manager=Depends(validation_manager)):
+    """
+    Every environment with its kind, yaml parameters and geometry, and the built sessions registered against it with the registration each was given and a summary.
+    """
+    return manager.environments()
 
 
 @router.get("/blocks")

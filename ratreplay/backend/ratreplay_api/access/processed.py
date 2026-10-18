@@ -19,17 +19,21 @@ WINDOWS = "windows.json"
 JSON, PARQUET, TEMP = ".json", ".parquet", ".tmp"
 SAFE_STEM = re.compile(r"\w[\w.-]*")
 
-# The review file: its keys, the keys and statuses of each of its blocks, and the fields each edit carries.
+# The review file: its keys, the value a key takes when a file written before the key existed lacks it, the keys and statuses of each
+# of its blocks, and the fields each edit carries. A session is excluded when the person said so (excluded, a bool), and excluded_by
+# and excluded_at record who set the flag and when, none until it was set. reviewed_by and reviewed_at stay the review's own.
 REVIEW_KEYS = ("session_id", "reviewed_by", "reviewed_at", "converter_manifest_timestamp", "rules", "blocks", "cuts",
-               "flagged_runs", "notes", "edits")
+               "flagged_runs", "notes", "edits", "excluded", "excluded_by", "excluded_at")
+REVIEW_DEFAULTS = {"excluded": False, "excluded_by": None, "excluded_at": None}
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 STATUSES = ("auto", "confirmed", "edited", "dropped")
 EDIT_FIELDS = {"accept": (), "confirm": ("frame",), "move": ("frame", "edge", "at"), "split": ("frame",), "drop": ("frame",),
                "new": ("frame_start", "frame_end"), "cut": ("frame_start", "frame_end"), "flag": ("run",)}
 
-# What a build records per session (windows is per block the count and verdict at the build's settings, informative),
-# and what selecting the window settings records.
-METADATA_KEYS = ("rules", "settings", "review_stamp", "code_version", "built_at", "windows")
+# What a build records per session (windows is per block the count and verdict at the build's settings, informative, frame the
+# registration it was built under, warnings the session's, failed the blocks not written and excluded whether the person excluded
+# the session, which writes no blocks), and what selecting the window settings records.
+METADATA_KEYS = ("rules", "settings", "review_stamp", "code_version", "built_at", "windows", "frame", "warnings", "failed", "excluded")
 WINDOWS_KEYS = ("settings", "totals", "selected_at", "selected_by")
 
 # A block parquet holds the lab frame number first, so a row maps back to the converter's frames, then one row per frame
@@ -83,6 +87,8 @@ def check_review(sid, review):
     Invalid naming the first way the review breaks its format or is not the session's.
     """
     require("review", REVIEW_KEYS, review)
+    if not isinstance(review["excluded"], bool):
+        raise Invalid("review excluded is not true or false")
     if review["session_id"] != sid:
         raise Invalid(f"review is of session {review['session_id']}, not {sid}")
     for number, block in enumerate(review["blocks"]):
@@ -135,7 +141,7 @@ class ProcessedAccess:
         """
         The files, columns, keys and types the folder holds, as json. Every file is optional, the first save creates it.
         """
-        review = {"keys": list(REVIEW_KEYS), "block_keys": list(BLOCK_KEYS), "statuses": list(STATUSES),
+        review = {"keys": list(REVIEW_KEYS), "defaults": REVIEW_DEFAULTS, "block_keys": list(BLOCK_KEYS), "statuses": list(STATUSES),
                   "edits": {op: list(fields) for op, fields in EDIT_FIELDS.items()}}
         return {"files": [
             {"path": BLOCKS_CSV, "optional": True, "columns": columns_of(BLOCKS_CSV_SCHEMA)},
@@ -165,9 +171,10 @@ class ProcessedAccess:
 
     def review(self, sid):
         """
-        The session's review, none when it was not reviewed.
+        The session's review, none when it was not reviewed, with the default of every key an older file lacks (excluded is false).
         """
-        return read_json(self._path(REVIEW_DIR, sid, JSON))
+        review = read_json(self._path(REVIEW_DIR, sid, JSON))
+        return None if review is None else {**REVIEW_DEFAULTS, **review}
 
     def write_review(self, sid, review):
         """
@@ -179,6 +186,15 @@ class ProcessedAccess:
         write_json(review, temp_of(path))
         temp_of(path).replace(path)
         return {"replaced": replaced, "file": path.relative_to(self.root).as_posix()}
+
+    def delete_review(self, sid):
+        """
+        Remove the session's review file and say which file, relative to the root, and whether there was one.
+        """
+        path = self._path(REVIEW_DIR, sid, JSON)
+        existed = path.is_file()
+        path.unlink(missing_ok=True)
+        return {"deleted": existed, "file": path.relative_to(self.root).as_posix()}
 
     def blocks(self):
         """
@@ -235,6 +251,29 @@ class ProcessedAccess:
         for target in [*parquets, meta_path, index]:
             temp_of(target).replace(target)
         return {"blocks": len(blocks), "replaced": replaced}
+
+    def delete_build(self, sid):
+        """
+        Remove the session's blocks, index rows and metadata whole, the index staged under a temporary name and renamed after the files go (and removed when no row is left, as before the first build), and say how many blocks went.
+        """
+        rows = self.blocks()
+        gone = [row for row in rows if row["session_id"] == sid]
+        index, meta_path = self.root / BLOCKS_CSV, self._path(METADATA_DIR, sid, JSON)
+        left = [row for row in rows if row["session_id"] != sid]
+        if gone and left:
+            try:
+                tables.write_csv(left, temp_of(index), BLOCKS_CSV_SCHEMA)
+            except Exception:
+                temp_of(index).unlink(missing_ok=True)
+                raise
+        for row in gone:
+            self._path(BLOCKS_DIR, row["block_id"], PARQUET).unlink(missing_ok=True)
+        if gone and left:
+            temp_of(index).replace(index)
+        elif gone or (index.is_file() and not rows):
+            index.unlink(missing_ok=True)
+        meta_path.unlink(missing_ok=True)
+        return {"blocks": len(gone)}
 
     def window_settings(self):
         """

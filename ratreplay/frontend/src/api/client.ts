@@ -1,6 +1,6 @@
 import { decodeColumns } from "./arrow";
 import type {
-  BlockArrays, BlockHeader, BlockWindows, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
+  BlockArrays, BlockHeader, BlockWindows, ExclusionSaved, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
   SaveBody, SavedBlocks, Selected, SelectedResult, SessionArrays, SessionHeader, SessionRow, WindowSettings,
 } from "./types";
 
@@ -64,6 +64,8 @@ export const getSession = (sessionId: string, settings: Partial<WindowSettings> 
 export const getSessionArrays = (sessionId: string) => columns<SessionArrays>(`${SESSIONS}/${sessionId}/arrays`);
 export const previewEdits = (sessionId: string, body: PreviewBody) => json<Preview>("POST", `${SESSIONS}/${sessionId}/preview`, body);
 export const saveBlocks = (sessionId: string, body: SaveBody) => json<SavedBlocks>("PUT", `${SESSIONS}/${sessionId}/blocks`, body);
+export const setExclusion = (sessionId: string, excluded: boolean, note: string, settings: WindowSettings) =>
+  json<ExclusionSaved>("PUT", `${SESSIONS}/${sessionId}/exclusion`, { excluded, note, settings });
 
 // The Blocks and Windows pages.
 export const listBlocks = (settings: Partial<WindowSettings> = {}, which = REAL) =>

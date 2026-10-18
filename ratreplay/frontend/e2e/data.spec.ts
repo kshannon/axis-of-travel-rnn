@@ -52,7 +52,7 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     const read = nextHealth(page);
     await page.getByRole("button", { name: "Rebuild all" }).click();
     expect(await asked).toContain("Build the blocks of 1 reviewed session again");
-    await expect(toast(page, "Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 errors")).toBeVisible();
+    await expect(toast(page, "Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 excluded by you, 0 errors")).toBeVisible();
     await read; // the folder is read again once the blocks are built
     await expect(countTile(processed, "blocks")).toHaveText("2");
     await expect(countTile(processed, "built sessions")).toHaveText("1");

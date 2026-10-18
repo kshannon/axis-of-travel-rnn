@@ -101,7 +101,7 @@ anything that touches real data.
 - [x] K4 The data formats move from the API page to the Data page, the API page is removed, its OpenAPI
       schema becomes an "Under the hood" section of About (a cheat sheet of the internal routes, not a
       public API). Kyle, 2026-10-18. [Pages 1, 7 and 8]
-- [ ] K5 Exclusion is the person's: the funnel drops `protocol` and `excluded_groups` and keeps only "no
+- [x] K5 Exclusion is the person's: the funnel drops `protocol` and `excluded_groups` and keeps only "no
       frames" and "no arena or track epoch under the condition", the review file gains `excluded` with a
       note, who and when, ReviewManager gains `exclude(sid, excluded, note)`, an excluded session is not
       built and Rebuild all lists it as excluded, the Sessions index and Replay get Exclude and Include,
@@ -111,3 +111,27 @@ anything that touches real data.
       is" carries the rules it follows, a section on what a person can do and what each action writes
       (from the files' point of view), and the main section is the process, the workflow and instructions
       for use, including the data flow. Kyle, 2026-10-18. [Pages 1 and 8]
+- [ ] K9 Status marks and palette: the ok, problem and nothing yet states on the Data page become a strong
+      coloured mark with a plain word and a coloured edge on the card, and the palette tries the San Diego
+      Gulls colours used sparingly, marine blue #0083BF as the accent and ok, orange #FF4C00 only for a
+      problem or a refusal, silver #C0CDD5 for muted text, black and white as the grounds of the two
+      themes. The margin spans on the timeline are drawn light in the dark theme (they were black on
+      black). Kyle, 2026-10-18. [UX rules, Page 1 first]
+- [ ] K10 The Sessions totals line becomes a one row strip of small tiles (in the dataset, reviewed,
+      excluded, blocks confirmed, confirmed hours per kind, built), numbers large, labels muted. Folds into
+      Incoming (K7) if that shape is taken. Kyle, 2026-10-18. [Page 2]
+- [ ] K11 Replay layout and errors: the block editing buttons (marks, split, new block, edges, accept,
+      reject, remove) move onto the timeline card in one row under the lanes, notes and flag a run go
+      under the playback, names get a plainness pass. Errors and warnings move to the top right, larger,
+      with the time, stacked newest first, each closed by hand, successes stay brief. Flag a run stays
+      unless Kyle drops it. The zoom controls become one segmented block on the timeline card, Reset view,
+      plus, minus, Zoom to block, in that order. The runs lane is made less tall. A block bar too narrow for "block 5" shows "5" alone, and nothing when
+      even that does not fit. The heading chips and lanes say whose work it is: "head dir interpolated by
+      RatReplay", "head dir held by RatReplay", "head dir missing", and "lights filled by the lab" for the
+      converter's light fills, the same words on the cards, the Windows page and the About guide. The cut chips become "recording
+      paused", "tracking lost", "position jumped", "margins trimmed", and the layer toggles move to a narrow
+      side panel on the timeline card, each with one line of what it means and the rule's number read from
+      the session's rules. The map layer choice (occupancy, current, all, arena, track) becomes a row of
+      checkboxes under the map title, each layer on or off on its own (occupancy, geometry, arena, track,
+      trail), "follow the cursor's epoch" a checkbox too, nothing forced on. Kyle, 2026-10-18.
+      [Page 3, UX rules]

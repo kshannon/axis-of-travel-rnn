@@ -1,6 +1,7 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_PRIMARY, CHIP_OFF, CHIP_ON, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_PRIMARY, CHIP_OFF, CHIP_ON, CHIP_WARN, INPUT, KBD, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
@@ -15,14 +16,20 @@ const TIMELINE_HELP = `
 const toggle = (pressed: string, on: string, off: string) => `:class="${pressed} ? '${on}' : '${off}'"`;
 
 const sessionActions = `
-  <button type="button" @click="save()" :disabled="loading || busy || !inDataset" :title="inDataset ? '' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
+  <button type="button" @click="save()" :disabled="loading || busy || !inDataset || excluded"
+    :title="excluded ? '${EXCLUDED_SAVE}' : inDataset ? '' : 'Not in the dataset: ' + reason" class="${BUTTON_PRIMARY}">Save blocks</button>
+  <button type="button" @click="changeExclusion()" :disabled="loading || busy" class="${BUTTON}"
+    x-text="excluded ? 'Include' : 'Exclude'"></button>
   <button type="button" @click="undo()" :disabled="!editCount" class="${BUTTON}">Undo <kbd class="${KBD}">z</kbd></button>
   <button type="button" @click="reset()" :disabled="!editCount" class="${BUTTON}">Reset to automatic</button>`;
 
 const sessionBody = `
   <div class="flex items-end justify-between gap-3">
     <div class="flex min-w-0 flex-col gap-1">
-      <p data-testid="session-id" class="truncate font-mono text-sm" x-text="sessionId"></p>
+      <div class="flex items-center gap-2">
+        <p data-testid="session-id" class="truncate font-mono text-sm" x-text="sessionId"></p>
+        <span x-show="excluded" data-testid="excluded-chip" class="${CHIP_WARN} shrink-0">excluded</span>
+      </div>
       <p class="text-xs" x-text="facts"></p>
       <p data-testid="state" class="text-xs text-muted" x-text="stateLine"></p>
       <ul data-testid="notices" x-show="notices.length" class="max-h-14 space-y-0.5 overflow-auto text-xs">

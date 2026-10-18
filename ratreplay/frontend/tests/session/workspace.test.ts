@@ -131,3 +131,28 @@ test("opening another session drops the open one's edits only while they are uns
   expect(Workspace.unsavedWhenOpening("T")).toBeNull();
   Workspace.current = null;
 });
+
+test("excluding a session keeps the edits not saved and takes the flag and the review the server wrote, and the open workspace answers for its own session", async () => {
+  const review = { edits: [], notes: "camera moved", excluded: true } as never;
+  const result = { review, replaced: false, file: "review/S.json", deleted: false, built: 0, failed: [], build_error: null };
+  vi.mocked(client.setExclusion).mockResolvedValue(result);
+  const ws = workspace();
+  Workspace.current = ws;
+  ws.editor.push({ op: "accept" });
+  expect(await Workspace.exclude("S", true, "camera moved", SETTINGS)).toEqual(result);
+  expect(client.setExclusion).toHaveBeenCalledWith("S", true, "camera moved", SETTINGS);
+  expect([ws.excluded, ws.saved, ws.editor.dirty]).toEqual([true, review, true]);
+  await Workspace.exclude("other", false, "", SHORTER);
+  expect(client.setExclusion).toHaveBeenLastCalledWith("other", false, "", SHORTER);
+  expect(ws.excluded).toBe(true);
+  Workspace.current = null;
+});
+
+test("including a session whose review only recorded the exclusion leaves the workspace with no saved review", async () => {
+  vi.mocked(client.setExclusion).mockResolvedValue({ review: null, replaced: false, file: "review/S.json", deleted: true, built: 0, failed: [], build_error: null });
+  const ws = workspace();
+  ws.excluded = true;
+  await ws.setExclusion(false, "");
+  expect([ws.excluded, ws.saved]).toEqual([false, null]);
+  expect(client.setExclusion).toHaveBeenCalledWith("S", false, "", SETTINGS);
+});

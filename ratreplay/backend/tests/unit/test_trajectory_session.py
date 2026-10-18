@@ -8,7 +8,7 @@ import numpy as np
 import process_lab_data.__main__ as processor
 import pytest
 from axis_of_travel_rnn import trajectory
-from fixtures import S1, S6
+from fixtures import S1, S2, S3, S4, S5, S6
 from process_lab_data import frame as old_frame
 from process_lab_data import select
 
@@ -102,17 +102,30 @@ def turning(frames):
     frames["head_dir"][:] = np.where(frames["unfilled_back"], np.nan, 0.5 + 0.6 * np.sin(frames["frame"] / 40))
 
 
-def test_the_funnel_decides_as_select_does_and_names_why_a_session_is_out(transformed):
+def test_the_funnel_leaves_out_only_what_the_tool_cannot_work_with_and_shows_the_annotation_as_a_note(transformed):
     tables = TransformedAccess(transformed).sessions()
     found = TrajectoryEngine().funnel(tables, RULES)
     epochs, _ = select.funnel(tables, None)
-    assert [sid for sid, f in found.items() if f["in_dataset"]] == sorted({e["session_id"] for e in epochs}) == [S1, S6]
-    for sid, f in found.items():
-        assert f["epochs"] == [e for e in epochs if e["session_id"] == sid]
-    assert [f["reason"] for f in found.values()] == [None, "protocol rotation, not standard", "excluded by annotation",
-                                                      "group JL1HPCData is excluded", "protocol infusion, not standard", None]
-    assert TrajectoryEngine().funnel({**tables, "frames": [S1]}, RULES)[S6] == {"in_dataset": False, "reason": "no frames", "epochs": found[S6]["epochs"]}
+    # Only S1 and S6 have frames, S5 has no baseline arena or track epoch. The processor's protocol, group and annotation rules no longer apply.
+    assert [sid for sid, f in found.items() if f["in_dataset"]] == [S1, S6]
+    for sid in (S1, S6):
+        assert found[sid]["epochs"] == [e for e in epochs if e["session_id"] == sid]
+    assert [e["epoch"] for e in found[S2]["epochs"]] == ["arena", "track"] and found[S5]["epochs"] == []
+    assert [f["reason"] for f in found.values()] == [None, "no frames", "no frames", "no frames", "no arena or track epoch under condition baseline", None]
+    assert [f["annotated_exclude"] for f in found.values()] == [False, False, True, False, False, False]
+    assert TrajectoryEngine().funnel({**tables, "annotations": []}, RULES)[S3]["annotated_exclude"] is False
+    assert TrajectoryEngine().funnel({**tables, "frames": [S1]}, RULES)[S6] == {"in_dataset": False, "reason": "no frames", "epochs": found[S6]["epochs"],
+                                                                                "annotated_exclude": False}
     assert TrajectoryEngine().funnel(tables, {**RULES, "condition": "rot45"})[S1]["reason"] == "no arena or track epoch under condition rot45"
+
+
+def test_a_rotation_protocol_a_group_and_an_annotation_exclude_do_not_keep_a_session_out_of_the_funnel(transformed):
+    tables = TransformedAccess(transformed).sessions()
+    found = TrajectoryEngine().funnel({**tables, "frames": [S1, S2, S3, S4, S6]}, RULES)
+    by_id = {s["session_id"]: s for s in tables["sessions"]}
+    assert by_id[S2]["protocol"] == "rotation" and by_id[S4]["group"] == "JL1HPCData" and found[S3]["annotated_exclude"] is True
+    assert [found[sid]["in_dataset"] for sid in (S1, S2, S3, S4, S5, S6)] == [True, True, True, True, False, True]
+    assert [found[sid]["reason"] for sid in (S2, S3, S4)] == [None, None, None]
 
 
 @pytest.mark.parametrize("sid, overrides, change, reason", [(S1, {}, None, "epoch"), (S6, {}, None, "pause"), (S1, {"gap_lights": "either"}, None, "gap"),

@@ -70,7 +70,8 @@ export const processBody = `
         `${lead("Rebuild all")} is on the processed card. After a confirmation it builds the blocks of every reviewed session again from its saved review. Use it after a rule or setting change that should reach what is already built, not to start. It builds at the settings selected for export when there are some, else at the settings in use, and it never changes a review.`)}
       ${step(`Find a session on ${link("sessions", "Sessions")}`,
         `${lead("Do:")} click a header to sort, type in the filter box to find a session or a rat, click a row to see its epochs, blocks and review, then press Open in replay. The sessions in the dataset come first, those still to review before those reviewed.`,
-        `${lead("Look for:")} In dataset. A session the rules leave out is greyed and its details say why (it has no frames, for example). You can view it in Replay but not save it. Confirmed blocks and Built blocks tell what its review kept and what is built on disk, and Reviewed says by whom and when. The line above the table counts the sessions reviewed and the hours confirmed. If the session open in Replay has edits that are not saved, you are asked before they are dropped.`)}
+        `${lead("Look for:")} In dataset. A session the tool cannot work with (no frames, or no arena or track epoch under baseline) is greyed and its details say why. Confirmed blocks and Built blocks tell what its review kept and what is built on disk, and Reviewed says by whom and when. The line above the table counts the sessions reviewed and the hours confirmed. If the session open in Replay has edits that are not saved, you are asked before they are dropped.`,
+        `${lead("Excluded")} shows the sessions you left out. No rule leaves a session out because of its group or protocol, that is your decision: Exclude on a row's details asks for a short note and clears the session's built blocks at once, Include takes it back and leaves the session to build again. The lab's annotations file may mark a session excluded, that shows as a note and is not applied.`)}
       ${step(`Review the session in ${link("replay", "Replay")}`,
         `${lead("Do:")} Replay plays the session on a map in metres and over a timeline that shows where the rules cut it (pauses, gaps, jumps, epoch bounds) and the blocks that remain. Press space to play, click a lane to put the cursor there, click a block bar to select a block, use the wheel to zoom and drag to pan. The chips above the timeline switch layers on and off, and the ? buttons explain the map and the timeline.`,
         `Every block is a card with its status and its window count and verdict at the settings in use. The status is auto (cut by the rules, not looked at yet), confirmed, edited (moved, split or made by you) or dropped. Decide each block:
@@ -82,6 +83,7 @@ export const processBody = `
             "Undo takes back the last edit, Reset to automatic drops them all.",
           ])}`,
         `${lead("Look for:")} anything you would not train on inside a block, such as a pause, a jump or a long stretch where the heading is lost (the layer chips show where). A block with no window at the settings in use is dimmed. When the server refuses an edit it says why and changes nothing: the edit would overlap a block you keep, leave a kept block under the minimum length, reach outside its epoch, or change a block you removed. Edits and previews write nothing.`,
+        `${lead("Exclude or Include")} sits beside Save blocks too. Excluding a session is your decision and not a rule: it keeps its review and your note, clears its built blocks at once, Save blocks is disabled until you include it, and Rebuild all builds no blocks for it.`,
         `${lead("Save blocks")} is refused while any block is still auto, so accept or reject each one first. It writes the review (${code(SID)}, whole) and then builds the session's blocks. The toast names the review file and whether it replaced one, and warns if the build failed or a block failed a check. The next session still to review then opens. A saved session loads again with its review.`,
         `${lead("Keys:")}${keys}`)}
       ${step(`Judge readiness on ${link("blocks", "Blocks")}`,
@@ -99,8 +101,10 @@ export const processBody = `
 const ACTIONS: readonly (readonly [action: string, page: string, writes: string])[] = [
   ["Save blocks", "Replay",
     `${code(SID)} whole. Then the session's build: ${code(BID)} for each block, the session's rows of ${code("blocks.csv")} replaced together, and ${code("metadata/&lt;session_id&gt;.json")} whole. A failed build leaves the previous one in place.`],
+  ["Exclude or Include", "Sessions, Replay",
+    `${code(SID)} whole, with the excluded flag, who set it and when, and the note added to the session's notes. The reviewer and the review time are not changed. Excluding then builds the session with no blocks, so its blocks and metadata are replaced at once. Including writes the review only and the session builds again at your next Save blocks or Rebuild all. When the review only recorded the exclusion, including removes the file and the session's build, leaving the session as before.`],
   ["Rebuild all", "Data",
-    `The same build for every session that has a review, from the review as saved. The review files are not touched.`],
+    `The same build for every session that has a review, from the review as saved. The review files are not touched. A session you excluded is written with no blocks, and a review of a session the tool cannot work with is skipped.`],
   ["Select these settings", "Blocks", `${code("windows.json")} whole: the settings, the totals at them, when and by whom.`],
   ["Reload", "Data", "Nothing. It reads the config file and the folders again."],
   ["Everything else", "any page",

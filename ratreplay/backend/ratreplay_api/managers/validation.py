@@ -1,5 +1,5 @@
 """
-ValidationManager: the health of the folders, the data format, the readiness of the built blocks at window settings, a block for the player and its windows, and the window settings selected for export.
+ValidationManager: the health of the folders, the data format, the environments with the registration each built session was given, the readiness of the built blocks at window settings, a block for the player and its windows, and the window settings selected for export.
 """
 
 import getpass
@@ -14,6 +14,12 @@ FORMAT_VERSION = 1
 REAL = "real"
 SYNTHETIC_LATER = "synthetic sets arrive with the synthetic slice"
 NOTHING_BUILT = "nothing is built yet, no settings to select"
+
+# What a session's registration row carries, as the build wrote it in the metadata's frame: per epoch kind the scale, LED separation, rotation,
+# flip and offset, for the track also its scale along each room axis (named as the row names them), and for the session the LED offset.
+KIND_KEYS = ("scale_px_per_m", "led_separation_m", "rotation_rad", "flip", "offset_m")
+AXIS_SCALES = {"scale_x": "scale_x_px_per_m", "scale_y": "scale_y_px_per_m"}
+SESSION_KEYS = ("led_offset_rad", "led_offset_r", "led_offset_n")
 
 # The columns of a built block the player gets. The phase is a string and travels as spans.
 ARRAY_COLUMNS = ("frame", "t", "x", "y", "heading", "speed", "turn_rate", "n_lights", "trip")
@@ -60,6 +66,27 @@ def phases_of(arrays):
     return [{"phase": phase, "first": first, "last": last} for phase, first, last in spans_of(arrays["phase"].tolist())]
 
 
+def registrations_of(sid, made, epochs):
+    """
+    The registration a built session was given, as (environment name, row) per epoch kind of the build, the environment being the one the kind's selected epoch lies in. An excluded session has none.
+    """
+    frame = made["frame"]
+    if frame is None:
+        return []
+    where = {epoch["epoch"]: epoch["environment"] for epoch in epochs}
+    return [(where[kind], {"session_id": sid, "kind": kind, **{key: frame[kind][key] for key in KIND_KEYS},
+                           **{name: frame[kind][key] for name, key in AXIS_SCALES.items() if key in frame[kind]},
+                           **{key: frame[key] for key in SESSION_KEYS}, "warnings": made["warnings"], "built_at": made["built_at"]})
+            for kind in sorted(where) if kind in frame]
+
+
+def summary_of(rows):
+    """
+    How many sessions an environment has and how many of them carry a warning, counts and nothing more, a scale or a rotation being summarised by the page.
+    """
+    return {"n_sessions": len({row["session_id"] for row in rows}), "n_warned": len({row["session_id"] for row in rows if row["warnings"]})}
+
+
 class ValidationManager:
     """
     Stateless: the engine and the accesses it works with, handed in at the composition root.
@@ -81,6 +108,30 @@ class ValidationManager:
         The schemas the accesses declare and the default window settings, what the API page renders.
         """
         return {"version": FORMAT_VERSION, "transformed": self.transformed.schema(), "processed": self.processed.schema(), "settings": SETTINGS}
+
+    def environments(self):
+        """
+        Every environment of the folder with its kind, yaml parameters and geometry, and the built sessions registered against it, each with the registration its build recorded. Read only.
+        """
+        # The metadata holds the registration by epoch kind and not the environment each kind lay in, so the environment is read from the
+        # session's epochs, the ones the engine's funnel selects under the rules the session was built with. Were an epochs.csv changed since the
+        # build, the page would show the new environment. The metadata naming it per kind would end that (one line in ReviewManager._build).
+        metadata = {sid: self.processed.metadata(sid) for sid in self.processed.built()}
+        tables = self.transformed.sessions()
+        found = {}
+        for row in tables["sessions"]:
+            sid = row["session_id"]
+            if sid in metadata:
+                epochs = self.trajectory.funnel({**tables, "sessions": [row]}, metadata[sid]["rules"])[sid]["epochs"]
+                for name, registration in registrations_of(sid, metadata[sid], epochs):
+                    found.setdefault(name, []).append(registration)
+        environments = []
+        for name in self.environment.environments():
+            geometry = self.environment.environment(name)
+            rows = sorted(found.get(name, []), key=lambda row: (row["session_id"], row["kind"]))
+            environments.append({"name": name, "kind": geometry["kind"], "params": geometry["params"], "geometry": geometry,
+                                 "sessions": rows, "summary": summary_of(rows)})
+        return environments
 
     def readiness(self, which, settings):
         """

@@ -1,43 +1,27 @@
 """
-The funnel: which sessions of the transformed folder are in the dataset under the rules, why the others are not, and the epochs the rules select.
+The funnel: which sessions of the transformed folder the tool can work with under the rules, why the others are not, and the epochs the rules select. It never excludes by a tag, the person excludes.
 """
 
 from .cuts import selected
 
-# What a session that is out says, in the order the rules are checked. The epoch reason names the rules' kinds and condition.
-OUT_PROTOCOL = "protocol {found}, not {wanted}"
-OUT_GROUP = "group {group} is excluded"
-OUT_ANNOTATION = "excluded by annotation"
+# What a session the tool cannot work with says, in the order the rules are checked. The epoch reason names the rules' kinds and condition.
 OUT_EPOCHS = "no {kinds} epoch under condition {condition}"
 OUT_FRAMES = "no frames"
 
 
-def session_reason(session, excluded, rules):
-    """
-    Why the session is out by its own row and the annotations, none when it stays.
-    """
-    if session["protocol"] != rules["protocol"]:
-        return OUT_PROTOCOL.format(found=session["protocol"], wanted=rules["protocol"])
-    if session["group"] in rules["excluded_groups"]:
-        return OUT_GROUP.format(group=session["group"])
-    if session["session_id"] in excluded:
-        return OUT_ANNOTATION
-    return None
-
-
 def funnel(tables, rules):
     """
-    Per session id whether it is in the dataset and the reason when not, with the epochs the rules select among those of a session that passed its own checks.
+    Per session id whether it is in the dataset, the reason when not (no epoch of the rules' kinds and condition, or no frames), the epochs the rules select and whether the annotations table marks it excluded, a note and not a rule.
     """
-    excluded = {row["session_id"] for row in tables["annotations"] if row.get("exclude")}
+    annotated = {row["session_id"] for row in tables["annotations"] if row.get("exclude")}
     found = {}
     for session in tables["sessions"]:
         sid = session["session_id"]
-        reason = session_reason(session, excluded, rules)
-        epochs = [] if reason else selected([e for e in tables["epochs"] if e["session_id"] == sid], rules)
-        if reason is None and not epochs:
+        epochs = selected([e for e in tables["epochs"] if e["session_id"] == sid], rules)
+        reason = None
+        if not epochs:
             reason = OUT_EPOCHS.format(kinds=" or ".join(rules["epochs"]), condition=rules["condition"])
-        if reason is None and sid not in tables["frames"]:
+        elif sid not in tables["frames"]:
             reason = OUT_FRAMES
-        found[sid] = {"in_dataset": reason is None, "reason": reason, "epochs": epochs}
+        found[sid] = {"in_dataset": reason is None, "reason": reason, "epochs": epochs, "annotated_exclude": sid in annotated}
     return found

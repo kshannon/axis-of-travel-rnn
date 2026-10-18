@@ -44,7 +44,7 @@ must hold at least once to be training ready. Block: a continuous stretch of one
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
 person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
 writes. Excluded: the person's decision that a session stays out of the dataset, a flag in its review with
-a note, who and when. No rule excludes a session by a tag (group, protocol) and the annotations table's
+a note, and who set it and when (never reviewer and review time). No rule excludes a session by a tag (group, protocol) and the annotations table's
 exclude column is shown as a note, not applied. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
 review. Metadata: per session, what the build used (rules, settings, review stamp, code version, built
 at) and per block the window count and verdict at those settings, informative, readiness recomputes them.
@@ -87,7 +87,7 @@ flowchart TB
     subgraph Managers["Managers (what), stateless classes, one family of use cases each"]
         RM["ReviewManager: index, load, preview edits, save blocks, exclude, rebuild all"]
         SM["SynthesisManager: generate a set from a recipe, compare, delete a set"]
-        VM["ValidationManager: folder health, readiness at settings, select the settings, windows of a block, replay a built block"]
+        VM["ValidationManager: folder health, the environments with their registrations, readiness at settings, select the settings, windows of a block, replay a built block"]
     end
     subgraph Engines["Engines (how), stateless classes, one contract each, a few operations"]
         TE["TrajectoryEngine: funnel, session, apply, blocks, windows, recipe"]
@@ -211,16 +211,28 @@ on disk (arrays, `blocks`, `windows` per block, `ProcessedAccess.write_blocks`) 
 `rebuild_all` runs for every session with a review. The one partial outcome is an I/O failure of the
 build after the review is written, returned as a result, not an error.
 
-Exclude rewrites the session's review with `excluded` set, the note appended to its notes when given,
-and who and when refreshed, or writes a review of the initial blocks as they are (status auto, no
-edits, cuts or flagged runs) when there is none. Include is the same call with `excluded` false. It
-builds and removes nothing: the build of an excluded session writes no blocks and metadata saying
-`excluded`, so the next Rebuild all (or save after an include) replaces the stale blocks through the
-usual whole session write. `rebuild_all` returns `{sessions, excluded, totals}`: `sessions` the outcome
-of every review (built, failed, build_error, the excluded ones with zero built), `excluded` the notes by
-session id, `totals` the sessions, built, failed, errors and excluded counts. The index rows and the
-header carry `excluded` and `annotated_exclude`. A review file written before `excluded` existed reads
-as not excluded (the default lives in `ProcessedAccess.review`).
+Exclude(sid, excluded, note, settings) records the person's decision in the session's review, rewritten
+whole with `excluded`, `excluded_by` and `excluded_at` (set when excluding, kept when including) and the
+note appended to its notes. `reviewed_by` and `reviewed_at` are never touched, so an exclusion neither
+reviews a session nor changes the build's review stamp. With no review it writes one of the initial
+blocks as they are (status auto, no edits, never reviewed), or with no blocks when the funnel leaves the
+session out, so any session with frames can be excluded. Excluding then builds the session empty at
+once: the build of an excluded session writes no blocks and metadata saying `excluded`, so its blocks
+leave `blocks.csv`, readiness and the Blocks page without a Rebuild all (which does the same for every
+excluded session, even one the funnel also leaves out). Including writes the review only and the person
+saves or rebuilds, except when the review was only the exclusion's (never reviewed, no edits, every block
+auto): then `ProcessedAccess.delete_review` and `delete_build` remove it with the session's metadata, and
+the session is as before the exclusion. The result is the save's shape plus `deleted`, `review` being none
+when removed.
+
+`rebuild_all` returns `{sessions, skipped, excluded, totals}`: `sessions` the outcome of every review
+built (built, failed, build_error, an excluded one with zero built), `skipped` the reviews of sessions
+the funnel leaves out (no frames, no epoch of the rules) by session id with the reason, not built,
+`excluded` the notes of the excluded sessions, `totals` the counts of sessions, built, failed, errors,
+skipped and excluded. A review of a session the transformed folder lacks is a per session build_error. The
+index rows and the header carry `excluded` and `annotated_exclude`, the rows also `excluded_by` and
+`excluded_at`. A review file written before these keys existed reads as not excluded (the defaults live
+in `ProcessedAccess.review`).
 
 ### SynthesisManager
 
@@ -232,9 +244,13 @@ seed, rules, settings, code version).
 
 ### ValidationManager
 
-`health()`, `format()`, `readiness(which, settings)`, `block(block id)`, `arrays(block id)`,
-`windows(block id, settings)`, `select_settings(settings)`, `selected()`. Health and format come from
-the accesses alone, no engine. Readiness reads built blocks (real, or one synthetic set) and calls
+`health()`, `format()`, `environments()`, `readiness(which, settings)`, `block(block id)`,
+`arrays(block id)`, `windows(block id, settings)`, `select_settings(settings)`, `selected()`. Health and
+format come from the accesses alone, no engine. Environments lists every yaml environment with its
+parameters and geometry and the built sessions registered against it, each with the registration its
+metadata holds (read only, no arithmetic). The environment of a registered kind is found from the
+session's epochs, the ones the funnel selects under the rules the session was built with, since the
+metadata names no environment. Readiness reads built blocks (real, or one synthetic set) and calls
 `windows` on each under the rules the block's session was built with (from its metadata), it never re
 cuts a session. Select settings writes `windows.json` whole, the one thing this manager writes, and is
 refused while nothing is built. Selected reads it back.
@@ -446,6 +462,8 @@ query parameters on GET and in the body otherwise.
     GET  /api/health                         the three folders: root, exists, problems, counts, times, the config file
                                              (?reload=true reads the config again first)
     GET  /api/format                         the schemas each access declares (files, columns, dtypes)
+    GET  /api/environments                   per environment: name, kind, params, geometry, summary (n_sessions, n_warned)
+                                             and the built sessions registered against it with their registration
     GET  /api/sessions                       index rows (rat, date, protocol, epochs, runs, initial blocks, review facts,
                                              in_dataset and reason, excluded, annotated_exclude)
     GET  /api/sessions/{sid}                 header: epochs, runs, cuts, spans, blocks with window counts, offset, review,
@@ -454,8 +472,10 @@ query parameters on GET and in the body otherwise.
     GET  /api/sessions/{sid}/arrays          the arrays as an Arrow IPC stream
     POST /api/sessions/{sid}/preview         body edits and settings, returns blocks and refusals, writes nothing
     PUT  /api/sessions/{sid}/blocks          body edits, notes, settings, saves the review and builds the blocks
-    PUT  /api/sessions/{sid}/exclusion       body excluded and note, excludes or includes, returns review, replaced, file
-    POST /api/rebuild                        body settings, rebuilds every reviewed session, returns sessions, excluded, totals
+    PUT  /api/sessions/{sid}/exclusion       body excluded, note, settings: excludes (and builds the session empty at once) or
+                                             includes (writes the review, or removes it when it was only the exclusion's),
+                                             returns review (none when removed), replaced, file, deleted, built, failed, build_error
+    POST /api/rebuild                        body settings, rebuilds every reviewed session, returns sessions, skipped, excluded, totals
     GET  /api/blocks?which=real|set:{id}     readiness: block rows with verdicts at settings, totals, built settings
     GET  /api/blocks/{bid}                   header: row with rate_hz, environment geometry, runs, trips, phases, heading spans (and /arrays as Arrow)
     GET  /api/blocks/{bid}/windows           window rows with their checks at settings

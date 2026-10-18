@@ -65,6 +65,9 @@ test("the state line says automatic or who saved and when, and the edits not sav
   expect(stateLine(saved, 2, false, 1)).toMatch(/^saved .* by kyle, 2 edits, 1 skipped under the current rules$/);
   expect(stateLine(saved, 3, true, 0)).toMatch(/by kyle, 2 edits, now 3 edits not saved yet$/);
   expect(stateLine(saved, 0, true, 0)).toBe("automatic, the saved review on disk is not loaded");
+  const onlyExcluded = { reviewed_by: null, reviewed_at: null, edits: [] } as never;
+  expect(stateLine(onlyExcluded, 0, false, 0)).toBe("automatic");
+  expect(stateLine(onlyExcluded, 2, true, 0)).toBe("automatic, now 2 edits not saved yet");
 });
 
 test("the session notes say why a session is out of the dataset, the warnings, the saved edits that do not apply and the positions off the map", () => {
@@ -80,6 +83,8 @@ test("the session notes say why a session is out of the dataset, the warnings, t
     "1 position outside the room, drawn outside its outline.",
   ]);
   expect(notes.map((n) => n.tone)).toEqual(["text-warn", "text-warn", "text-warn", "text-muted"]);
+  const annotated = { ...quiet, annotated_exclude: true } as unknown as SessionHeader;
+  expect(sessionNotes(annotated, [], edits)).toEqual([{ text: "the lab annotations mark this excluded", tone: "text-muted" }]);
 });
 
 test("a save toast names the review file and the blocks built, and warns on a failed build with the blocks and why", () => {

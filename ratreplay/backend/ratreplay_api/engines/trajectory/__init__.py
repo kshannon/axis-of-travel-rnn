@@ -12,11 +12,9 @@ VERSION = 1
 # The default of every rule, the constants the engine moved in from the lab data processor and the project's trajectory
 # module under snake_case names. A caller passes its own dict to session and blocks. The tuples stay tuples here.
 RULES = {
-    # Which sessions and epochs are cut: the protocol and condition kept, the epoch kinds cut, the groups left out.
-    "protocol": "standard",
+    # Which epochs are cut: the condition kept and the epoch kinds cut. No rule leaves a session out by a tag, the person excludes.
     "condition": "baseline",
     "epochs": ("arena", "track"),
-    "excluded_groups": ("JL1HPCData",),
 
     # Cut points: a step in t over this is a pause, the lights whose loss makes a tracking gap ("either" or "both"),
     # and the step in pixels that is a tracking jump.

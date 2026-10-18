@@ -3,9 +3,13 @@ import { countTile, environmentPixels, nextHealth, resetProcessed, S1, S6, toast
 
 test.afterEach(resetProcessed);
 
-// The story a person lives on the synthetic data: the folders are ok, a session is chosen and reviewed, the review is saved and found saved again.
+// The Excluded cell of a row of the Sessions index: rat, date, protocol, in dataset, excluded.
+const EXCLUDED_CELL = 4;
+
+// The story a person lives on the synthetic data: the folders are ok, a session is chosen and reviewed, the review is saved and found saved again,
+// and a session is excluded and included from the Sessions index.
 // Nothing waits on a timer: each step waits for what it expects to see, and a save for the toast it ends in.
-test("read the folders, review a session, refuse a split, split the track block, save, and find the blocks saved", async ({ page }) => {
+test("read the folders, review a session, refuse a split, split the track block, save, find the blocks saved, and exclude and include a session", async ({ page }) => {
   const goTo = (name: string) => page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
   const cards = page.getByRole("article");
   const frame = page.getByTestId("tile-frame");
@@ -100,5 +104,38 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(countTile(processed, "reviews")).toHaveText("1");
     await expect(countTile(processed, "blocks")).toHaveText("3");
     await expect(countTile(processed, "built sessions")).toHaveText("1");
+  });
+
+  await test.step("a session is excluded from the Sessions index with a note and shown in the Excluded column", async () => {
+    await goTo("Sessions");
+    await expect(page.getByRole("columnheader", { name: "Excluded" })).toBeVisible();
+    await page.getByLabel("Filter sessions").fill("ns16");
+    const row = page.getByRole("row").nth(1);
+    await expect(row).toContainText("NS16");
+    await expect(row.getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("");
+    await row.click();
+    page.once("dialog", (dialog) => void dialog.accept("camera moved"));
+    await page.getByRole("button", { name: "Exclude", exact: true }).click();
+    const left = toast(page, `Excluded ${S6}`);
+    await expect(left).toBeVisible();
+    await expect(left).toContainText(`review/${S6}.json`);
+    await expect(row.getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("yes");
+    await expect(page.getByTestId("totals")).toContainText("2 of 6 sessions reviewed");
+    await expect(page.getByRole("paragraph").filter({ hasText: "camera moved" })).toBeVisible(); // the notes of its review, in the open details
+  });
+
+  await test.step("in the Replay the excluded session shows its chip and cannot be saved, and Include takes it back", async () => {
+    await page.getByRole("button", { name: "Open in replay" }).click();
+    await expect(page.getByTestId("session-id")).toHaveText(S6);
+    await expect(page.getByTestId("excluded-chip")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save blocks" })).toBeDisabled();
+    page.once("dialog", (dialog) => void dialog.accept(""));
+    await page.getByRole("button", { name: "Include", exact: true }).click();
+    await expect(toast(page, `Included ${S6} again`)).toBeVisible();
+    await expect(page.getByTestId("excluded-chip")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Save blocks" })).toBeEnabled();
+    await goTo("Sessions");
+    await expect(page.getByTestId("totals")).toContainText("1 of 6 sessions reviewed");
+    await expect(page.getByRole("row").nth(1).getByRole("cell").nth(EXCLUDED_CELL)).toHaveText("");
   });
 });

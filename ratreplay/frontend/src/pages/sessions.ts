@@ -3,6 +3,7 @@ import { errorText, getSession, listSessions } from "../api/client";
 import type { SessionHeader, SessionRow } from "../api/types";
 import { Workspace } from "../session/workspace";
 import { healthStore } from "../state/health";
+import { settingsStore } from "../state/settings";
 import { card, pageGrid } from "../ui/card";
 import { factsList } from "../ui/facts";
 import { folderGate } from "../ui/gate";
@@ -12,6 +13,8 @@ import type { Sort } from "../ui/table";
 import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
 import type { Page } from "./page";
+import { askAndChange } from "./exclusion";
+import { ANNOTATED_NOTE } from "./exclusion-view";
 import { blockText, COLUMNS, filterRows, reviewText, rowTitle, sessionFacts, totalsLine } from "./sessions-rows";
 
 const REPLAY_HASH = "#/replay";
@@ -30,6 +33,9 @@ const openButtons = `
       </div>
     </div>
   </template>`;
+
+const exclusionButton = `
+  <button type="button" @click="changeExclusion(row)" :disabled="busy" class="${BUTTON} self-start" x-text="row.excluded ? 'Include' : 'Exclude'"></button>`;
 
 const details = `
     <div class="grid grid-cols-2 gap-6 text-xs">
@@ -71,8 +77,9 @@ const details = `
           <h3 class="mb-1 font-medium">Review</h3>
           <p x-text="reviewOf(row)"></p>
           <p x-show="row.notes" class="mt-1 whitespace-pre-wrap text-muted" x-text="row.notes"></p>
+          <p x-show="row.annotated_exclude" class="mt-1 text-muted">${ANNOTATED_NOTE}</p>
         </div>
-        ${openButtons}
+        <div class="flex flex-wrap items-start gap-2">${openButtons}${exclusionButton}</div>
       </div>
     </div>`;
 
@@ -103,6 +110,7 @@ function registerSessions(): void {
     header: null as SessionHeader | null,
     detailsError: "",
     confirming: "",
+    busy: false,
     columns: COLUMNS,
 
     get shown() {
@@ -144,6 +152,20 @@ function registerSessions(): void {
         if (this.openId === row.session_id) this.header = header;
       } catch (error) {
         if (this.openId === row.session_id) this.detailsError = errorText(error);
+      }
+    },
+    /** Exclude the session or include it again after asking for a note, then read the index and the open details again. */
+    async changeExclusion(row: SessionRow) {
+      this.busy = true;
+      try {
+        const saved = await askAndChange(row.session_id, !row.excluded, async (note) => Workspace.exclude(row.session_id, !row.excluded, note, { ...(await settingsStore().load()) }));
+        if (!saved) return;
+        this.rows = await listSessions();
+        if (this.openId === row.session_id) this.header = await getSession(row.session_id);
+      } catch (error) {
+        toast.error(errorText(error));
+      } finally {
+        this.busy = false;
       }
     },
     facts(row: SessionRow) {

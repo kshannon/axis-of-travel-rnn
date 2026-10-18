@@ -7,6 +7,7 @@ import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
 import { counted } from "../ui/text";
 import { stampWithSince } from "../ui/time";
+import { ANNOTATED_NOTE } from "./exclusion-view";
 
 const SECONDS_PER_MINUTE = 60;
 const STATUS_GLYPHS: Record<ReviewBlock["status"], string> = { auto: "☐", confirmed: "☑", edited: "✎", dropped: "✕" };
@@ -110,10 +111,11 @@ export interface Note {
 const WARN = "text-warn";
 const QUIET = "text-muted";
 
-/** What the Session card says besides the facts: why the rules leave the session out, the header's warnings, the saved edits that no longer apply and the positions off the map. */
+/** What the Session card says besides the facts: why the tool cannot work with the session, the lab annotation that marks it excluded, the header's warnings, the saved edits that no longer apply and the positions off the map. */
 export function sessionNotes(header: SessionHeader, refusals: Refusal[], edits: Edit[]): Note[] {
   const notes: Note[] = [];
   if (!header.in_dataset) notes.push({ text: `Not in the dataset: ${header.reason}. It can be viewed and previewed, Save blocks is disabled.`, tone: WARN });
+  if (header.annotated_exclude) notes.push({ text: ANNOTATED_NOTE, tone: QUIET });
   for (const warning of header.warnings) notes.push({ text: warning, tone: WARN });
   for (const { index, op, reason } of refusals) {
     notes.push({ text: `Edit ${index + 1} (${edits[index] ? editLabel(edits[index]) : op}) is not applied under the current rules: ${reason}`, tone: WARN });
@@ -143,7 +145,8 @@ export function saveToast(saved: SavedBlocks): SaveToast {
 
 /** Which state is on screen: the automatic blocks, or the saved review with its edit count, then what changed since. */
 export function stateLine(saved: Review | null, edits: number, dirty: boolean, skipped: number): string {
-  const base = saved ? `saved ${stampWithSince(saved.reviewed_at)} by ${saved.reviewed_by}, ${counted(saved.edits.length, "edit")}` : "automatic";
+  // A review that only records an exclusion has no reviewer and no time, nothing was reviewed.
+  const base = saved?.reviewed_at ? `saved ${stampWithSince(saved.reviewed_at)} by ${saved.reviewed_by}, ${counted(saved.edits.length, "edit")}` : "automatic";
   const skips = skipped ? `, ${skipped} skipped under the current rules` : "";
   if (!dirty) return base + skips;
   if (!edits && saved) return "automatic, the saved review on disk is not loaded";
