@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 
 from process_lab_data import select
 
-from ..errors import NotFound
+from ..utilities.errors import NotFound
 
 MANIFEST = "manifest.json"
 

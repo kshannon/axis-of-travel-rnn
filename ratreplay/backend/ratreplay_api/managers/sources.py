@@ -5,7 +5,8 @@ The two data folders the config names: each is checked against the data format a
 from axis_of_travel_rnn import trajectory
 
 from .. import contract
-from ..stores import folder, processed, review, transformed
+from ..stores import processed, review, transformed
+from ..utilities import paths
 
 
 def has_key(manifest, dotted):
@@ -82,7 +83,7 @@ def problems_of(sources, kind):
     """
     if kind == "processed":
         return processed_problems(sources) if processed.is_built(sources) else []
-    return transformed_problems(sources) if folder.exists(sources, kind) else [sources.not_there(kind)]
+    return transformed_problems(sources) if sources.root(kind).is_dir() else [sources.not_there(kind)]
 
 
 def counts_of(sources, kind):
@@ -107,7 +108,7 @@ def manifest_info(sources, kind):
         manifest = processed.read_manifest(sources)
     else:
         return None
-    return {"timestamp": manifest["run"]["timestamp"], "modified": folder.modified(sources, kind)}
+    return {"timestamp": manifest["run"]["timestamp"], "modified": paths.newest_mtime(sources.root(kind))}
 
 
 def describe(sources, kind):

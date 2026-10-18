@@ -3,8 +3,8 @@ The processed dataset's blocks: the index with verdicts at the window settings, 
 """
 
 from ..engines import environment, spans, windows
-from ..errors import NotFound
 from ..stores import processed
+from ..utilities.errors import NotFound
 
 # The per frame columns of a block the browser gets, the lab frame number first.
 ARRAY_COLUMNS = ("frame", "t", "x", "y", "heading", "speed", "n_lights")

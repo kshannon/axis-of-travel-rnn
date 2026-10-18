@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from .errors import Invalid, NotFound
+from .utilities.errors import Invalid, NotFound
 from .routers import blocks, data_format, review, sessions, sources, windows
 from .stores.data_sources import DataSources
 

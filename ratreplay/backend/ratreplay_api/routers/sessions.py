@@ -4,8 +4,8 @@ The sessions of the transformed folder: the index, one session's facts and its a
 
 from fastapi import APIRouter, Depends
 
-from .. import arrow
 from ..managers import sessions
+from ..utilities import arrow
 from .deps import data_sources
 
 router = APIRouter(prefix="/api/sessions")

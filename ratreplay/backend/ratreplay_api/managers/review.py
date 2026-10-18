@@ -4,11 +4,11 @@ A session's review: the file saved for it, and the blocks a list of edits makes.
 
 import getpass
 
-from .. import clock
 from ..engines import edits
-from ..errors import Invalid
 from ..stores import review as review_files
 from ..stores import transformed
+from ..utilities import clock
+from ..utilities.errors import Invalid
 
 STILL_AUTO = "some blocks are still auto: confirm, edit or remove them before saving"
 

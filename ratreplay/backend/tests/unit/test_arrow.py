@@ -5,7 +5,7 @@ The Arrow encoding of a session's arrays.
 import numpy as np
 import pyarrow as pa
 
-from ratreplay_api import arrow
+from ratreplay_api.utilities import arrow
 
 
 def test_arrays_round_trip_with_their_dtypes_and_nan_kept():

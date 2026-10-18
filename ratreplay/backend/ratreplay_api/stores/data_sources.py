@@ -7,7 +7,8 @@ from pathlib import Path
 from axis_of_travel_rnn.windows import CONFIG
 from proj_helpers import paths
 
-from ..errors import Invalid, NotFound
+from ..utilities.config import Config
+from ..utilities.errors import Invalid, NotFound
 
 # The config key of each folder, which the processor reads too.
 KEYS = {"transformed": "TRANSFORMED_LAB_DATA", "processed": "PROCESSED_LAB_DATA"}
@@ -15,26 +16,28 @@ KEYS = {"transformed": "TRANSFORMED_LAB_DATA", "processed": "PROCESSED_LAB_DATA"
 
 class DataSources:
     """
-    The one place that knows how the folders are chosen: the config file at config_path, read the way the processor reads it, and the window settings file at settings_path.
+    The one place that knows how the folders are chosen: the config file at config_path, read with the config utility, and the window settings file at settings_path.
     """
 
     def __init__(self, config_path=None, settings_path=None):
-        self.config_path = Path(config_path or paths.repo_root() / paths.LOCAL_CONFIG).resolve()
+        self.config = Config(config_path or paths.repo_root() / paths.LOCAL_CONFIG)
+        self.config_path = self.config.path
         self.settings_path = Path(settings_path or CONFIG)
-        self.reload()
 
     def reload(self):
         """
         Read the config file again.
         """
-        self.config = paths.local_config(self.config_path)
+        self.config.reload()
 
     def root(self, kind):
         """
         The folder the config names for the kind, resolved as the processor resolves it, none when the key is not set.
         """
-        value = self.config.get(KEYS[kind])
-        return Path(str(value)).expanduser().resolve() if value else None
+        try:
+            return self.config.value(KEYS[kind])
+        except Invalid:
+            return None
 
     def not_set(self, kind):
         """
@@ -52,10 +55,7 @@ class DataSources:
         """
         The folder the config names for the kind, refused when the key is not set.
         """
-        root = self.root(kind)
-        if root is None:
-            raise Invalid(self.not_set(kind))
-        return root
+        return self.config.value(KEYS[kind])
 
     def transformed_root(self):
         """

@@ -8,7 +8,7 @@ import pyarrow.csv as pacsv
 
 from axis_of_travel_rnn import trajectory
 
-from ..errors import NotFound
+from ..utilities.errors import NotFound
 
 # The columns the window logic reads for a block's heading and trip shares, kept in memory per block file with its
 # modification time, so each block is read once and again only after the processor rewrites it.

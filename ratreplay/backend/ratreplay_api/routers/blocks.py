@@ -6,9 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from .. import arrow
 from ..managers import blocks
 from ..schemas import WindowSettings
+from ..utilities import arrow
 from .deps import data_sources
 
 router = APIRouter(prefix="/api/blocks")

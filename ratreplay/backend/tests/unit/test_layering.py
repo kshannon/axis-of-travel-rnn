@@ -9,16 +9,16 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE = Path(__file__).resolve().parents[1] / "ratreplay_api"
-UTILITIES = ("arrow", "clock", "contract", "errors")
+PACKAGE = Path(__file__).resolve().parents[2] / "ratreplay_api"
+UTILITIES = ("utilities",)
 PROJECT = ("axis_of_travel_rnn", "process_lab_data", "environments", "proj_helpers")
 
 # The modules of ratreplay_api each layer may import, by prefix. Engines may use each other, stores no other store.
 ALLOWED = {
-    "managers": ("engines", "stores", *UTILITIES),
+    "managers": ("contract", "engines", "stores", *UTILITIES),
     "engines": ("engines", *UTILITIES),
-    "stores": ("clock", "errors"),
-    "routers": ("managers", "routers.deps", "schemas", *UTILITIES),
+    "stores": UTILITIES,
+    "routers": ("contract", "managers", "routers.deps", "schemas", *UTILITIES),
 }
 ENGINES_EXTERNAL = ("numpy", *PROJECT, *sys.stdlib_module_names)
 PATHS_USER = "data_sources.py"
@@ -63,3 +63,9 @@ def test_engines_import_only_numpy_and_the_project_packages():
 def test_only_the_data_sources_import_the_paths_helper():
     for path in PACKAGE.rglob("*.py"):
         assert path.name == PATHS_USER or "proj_helpers.paths" not in imports_of(path), f"{path.name} imports proj_helpers.paths"
+
+
+def test_utilities_import_nothing_from_the_package_outside_utilities():
+    for path in (PACKAGE / "utilities").glob("*.py"):
+        for name in imports_of(path):
+            assert not name.startswith("ratreplay_api") or within(name, ("ratreplay_api.utilities",)), f"utilities/{path.name} imports {name}"

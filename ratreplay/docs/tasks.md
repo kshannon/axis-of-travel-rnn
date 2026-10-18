@@ -7,9 +7,10 @@ anything that touches real data.
 
 ## Utilities and accesses
 
-- [ ] U1 `utilities/`: config, tables, arrow, clock, paths, ids, errors moved in from `arrow.py`,
-      `clock.py`, `errors.py`, `stores/folder.py`. Test: config returns a key or a named error and knows no
-      key names. [Utilities]
+- [x] U1 `utilities/`: config, arrow, clock, paths, errors moved in from `arrow.py`, `clock.py`,
+      `errors.py`, `stores/folder.py`. No ids utility, the access that owns a resource formats its ids, and
+      `tables` arrives with A1, the first access that reads tables. Test: config returns a key or a named
+      error and knows no key names. [Utilities]
 - [ ] A1 `access/transformed.py`, TransformedAccess from `stores/transformed.py` with the schema from
       `contract.py`. Test: health on a good, a missing and a wrong column folder names the problem. [Accesses]
 - [ ] A2 `access/processed.py`, ProcessedAccess from `stores/processed.py` and `stores/review.py`:
