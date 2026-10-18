@@ -7,7 +7,7 @@ import { settingsStore } from "../state/settings";
 import { card, pageGrid } from "../ui/card";
 import { factsList } from "../ui/facts";
 import { folderGate } from "../ui/gate";
-import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH } from "../ui/style";
+import { BUTTON, BUTTON_DANGER, BUTTON_PRIMARY, INPUT, TABLE, TD, TH, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { clickHeader, sortableTable, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
 import { counted } from "../ui/text";
@@ -15,7 +15,7 @@ import { toast } from "../ui/toast";
 import type { Page } from "./page";
 import { askAndChange } from "./exclusion";
 import { ANNOTATED_NOTE } from "./exclusion-view";
-import { blockText, COLUMNS, filterRows, reviewText, rowTitle, sessionFacts, totalsLine } from "./sessions-rows";
+import { blockText, COLUMNS, filterRows, reviewText, rowTitle, sessionFacts, tiles, totalsText } from "./sessions-rows";
 
 const REPLAY_HASH = "#/replay";
 const SECONDS_PER_MINUTE = 60;
@@ -85,12 +85,19 @@ const details = `
 
 const sessionsTable = `
   <div class="flex h-full flex-col gap-3">
+    <div data-testid="totals" role="group" :aria-label="totalsLabel" x-show="rows.length" class="grid shrink-0 grid-cols-7 gap-2">
+      <template x-for="tile in tiles" :key="tile.label">
+        <div class="min-w-0 ${TILE}">
+          <p class="truncate text-xl ${TILE_VALUE}" x-text="tile.value"></p>
+          <p class="truncate ${TILE_LABEL}" :title="tile.label" x-text="tile.label"></p>
+        </div>
+      </template>
+    </div>
     <div class="flex items-center gap-3">
       <input type="search" x-model="filter" aria-label="Filter sessions" placeholder="Filter by session id or rat" class="${INPUT} max-w-xs" />
       <span class="text-sm text-muted" x-text="summary"></span>
       <button type="button" x-show="sort" @click="sort = null" class="${BUTTON}">Dataset order</button>
     </div>
-    <p data-testid="totals" x-show="rows.length" x-text="totals" class="text-sm"></p>
     <p x-show="error" x-text="error" role="alert" class="text-sm text-bad"></p>
     <p x-show="loading" class="text-sm text-muted">Loading the sessions</p>
     <p x-show="!loading && !error && !rows.length" class="text-sm text-muted">The transformed lab data has no session with an arena or track epoch.</p>
@@ -120,8 +127,11 @@ function registerSessions(): void {
       const inDataset = this.rows.filter((row) => row.in_dataset).length;
       return `${this.shown.length} of ${this.rows.length} sessions, ${inDataset} in the dataset`;
     },
-    get totals() {
-      return totalsLine(this.rows);
+    get tiles() {
+      return tiles(this.rows);
+    },
+    get totalsLabel() {
+      return totalsText(this.rows);
     },
 
     async init() {

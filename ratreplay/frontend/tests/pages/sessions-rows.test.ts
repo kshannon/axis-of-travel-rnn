@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { SessionRow } from "../../src/api/types";
-import { COLUMNS, reviewText, rowTitle, sessionFacts, totalsLine } from "../../src/pages/sessions-rows";
+import { COLUMNS, reviewText, rowTitle, sessionFacts, tiles, totalsText } from "../../src/pages/sessions-rows";
 
 function row(session_id: string, extra: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -18,11 +18,20 @@ test("a session the rules leave out says why in its facts and in the title of it
   expect(rowTitle(row("NS14_a"))).toBe("NS14_a");
 });
 
-test("the totals count the sessions reviewed, the blocks confirmed and the hours confirmed per epoch kind", () => {
-  const reviewed = (confirmed_s: Record<string, number>, n_confirmed: number) => row("NS1_x", { reviewed: true, n_confirmed, confirmed_s });
-  const rows = [reviewed({ track: 1800, arena: 900 }, 3), reviewed({ track: 5400 }, 2), row("NS2_y")];
-  expect(totalsLine(rows)).toBe("2 of 3 sessions reviewed, 5 blocks confirmed, confirmed hours: arena 0.25, track 2.00");
-  expect(totalsLine([row("NS2_y", { confirmed_s: { arena: 0, track: 0 } })])).toBe("0 of 1 session reviewed, 0 blocks confirmed, confirmed hours: arena 0.00, track 0.00");
+test("the tiles count the sessions in the dataset, reviewed and excluded, the blocks confirmed, the hours confirmed per epoch kind and the blocks built, in that order", () => {
+  const reviewed = (confirmed_s: Record<string, number>, n_confirmed: number, extra: Partial<SessionRow> = {}) => row("NS1_x", { reviewed: true, n_confirmed, confirmed_s, ...extra });
+  const rows = [reviewed({ track: 1800, arena: 900 }, 3, { built: 3 }), reviewed({ track: 5400 }, 2, { excluded: true, built: 2 }), row("NS2_y", { in_dataset: false, reason: "no frames" })];
+  expect(tiles(rows)).toEqual([
+    { label: "in the dataset", value: "2 of 3" },
+    { label: "reviewed", value: "2" },
+    { label: "excluded", value: "1" },
+    { label: "blocks confirmed", value: "5" },
+    { label: "arena hours confirmed", value: "0.25" },
+    { label: "track hours confirmed", value: "2.00" },
+    { label: "built blocks", value: "5" },
+  ]);
+  expect(totalsText(rows)).toBe("2 of 3 sessions in the dataset, 2 reviewed, 1 excluded, 5 blocks confirmed, confirmed hours arena 0.25, track 2.00, 5 blocks built");
+  expect(totalsText([row("NS2_y", { confirmed_s: { arena: 0, track: 0 } })])).toBe("1 of 1 session in the dataset, 0 reviewed, 0 excluded, 0 blocks confirmed, confirmed hours arena 0.00, track 0.00, 0 blocks built");
 });
 
 test("the Excluded column says yes for a session you excluded and nothing for the others, and sorts on it", () => {

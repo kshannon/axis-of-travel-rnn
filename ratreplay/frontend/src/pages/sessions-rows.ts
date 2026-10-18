@@ -78,13 +78,47 @@ export function blockText(block: MadeBlock, rateHz: number): string {
   return `${block.epoch} ${block.block_id.slice(-2)}, frames ${block.frame_start} to ${block.frame_end}, ${seconds.toFixed(0)} s, ${block.status}`;
 }
 
-/** The reviews in all: the sessions reviewed, the blocks confirmed and the hours confirmed per epoch kind. */
-export function totalsLine(rows: SessionRow[]): string {
-  const seconds: Record<string, number> = {};
-  for (const row of rows) for (const [kind, s] of Object.entries(row.confirmed_s)) seconds[kind] = (seconds[kind] ?? 0) + s;
-  const hours = Object.keys(seconds).sort().map((kind) => `${kind} ${(seconds[kind] / SECONDS_PER_HOUR).toFixed(2)}`);
-  const blocks = rows.reduce((total, row) => total + row.n_confirmed, 0);
-  return `${rows.filter((row) => row.reviewed).length} of ${counted(rows.length, "session")} reviewed, ${counted(blocks, "block")} confirmed, confirmed hours: ${hours.join(", ")}`;
+const sum = (rows: SessionRow[], value: (row: SessionRow) => number) => rows.reduce((total, row) => total + value(row), 0);
+
+/** The numbers of the totals row: the sessions in the dataset, reviewed and excluded, the blocks confirmed, the hours confirmed per epoch kind and the blocks built. */
+function totals(rows: SessionRow[]) {
+  const hours = (kind: string) => sum(rows, (row) => row.confirmed_s[kind] ?? 0) / SECONDS_PER_HOUR;
+  return {
+    sessions: rows.length,
+    inDataset: rows.filter((row) => row.in_dataset).length,
+    reviewed: rows.filter((row) => row.reviewed).length,
+    excluded: rows.filter((row) => row.excluded).length,
+    confirmed: sum(rows, (row) => row.n_confirmed),
+    arenaHours: hours("arena"),
+    trackHours: hours("track"),
+    built: sum(rows, (row) => row.built),
+  };
+}
+
+export interface Tile {
+  label: string;
+  value: string;
+}
+
+/** The tiles across the top of the Sessions page, in the order they are read. */
+export function tiles(rows: SessionRow[]): Tile[] {
+  const t = totals(rows);
+  return [
+    { label: "in the dataset", value: `${t.inDataset} of ${t.sessions}` },
+    { label: "reviewed", value: String(t.reviewed) },
+    { label: "excluded", value: String(t.excluded) },
+    { label: "blocks confirmed", value: String(t.confirmed) },
+    { label: "arena hours confirmed", value: t.arenaHours.toFixed(2) },
+    { label: "track hours confirmed", value: t.trackHours.toFixed(2) },
+    { label: "built blocks", value: String(t.built) },
+  ];
+}
+
+/** The tiles as a sentence, which is the label of the row for a screen reader. */
+export function totalsText(rows: SessionRow[]): string {
+  const t = totals(rows);
+  return `${t.inDataset} of ${counted(t.sessions, "session")} in the dataset, ${t.reviewed} reviewed, ${t.excluded} excluded, ${counted(t.confirmed, "block")} confirmed, ` +
+    `confirmed hours arena ${t.arenaHours.toFixed(2)}, track ${t.trackHours.toFixed(2)}, ${counted(t.built, "block")} built`;
 }
 
 /** Who reviewed the session and when and what the review kept, who excluded it and when, or that it is still to do. */
