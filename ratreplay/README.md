@@ -33,7 +33,7 @@ starts. To change a folder, edit the file and press Reload on the Data page.
 
 ## Using it
 
-The flow is the one the Data page draws: Data, Sessions and Replay, Blocks and Windows, then the export. The converter
+The flow is the one the About page explains: Data, Sessions and Replay, Blocks and Windows, then the export. The converter
 runs before all of it, outside the tool (`pixi run transform-lab-data`, see the root README). There is no batch
 processor. A session's blocks are built when a person saves it, or by Rebuild all, so a session with no review has none.
 
@@ -66,8 +66,8 @@ The totals follow, and a row opens to compare the settings tried with the ones i
 start from the selection in `windows.json`, else the defaults, and the Replay cards count at the same settings.
 Select these settings writes `windows.json` whole, and the toast names it and whether it replaced one. It is refused
 while nothing is built. Open a block to play it in metres over its environment, and Step through its windows opens the
-Windows page, one window at a time with its checks. The API and About pages show the data format, the routes and the
-rules the tool follows. Nothing else is written, the transformed folder and the environments are only read.
+Windows page, one window at a time with its checks. The Data page shows the data format, the About page the process,
+the rules the tool follows and the internal routes. Nothing else is written, the transformed folder and the environments are only read.
 
 ## The export
 

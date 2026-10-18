@@ -432,7 +432,7 @@ export interface FormatContract {
   settings: WindowSettings;
 }
 
-// The parts of FastAPI's OpenAPI document the API page reads.
+// The parts of FastAPI's OpenAPI document the About page reads.
 export interface SchemaNode {
   $ref?: string;
   type?: string;

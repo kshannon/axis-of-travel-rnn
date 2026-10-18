@@ -43,6 +43,8 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     for (const folder of ["transformed", "processed", "environments"]) await expect(page.getByTestId(folder).getByText("ok", { exact: true })).toBeVisible();
     await expect(page.getByTestId("config-path")).toContainText("local.yaml");
     await expect(countTile(processed, "reviews")).toHaveText("1");
+    await expect(page.getByRole("heading", { name: "Data format" })).toBeVisible();
+    await expect(page.getByText("sessions.csv", { exact: true })).toBeVisible();
   });
 
   await test.step("Rebuild all asks first, then rebuilds the reviewed session and toasts the totals", async () => {
@@ -50,16 +52,20 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     const read = nextHealth(page);
     await page.getByRole("button", { name: "Rebuild all" }).click();
     expect(await asked).toContain("Build the blocks of 1 reviewed session again");
-    await expect(toast(page, "Rebuilt 1 session, 2 blocks built, 0 failed, 0 errors")).toBeVisible();
+    await expect(toast(page, "Rebuilt 1 session, 2 blocks built, 0 failed, 0 skipped (not in the dataset), 0 errors")).toBeVisible();
     await read; // the folder is read again once the blocks are built
     await expect(countTile(processed, "blocks")).toHaveText("2");
     await expect(countTile(processed, "built sessions")).toHaveText("1");
   });
 
-  await test.step("the About and API pages render", async () => {
-    await page.getByRole("navigation").getByRole("link", { name: "About", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "The rules it follows" })).toBeVisible();
-    await page.getByRole("navigation").getByRole("link", { name: "API", exact: true }).click();
-    await expect(page.getByText("sessions.csv", { exact: true })).toBeVisible();
+  await test.step("the About page gives the guide and its Under the hood section the routes, and there is no API page", async () => {
+    const nav = page.getByRole("navigation");
+    await expect(nav.getByRole("link", { name: "API", exact: true })).toHaveCount(0);
+    await nav.getByRole("link", { name: "About", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Process and how to use it" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What you can do and what it writes" })).toBeVisible();
+    await page.getByRole("button", { name: "Under the hood" }).click();
+    await expect(page.getByRole("heading", { name: "Under the hood" })).toBeVisible();
+    await expect(page.getByText("/api/health", { exact: true })).toBeVisible();
   });
 });

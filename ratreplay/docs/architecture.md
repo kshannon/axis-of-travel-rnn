@@ -43,7 +43,9 @@ one condition (arena, track, rotated track). Run: one traversal of a path in the
 must hold at least once to be training ready. Block: a continuous stretch of one epoch with no pause, gap or jump, at least 10 s, the
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
 person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
-writes. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
+writes. Excluded: the person's decision that a session stays out of the dataset, a flag in its review with
+a note, who and when. No rule excludes a session by a tag (group, protocol) and the annotations table's
+exclude column is shown as a note, not applied. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
 review. Metadata: per session, what the build used (rules, settings, review stamp, code version, built
 at) and per block the window count and verdict at those settings, informative, readiness recomputes them.
 Window: a fixed length slice of a block at a stride with burn-in and horizon, cut by the RNN project,
@@ -83,7 +85,7 @@ flowchart TB
         UI["Web app. Pages as views: Data, Sessions, Replay, Blocks, Windows, Synthetic. About and API are client only"]
     end
     subgraph Managers["Managers (what), stateless classes, one family of use cases each"]
-        RM["ReviewManager: index, load, preview edits, save blocks, rebuild all"]
+        RM["ReviewManager: index, load, preview edits, save blocks, exclude, rebuild all"]
         SM["SynthesisManager: generate a set from a recipe, compare, delete a set"]
         VM["ValidationManager: folder health, readiness at settings, select the settings, windows of a block, replay a built block"]
     end
@@ -169,8 +171,10 @@ flowchart TB
 One contract, six operations, every rule and threshold a parameter (`rules`, `settings`).
 
 - `funnel(tables, rules)`: from the sessions, epochs and annotations tables and the ids with frames,
-  per session whether it is in the dataset and why not (protocol, condition, excluded group,
-  annotation, no frames), and the epochs the rules select. What the index shows without reading frames.
+  per session whether it is in the dataset, why not (two reasons only, the things the tool cannot work
+  around: no arena or track epoch under the rules' condition, no frames), the epochs the rules select
+  and `annotated_exclude`, the annotations table's exclude flag, a note and never applied. No protocol or
+  group rule: the person excludes, ReviewManager records it. What the index shows without reading frames.
 - `session(arrays, environment, rules)`: kinematics in metres, heading offset and fills (interpolated up
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
   margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and
@@ -200,11 +204,23 @@ so SynthesisManager blocks them with the same `TrajectoryEngine.blocks` call as 
 ### ReviewManager
 
 `index()`, `load(sid, settings)`, `preview(sid, edits, settings)`, `save_blocks(sid, edits, notes,
-settings)`, `rebuild_all(settings)`. Save blocks applies the edits first and one illegal edit refuses
-the whole save with its reason, nothing written. Then it writes the review, then builds from the review
+settings)`, `exclude(sid, excluded, note)`, `rebuild_all(settings)`. Save blocks applies the edits first
+and one illegal edit refuses the whole save with its reason, nothing written, as does a session the
+person excluded ("include it first"). Then it writes the review, then builds from the review
 on disk (arrays, `blocks`, `windows` per block, `ProcessedAccess.write_blocks`) in one private step that
 `rebuild_all` runs for every session with a review. The one partial outcome is an I/O failure of the
 build after the review is written, returned as a result, not an error.
+
+Exclude rewrites the session's review with `excluded` set, the note appended to its notes when given,
+and who and when refreshed, or writes a review of the initial blocks as they are (status auto, no
+edits, cuts or flagged runs) when there is none. Include is the same call with `excluded` false. It
+builds and removes nothing: the build of an excluded session writes no blocks and metadata saying
+`excluded`, so the next Rebuild all (or save after an include) replaces the stale blocks through the
+usual whole session write. `rebuild_all` returns `{sessions, excluded, totals}`: `sessions` the outcome
+of every review (built, failed, build_error, the excluded ones with zero built), `excluded` the notes by
+session id, `totals` the sessions, built, failed, errors and excluded counts. The index rows and the
+header carry `excluded` and `annotated_exclude`. A review file written before `excluded` existed reads
+as not excluded (the default lives in `ProcessedAccess.review`).
 
 ### SynthesisManager
 
@@ -282,7 +298,8 @@ sequenceDiagram
 ```
 
 Rebuild all is the lower half alone, from the Data page with a confirmation: `rebuild_all(settings)`
-lists the reviews and runs the same private build step for every session.
+lists the reviews and runs the same private build step for every session, an excluded one writing no
+blocks.
 
 ### 2. Generate a synthetic set and compare it with the real blocks
 
@@ -382,7 +399,7 @@ The three folders come from `configs/local.yaml`: `TRANSFORMED_LAB_DATA`, `PROCE
 file in tests). Edit the file and press Reload on the Data page to change a folder.
 
     transformed/   sessions.csv, epochs.csv, runs.csv, frames/{sid}.parquet, manifest.json   (read only)
-    processed/     review/{sid}.json            the person's edits and notes, written whole
+    processed/     review/{sid}.json            the person's edits, notes and exclusion, written whole
                    blocks/{block_id}.parquet    one built block, metres, the lab rate, trip and phase labels
                    blocks.csv                   one row per built block, a session's rows replaced together
                    metadata/{sid}.json          rules, settings, review stamp, code version, built at, and per
@@ -429,20 +446,23 @@ query parameters on GET and in the body otherwise.
     GET  /api/health                         the three folders: root, exists, problems, counts, times, the config file
                                              (?reload=true reads the config again first)
     GET  /api/format                         the schemas each access declares (files, columns, dtypes)
-    GET  /api/sessions                       index rows (rat, date, protocol, epochs, runs, initial blocks, review facts)
+    GET  /api/sessions                       index rows (rat, date, protocol, epochs, runs, initial blocks, review facts,
+                                             in_dataset and reason, excluded, annotated_exclude)
     GET  /api/sessions/{sid}                 header: epochs, runs, cuts, spans, blocks with window counts, offset, review,
-                                             the environments geometry, warnings, refusals, in_dataset and reason
+                                             the environments geometry, warnings, refusals, in_dataset and reason,
+                                             excluded, annotated_exclude
     GET  /api/sessions/{sid}/arrays          the arrays as an Arrow IPC stream
     POST /api/sessions/{sid}/preview         body edits and settings, returns blocks and refusals, writes nothing
     PUT  /api/sessions/{sid}/blocks          body edits, notes, settings, saves the review and builds the blocks
-    POST /api/rebuild                        body settings, rebuilds every reviewed session, returns counts
+    PUT  /api/sessions/{sid}/exclusion       body excluded and note, excludes or includes, returns review, replaced, file
+    POST /api/rebuild                        body settings, rebuilds every reviewed session, returns sessions, excluded, totals
     GET  /api/blocks?which=real|set:{id}     readiness: block rows with verdicts at settings, totals, built settings
     GET  /api/blocks/{bid}                   header: row with rate_hz, environment geometry, runs, trips, phases, heading spans (and /arrays as Arrow)
     GET  /api/blocks/{bid}/windows           window rows with their checks at settings
     GET  /api/windows   PUT /api/windows     the selection {"selected": windows.json or null}, and select (returns replaced and file)
     GET  /api/sets   POST /api/sets          synthetic sets, and generate one (body: sources, params, seed, length, settings)
     DELETE /api/sets/{id}
-    GET  /api/openapi.json                   FastAPI's schema, the API page renders it with /api/format
+    GET  /api/openapi.json                   FastAPI's schema, About renders it under the hood, the Data page renders /api/format
 
 ## Frontend, `ratreplay/frontend/`
 

@@ -1,6 +1,6 @@
 import type { FormatContract, FormatFile, OpenApiDocument, OpenApiOperation, SchemaNode } from "./types";
 
-/** Something the API page shows as a titled table. */
+/** Something the Data and About pages show as a titled table. */
 export interface Table {
   title: string;
   head: string[];
@@ -26,7 +26,7 @@ const ANY = "any";
 function fileTable(file: FormatFile): Table {
   const title = file.optional ? `${file.path} (optional)` : file.path;
   if (file.keys) return { title, head: ["key"], rows: file.keys.map((key) => [key]) };
-  const rows = (file.columns ?? []).map((column) => [column.name, column.type, column.required ? "read by the tool" : ""]);
+  const rows = (file.columns ?? []).map((column) => [column.name, column.type, column.required ? "used by RatReplay" : ""]);
   return { title, head: ["column", "type", "use"], rows };
 }
 

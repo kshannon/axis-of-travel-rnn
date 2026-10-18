@@ -55,7 +55,7 @@ test("the contract gives one table per file, marking the columns the tool reads,
     settings: { window_s: 40 },
   } as unknown as FormatContract;
   const [transformed, processed, review, settings] = formatGroups(contract);
-  expect(transformed.tables[0].rows).toEqual([["run", "int64", "read by the tool"], ["notes", "string", ""]]);
+  expect(transformed.tables[0].rows).toEqual([["run", "int64", "used by RatReplay"], ["notes", "string", ""]]);
   expect(processed.tables.map((table) => table.title)).toEqual(["windows.json (optional)", "review/<session_id>.json (optional)"]);
   expect(processed.tables[0].rows).toEqual([["settings"], ["totals"]]);
   expect(review.tables[2].rows).toEqual([["move", "frame, edge, at"]]);

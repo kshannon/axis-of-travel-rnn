@@ -252,3 +252,11 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
 - Kyle, 2026-10-18: no hard rule in the software excludes a session by a tag (group, protocol). Every
   session is listed and the person excludes, the tool records it in the review (K5). The funnel keeps
   only what the tool cannot work around. This changes which sessions enter the dataset and is Kyle's call.
+- Open, to discuss after the K fixes: which geometry a session loads. Today the data chooses it, each
+  epochs.csv row names its environment and the tool loads that yaml. A selector would be a person's
+  override per epoch, stored in the review, and registration would follow it. It changes the science
+  (which geometry anchors the registration) and waits for its own discussion.
+- Proposed page shape after Kyle's first run, awaiting his yes: Incoming (a compact config strip with the
+  read paths and Reload, the sessions index with stats, Exclude and Include per row, the incoming format
+  collapsed), Replay, Blocks, Windows, Outgoing (the write path, what is built per session, failed and
+  excluded, windows.json, Rebuild all, later the synthetic sets, the processed format collapsed), About.

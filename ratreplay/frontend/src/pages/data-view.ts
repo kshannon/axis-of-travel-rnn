@@ -1,10 +1,6 @@
 import type { Counts, Folder, Health, Kind, Rebuilt, WindowSettings } from "../api/types";
 import { counted, settingsText } from "../ui/text";
 
-/** The steps the work takes, left to right, and the one this page is. */
-export const FLOW = ["Data", "Sessions and Replay", "Blocks and Windows", "Synthetic (later)"];
-export const HERE = "Data";
-
 const NOT_SET = "not set";
 const NOT_CREATED = "Does not exist yet, the first save in Replay creates it.";
 const NOTHING_SAVED = "Nothing saved yet, saving blocks in Replay writes here.";

@@ -1,27 +1,20 @@
 import Alpine from "alpinejs";
-import { errorText, getSelected, rebuildAll } from "../api/client";
+import { errorText, getFormat, getSelected, rebuildAll } from "../api/client";
+import { formatGroups } from "../api/describe";
+import type { FormatGroup } from "../api/describe";
 import type { Kind } from "../api/types";
 import { healthStore } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { card, pageGrid } from "../ui/card";
-import { BUTTON, BUTTON_PRIMARY, CHIP_ACCENT, CHIP_BAD, CHIP_MUTED, CHIP_OK, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_PRIMARY, CHIP_BAD, CHIP_MUTED, CHIP_OK, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { stampWithSince } from "../ui/time";
 import { toast } from "../ui/toast";
-import { foldersView, FLOW, HERE, rebuildPrompt, rebuildSummary } from "./data-view";
+import { foldersView, rebuildPrompt, rebuildSummary } from "./data-view";
 import type { Page } from "./page";
+import { tableHtml } from "./tables-html";
 
 const REBUILD_HINT = "Build the blocks of every reviewed session again";
 const REBUILD_BLOCKED = "Needs the three folders usable and at least one review";
-
-const flowLine = `
-  <ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-    <template x-for="(step, index) in flow" :key="step">
-      <li class="flex items-center gap-2">
-        <span x-show="index" class="text-muted">&rarr;</span>
-        <span :class="step === here ? '${CHIP_ACCENT}' : '${CHIP_MUTED}'" x-text="step"></span>
-      </li>
-    </template>
-  </ol>`;
 
 /** The body of the card of one folder, from the page's view of the folders. */
 function folderBody(kind: Kind): string {
@@ -67,6 +60,19 @@ const configBody = `
   </template>
   <p x-show="!view" class="text-sm text-muted">Reading the data folders</p>`;
 
+const formatBody = `
+  <p x-show="!groups.length" class="text-sm text-muted">Reading the data format</p>
+  <div class="grid grid-cols-4 items-start gap-4">
+    <template x-for="group in groups" :key="group.title">
+      <section class="flex flex-col gap-2">
+        <h3 class="text-sm font-medium" x-text="group.title"></h3>
+        <template x-for="table in group.tables" :key="table.title">${tableHtml}</template>
+      </section>
+    </template>
+  </div>`;
+
+const formatChip = `<span x-show="version" class="${CHIP_MUTED}" x-text="'format version ' + version"></span>`;
+
 const reloadButton = `<button type="button" :disabled="busy" @click="reload()" class="${BUTTON_PRIMARY}">Reload</button>`;
 const rebuildButton = `
   <button type="button" :disabled="busy || !canRebuild" :title="canRebuild ? '${REBUILD_HINT}' : '${REBUILD_BLOCKED}'" @click="rebuildAll()" class="${BUTTON}"
@@ -74,8 +80,8 @@ const rebuildButton = `
 
 function registerData(): void {
   Alpine.data("dataPage", () => ({
-    flow: FLOW,
-    here: HERE,
+    groups: [] as FormatGroup[],
+    version: 0,
     busy: false,
     rebuilding: false,
     stamp: stampWithSince,
@@ -95,7 +101,18 @@ function registerData(): void {
     },
 
     async init() {
+      void this.loadFormat();
       await healthStore().load();
+    },
+    /** Read the formats of the files once, they do not change while the tool runs. */
+    async loadFormat() {
+      try {
+        const contract = await getFormat();
+        this.groups = formatGroups(contract);
+        this.version = contract.version;
+      } catch (error) {
+        toast.error(errorText(error));
+      }
     },
     async reload() {
       this.busy = true;
@@ -129,10 +146,10 @@ export const dataPage: Page = {
   id: "data",
   title: "Data",
   html: pageGrid(
-    card("Data flow", flowLine, "col-span-12 row-span-1") +
-      card("Incoming, transformed lab data", folderBody("transformed"), "col-span-4 row-span-4") +
-      card("Outbound, processed lab data", folderBody("processed"), "col-span-4 row-span-4", rebuildButton) +
-      card("Environments", folderBody("environments"), "col-span-4 row-span-4") +
+    card("Incoming, transformed lab data", folderBody("transformed"), "col-span-4 row-span-3") +
+      card("Outbound, processed lab data", folderBody("processed"), "col-span-4 row-span-3", rebuildButton) +
+      card("Environments", folderBody("environments"), "col-span-4 row-span-3") +
+      card("Data format", formatBody, "col-span-12 row-span-2", formatChip) +
       card("Config file", configBody, "col-span-12 row-span-1", reloadButton),
     `x-data="dataPage"`,
   ),
