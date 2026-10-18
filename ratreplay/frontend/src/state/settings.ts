@@ -1,11 +1,11 @@
 import Alpine from "alpinejs";
-import { getFormat } from "../api/client";
+import { getFormat, getSelected } from "../api/client";
 import type { WindowSettings } from "../api/types";
 
 export interface SettingsStore {
   /** The window settings in use, none until the API has been asked for its defaults. */
   current: WindowSettings | null;
-  /** The settings in use, the API's defaults the first time. */
+  /** The settings in use, the ones selected for export the first time when there are some, else the API's defaults. */
   load(): Promise<WindowSettings>;
   /** Use these settings from now on. Every page that shows window counts watches `current`. */
   use(next: WindowSettings): void;
@@ -17,8 +17,9 @@ export function registerSettings(): void {
     current: null,
     async load() {
       if (!this.current) {
-        const { settings } = await getFormat();
-        this.current ??= settings; // a use() while the format was coming wins
+        const { selected } = await getSelected();
+        const settings = selected?.settings ?? (await getFormat()).settings;
+        this.current ??= settings; // a use() while the answer was coming wins
       }
       return this.current!;
     },

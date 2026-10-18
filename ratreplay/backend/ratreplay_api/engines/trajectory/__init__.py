@@ -74,7 +74,7 @@ RULES = {
 
 # The default window settings: a window, the stride between windows, the burn-in inside it, the future position
 # predicted, the rate the RNN project resamples to, and the two block checks (measured heading share, complete trips).
-# rate_hz is recorded in windows.json for that project and is unused by windows, which works at the block's own rate.
+# rate_hz is recorded in windows.json for that project and is unused by windows, which works at the rate of the block's row.
 SETTINGS = {
     "window_s": 40.0,
     "stride_s": 10.0,

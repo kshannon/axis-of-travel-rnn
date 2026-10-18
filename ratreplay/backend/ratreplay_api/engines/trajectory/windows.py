@@ -109,10 +109,10 @@ def block_verdict(row, arrays, count, settings):
 
 def windows(block, settings, rules):
     """
-    The window rows of a block (its row and arrays) at the settings and the rules it was built with, the verdict of the block and the window count, in seconds at the block's own rate.
+    The window rows of a block (its row and arrays) at the settings and the rules it was built with, the verdict of the block and the window count, in seconds at the rate of the block's row.
     """
     row, arrays = block["row"], block["arrays"]
-    rate_hz = round(row["n_frames"] / row["duration_s"])
+    rate_hz = row["rate_hz"]
     count = window_count(row["n_frames"], rate_hz, settings)
     extents = trip_extents(arrays, rules["return_paths"])
     return {"rows": window_rows(arrays, extents, count, rate_hz, settings), "verdict": block_verdict(row, arrays, count, settings), "count": count}

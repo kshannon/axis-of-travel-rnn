@@ -84,14 +84,14 @@ def reviewed(tmp_path, paused):
 
 def oracle(root):
     """
-    Every block the processor wrote under the root by id, its csv row with the kind of its folder added and its parquet columns.
+    Every block the processor wrote under the root by id, its csv row with the kind of its folder and its rate (its frames over its seconds, which the old csv did not hold) added and its parquet columns.
     """
     options = pacsv.ConvertOptions(column_types=old_output.BLOCKS_CSV_SCHEMA, strings_can_be_null=True)
     found = {}
     for kind in ("arena", "track"):
         for row in pacsv.read_csv(root / kind / "blocks.csv", convert_options=options).to_pylist():
             table = pq.read_table(root / kind / "blocks" / f"{row['block_id']}.parquet")
-            found[row["block_id"]] = {"row": {**row, "kind": kind}, "arrays": {name: table.column(name).to_numpy() for name in table.column_names}}
+            found[row["block_id"]] = {"row": {**row, "kind": kind, "rate_hz": round(row["n_frames"] / row["duration_s"])}, "arrays": {name: table.column(name).to_numpy() for name in table.column_names}}
     return found
 
 

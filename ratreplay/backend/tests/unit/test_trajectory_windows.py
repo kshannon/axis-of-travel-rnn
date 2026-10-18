@@ -58,7 +58,7 @@ def scripted(n_frames, kind="track", trips=TRIPS, runs=RUNS, pauses=(), lost=0):
         arrays["phase"][first:stop] = OUTBOUND if path_id in RULES["outbound_paths"] else RETURN
     for first, stop in pauses:
         arrays["phase"][first:stop] = PAUSE
-    return {"row": {"kind": kind, "n_frames": n_frames, "duration_s": n_frames / RATE_HZ}, "arrays": arrays}
+    return {"row": {"kind": kind, "n_frames": n_frames, "duration_s": n_frames / RATE_HZ, "rate_hz": RATE_HZ}, "arrays": arrays}
 
 
 def windows(block, **changes):

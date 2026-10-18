@@ -1,12 +1,11 @@
 import { expect, test } from "vitest";
-import type { BlockWindow, WindowSettings } from "../api/types";
-import type { BlockView } from "../session/block";
-import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches } from "./windows-view";
+import type { BlockHeader, BlockWindow, WindowSettings } from "../api/types";
+import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches, windowVerdict } from "./windows-view";
 
 const SETTINGS: WindowSettings = {
   window_s: 5, stride_s: 10, burn_in_s: 1, horizon_s: 0.5, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1,
 };
-const header = { rate_hz: 60, n_frames: 1200, settings: SETTINGS } as unknown as BlockView;
+const header = { rate_hz: 60, row: { n_frames: 1200 } } as unknown as BlockHeader;
 const window = (extra: Partial<BlockWindow> = {}): BlockWindow => ({
   index: 0, first: 600, burn_in_stop: 660, window_stop: 900, stop: 930, position_finite: 1, heading_measured: 0.9, trips_complete: 1, trips_partial: 1, ok: true, start_s: 10, stop_s: 15.5, reason: null, ...extra,
 });
@@ -25,30 +24,22 @@ test("a jump names a window by its number from 1 and refuses anything else", () 
   for (const typed of [0, 6, 2.5, "", "abc", null, -1]) expect(jumpTarget(typed, 5)).toBeNull();
 });
 
-test("the checks of a window pass when the position is whole and the heading reaches the minimum", () => {
-  const checks = windowChecks(window(), header);
-  expect(checks.map((c) => [c.label, c.status])).toEqual([
-    ["position finite", "ok"], ["heading measured", "ok"], ["trips", "info"], ["burn-in and horizon", "ok"],
+test("the checks of a window show what its row measured and the settings it is held to, and decide nothing", () => {
+  const checks = windowChecks(window({ position_finite: 0.98, heading_measured: 0.6364 }), SETTINGS);
+  expect(checks.map((c) => [c.label, c.value])).toEqual([
+    ["position finite", "98%"], ["heading measured", "63.6%"], ["trips", "1 complete, 1 partial"], ["burn-in and horizon", "1 s and 0.5 s"],
   ]);
-  expect(checks.map((c) => c.value)).toEqual(["100%", "90%", "1 complete, 1 partial", "1 s and 0.5 s"]);
-});
-
-test("a window with lost positions or too little heading is in trouble on that check", () => {
-  const checks = windowChecks(window({ position_finite: 0.98, heading_measured: 0.6364 }), header);
-  expect(checks.map((c) => c.status)).toEqual(["trouble", "trouble", "info", "ok"]);
-  expect(checks[1].value).toBe("63.6%");
   expect(checks[1].note).toContain("at least 80%");
-  expect(windowChecks(window({ heading_measured: 0.8 }), header)[1].status).toBe("ok");
+  expect(Object.keys(checks[0])).toEqual(["label", "value", "note"]);
 });
 
-test("a horizon running past the end of the block does not fit, nor does a burn-in longer than the window", () => {
-  expect(windowChecks(window({ stop: 1200 }), header)[3].status).toBe("ok");
-  expect(windowChecks(window({ stop: 1201 }), header)[3].status).toBe("trouble");
-  expect(windowChecks(window({ burn_in_stop: 901 }), header)[3].status).toBe("trouble");
+test("a window says what the server says of it, ok or in trouble with its reason", () => {
+  expect(windowVerdict(window())).toBe("window ok");
+  expect(windowVerdict(window({ ok: false, reason: "measured heading 64% under 80%" }))).toBe("window trouble, measured heading 64% under 80%");
 });
 
-test("the span tells where the window lies and the totals count the windows ok", () => {
-  expect(windowSpan(window(), 60)).toBe("10.0 s to 15.0 s in the block, horizon to 15.5 s");
+test("the span tells where the window lies from its row and the totals count the windows ok", () => {
+  expect(windowSpan(window())).toBe("10.0 s to 15.5 s in the block, the window and its horizon");
   expect(windowsOk([window(), window({ ok: false }), window()])).toBe(2);
 });
 

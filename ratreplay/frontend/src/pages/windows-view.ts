@@ -1,9 +1,7 @@
-import type { BlockWindow } from "../api/types";
+import type { BlockHeader, BlockWindow, WindowSettings } from "../api/types";
 import { THIN_PATH } from "../draw/map";
 import type { Stretch } from "../draw/map";
-import type { BlockView } from "../session/block";
 import { percent } from "../ui/format";
-import { CHIP_BAD, CHIP_MUTED, CHIP_OK } from "../ui/style";
 
 const WINDOW_STROKE_PX = 3;
 
@@ -22,39 +20,30 @@ export interface Check {
   label: string;
   value: string;
   note: string;
-  status: "ok" | "trouble" | "info";
-  chip: string;
 }
 
-const STATUS_CHIPS: Record<Check["status"], string> = { ok: CHIP_OK, trouble: CHIP_BAD, info: CHIP_MUTED };
-
-const check = (label: string, value: string, note: string, ok: boolean | null): Check => {
-  const status = ok === null ? "info" : ok ? "ok" : "trouble";
-  return { label, value, note, status, chip: STATUS_CHIPS[status] };
-};
-
 /**
- * The checks of a window: the position finite throughout, the measured heading against the minimum, the trips lying
- * inside the window and its horizon (counted only, the minimum applies to the whole block), and the burn-in within the
- * window and the horizon within the block.
+ * What the row of a window measured: the share of its frames with a finite position, the measured heading against the
+ * minimum the settings ask for, the trips inside the window and its horizon, and the burn-in and horizon the settings
+ * give. Whether the window passes is the row's own `ok` and `reason`, not decided here.
  */
-export function windowChecks(window: BlockWindow, header: BlockView): Check[] {
-  const { settings } = header;
+export function windowChecks(window: BlockWindow, settings: WindowSettings): Check[] {
   return [
-    check("position finite", percent(window.position_finite, 1), "of the frames, all of them are needed", window.position_finite === 1),
-    check("heading measured", percent(window.heading_measured, 1), `of the frames, at least ${percent(settings.min_heading_measured, 1)} is needed`,
-      window.heading_measured >= settings.min_heading_measured),
-    check("trips", `${window.trips_complete} complete, ${window.trips_partial} partial`,
-      "complete: outbound start and return end inside the window and its horizon", null),
-    check("burn-in and horizon", `${settings.burn_in_s} s and ${settings.horizon_s} s`, "the burn-in within the window, the horizon within the block",
-      window.burn_in_stop <= window.window_stop && window.stop <= header.n_frames),
+    { label: "position finite", value: percent(window.position_finite, 1), note: "of the frames of the window and its horizon" },
+    { label: "heading measured", value: percent(window.heading_measured, 1), note: `of the frames, the settings ask for at least ${percent(settings.min_heading_measured, 1)}` },
+    { label: "trips", value: `${window.trips_complete} complete, ${window.trips_partial} partial`, note: "complete: outbound start and return end inside the window and its horizon" },
+    { label: "burn-in and horizon", value: `${settings.burn_in_s} s and ${settings.horizon_s} s`, note: "marked on the lanes, the burn-in lighter and the horizon hatched" },
   ];
 }
 
-/** Where a window lies in the block: its start, the end of the window proper and the end of its horizon. */
-export function windowSpan(window: BlockWindow, rateHz: number): string {
-  const seconds = (index: number) => `${(index / rateHz).toFixed(1)} s`;
-  return `${seconds(window.first)} to ${seconds(window.window_stop)} in the block, horizon to ${seconds(window.stop)}`;
+/** What the server says of a window: ok, or in trouble with the first check it fails. */
+export function windowVerdict(window: BlockWindow): string {
+  return window.ok ? "window ok" : `window trouble, ${window.reason}`;
+}
+
+/** Where a window lies in the block, from its row: its start and the end of its horizon in seconds. */
+export function windowSpan(window: BlockWindow): string {
+  return `${window.start_s.toFixed(1)} s to ${window.stop_s.toFixed(1)} s in the block, the window and its horizon`;
 }
 
 /** How many of the block's windows are ok. */
@@ -63,10 +52,10 @@ export function windowsOk(windows: BlockWindow[]): number {
 }
 
 /** The map's lines for a window: the whole path thin, then the burn-in lighter, the rest of the window and the horizon after it. */
-export function windowStretches(header: BlockView, window: BlockWindow): Stretch[] {
+export function windowStretches(header: BlockHeader, window: BlockWindow): Stretch[] {
   const line = { width: WINDOW_STROKE_PX };
   return [
-    { first: 1, last: header.n_frames, ...THIN_PATH },
+    { first: 1, last: header.row.n_frames, ...THIN_PATH },
     { ...line, first: window.first + 1, last: window.burn_in_stop, colour: "accent", alpha: 1, light: true },
     { ...line, first: Math.max(window.burn_in_stop, 1), last: window.window_stop, colour: "accent", alpha: 1 },
     { ...line, first: window.window_stop, last: window.stop, colour: "warn", alpha: 1 },

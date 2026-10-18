@@ -1,17 +1,20 @@
 import Alpine from "alpinejs";
+import { errorText } from "../api/client";
 import { blockScene } from "../draw/block-scene";
 import { EnvironmentBackdrop, extentOf } from "../draw/environment";
 import { timeLabel } from "../draw/lanes";
 import { MapView } from "../draw/map";
 import { Timeline } from "../draw/timeline";
 import { BlockPlayer } from "../session/block";
+import { settingsStore } from "../state/settings";
 import { folderPage } from "../ui/gate";
 import { belongsToTarget, commandOf } from "../ui/keys";
+import { settingsText } from "../ui/text";
 import { toast } from "../ui/toast";
-import { blockLine, NO_LINE, testedLine } from "./blocks-view";
+import { blockLine, NO_LINE } from "./blocks-view";
 import type { Page } from "./page";
 import { windowsRoot } from "./windows-html";
-import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches } from "./windows-view";
+import { jumpTarget, stepWindow, windowChecks, windowsOk, windowSpan, windowStretches, windowVerdict } from "./windows-view";
 import type { Check } from "./windows-view";
 
 function registerWindows(): void {
@@ -25,19 +28,25 @@ function registerWindows(): void {
 
     return {
       ready: player !== null,
-      line: player ? blockLine(player.header) : NO_LINE,
-      settingsLine: player ? testedLine(player.header.settings) : "",
-      count: player?.header.windows.length ?? 0,
-      okCount: player ? windowsOk(player.header.windows) : 0,
+      line: player ? blockLine(player.header.row, player.windows.verdict) : NO_LINE,
+      settingsLine: player ? settingsText(player.settings) : "",
+      count: player?.windows.count ?? 0,
+      okCount: player ? windowsOk(player.windows.rows) : 0,
       index: 0,
       jump: 1,
       checks: [] as Check[],
       windowOk: true,
+      verdict: "",
       span: "",
       viewing: "",
 
       async init() {
         if (!player) return;
+        try {
+          await player.useSettings({ ...(await settingsStore().load()) }); // changed on the Replay page since the block was opened
+        } catch (error) {
+          toast.error(errorText(error));
+        }
         await this.$nextTick();
         if (!alive) return;
         const { header, arrays } = player;
@@ -46,7 +55,7 @@ function registerWindows(): void {
           view: (from, to) => (this.viewing = `${timeLabel(from)} to ${timeLabel(to)}`),
         });
         map = new MapView(this.$refs.map);
-        timeline.load(blockScene(header, arrays.speed, player.speedTop));
+        timeline.load(blockScene(header, player.windows.rows, player.settings, arrays.speed, player.speedTop));
         map.load({ ...arrays, rateHz: header.rate_hz }, new EnvironmentBackdrop(header.geometry, extentOf(header.geometry, arrays.x, arrays.y)), player.speedTop, false);
         const onKey = (event: KeyboardEvent) => {
           const command = commandOf(event);
@@ -60,6 +69,7 @@ function registerWindows(): void {
           timeline.refresh();
           map.refresh();
         });
+        this.summarize();
         if (this.count) this.show();
       },
 
@@ -70,14 +80,24 @@ function registerWindows(): void {
         map?.destroy();
       },
 
-      /** Draw the window: its checks, its path on the map and the lanes zoomed to it. */
+      /** The block's totals and the settings, from the server's answer at the settings in use. */
+      summarize() {
+        const { windows, header, settings } = player!;
+        this.line = blockLine(header.row, windows.verdict);
+        this.settingsLine = settingsText(settings);
+        this.count = windows.count;
+        this.okCount = windowsOk(windows.rows);
+      },
+
+      /** Draw the window: its checks and verdict from its row, its path on the map and the lanes zoomed to it. */
       show() {
-        const { header } = player!;
-        const window = header.windows[this.index];
+        const { windows, header, settings } = player!;
+        const window = windows.rows[this.index];
         this.jump = this.index + 1;
-        this.checks = windowChecks(window, header);
+        this.checks = windowChecks(window, settings);
         this.windowOk = window.ok;
-        this.span = windowSpan(window, header.rate_hz);
+        this.verdict = windowVerdict(window);
+        this.span = windowSpan(window);
         timeline.setSelection({ lane: "windows", first: window.first + 1, last: window.stop });
         timeline.fitSelected();
         map.setStretches(windowStretches(header, window));
@@ -107,6 +127,6 @@ function registerWindows(): void {
 export const windowsPage: Page = {
   id: "windows",
   title: "Windows",
-  html: folderPage("Windows", windowsRoot, "processed"),
+  html: folderPage("Windows", windowsRoot, "processed", "environments"),
   register: registerWindows,
 };

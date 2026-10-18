@@ -28,7 +28,7 @@ const windowBody = `
       </label>
       <span x-show="!count" data-testid="no-window" class="${CHIP_BAD}">no window fits</span>
       <button type="button" @click="step(1)" :disabled="!count || index === count - 1" class="${BUTTON}">Next <kbd class="${KBD}">right</kbd></button>
-      <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="windowOk ? 'window ok' : 'window trouble'"></span>
+      <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="verdict"></span>
     </div>
     <p x-show="count" data-testid="window-span" class="text-xs text-muted" x-text="span"></p>
     <p x-show="!count" class="text-sm text-muted">Nothing to step through at these settings. Change them on the Blocks page.</p>
@@ -52,10 +52,7 @@ const checksBody = `
           <p class="text-sm font-medium" x-text="check.label"></p>
           <p class="text-xs text-muted" x-text="check.note"></p>
         </div>
-        <div class="flex shrink-0 items-center gap-3">
-          <span class="tabular-nums" x-text="check.value"></span>
-          <span :class="check.chip" x-text="check.status"></span>
-        </div>
+        <span class="shrink-0 tabular-nums" x-text="check.value"></span>
       </li>
     </template>
   </ul>`;

@@ -1,7 +1,8 @@
 import Alpine from "alpinejs";
-import { errorText, getFormat, rebuildAll } from "../api/client";
+import { errorText, getSelected, rebuildAll } from "../api/client";
 import type { Kind } from "../api/types";
 import { healthStore } from "../state/health";
+import { settingsStore } from "../state/settings";
 import { card, pageGrid } from "../ui/card";
 import { BUTTON, BUTTON_PRIMARY, CHIP_ACCENT, CHIP_BAD, CHIP_MUTED, CHIP_OK, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { stampWithSince } from "../ui/time";
@@ -101,11 +102,12 @@ function registerData(): void {
       if (await healthStore().load(true)) toast.success("Read the config file again and checked the three folders");
       this.busy = false;
     },
-    /** Build every reviewed session's blocks again after a confirmation, at the default window settings until the settings state exists. */
+    /** Build every reviewed session's blocks again after a confirmation, at the settings selected for export when there are some, else the settings in use. */
     async rebuildAll() {
       this.busy = true;
       try {
-        const { settings } = await getFormat();
+        const { selected } = await getSelected();
+        const settings = selected?.settings ?? (await settingsStore().load());
         if (!confirm(rebuildPrompt(this.reviews, settings, healthStore().found!.processed.root!))) return;
         this.rebuilding = true;
         const result = await rebuildAll(settings);

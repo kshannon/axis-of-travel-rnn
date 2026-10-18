@@ -101,11 +101,11 @@ class ValidationManager:
 
     def block(self, bid):
         """
-        A built block for the player: its row, the geometry of its environment and the spans of its runs, trips, phases and heading fills, as indices into the block's arrays.
+        A built block for the player: its row and rate, the geometry of its environment and the spans of its runs, trips, phases and heading fills, as indices into the block's arrays.
         """
         found = self.processed.block(bid)
         row, arrays = found["row"], found["arrays"]
-        return {"row": row, "geometry": self.environment.environment(row["environment"]), "runs": runs_of(arrays), "trips": trips_of(arrays),
+        return {"row": row, "rate_hz": row["rate_hz"], "geometry": self.environment.environment(row["environment"]), "runs": runs_of(arrays), "trips": trips_of(arrays),
                 "phases": phases_of(arrays), "heading_filled": true_spans(arrays["heading_filled"]),
                 "heading_held": true_spans(arrays["heading_held"]), "one_light": true_spans(arrays["n_lights"] == 1)}
 

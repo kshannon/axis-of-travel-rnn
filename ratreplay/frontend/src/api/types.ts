@@ -304,6 +304,8 @@ export interface BlockRow {
   frame_end: number;
   n_frames: number;
   duration_s: number;
+  /** The rate the block was built at, in frames per second. */
+  rate_hz: number;
   n_runs: number;
   n_clean_runs: number;
   n_trips: number;
@@ -355,6 +357,8 @@ export interface Geometry {
 /** A built block for the player. Every span holds indices into the block's arrays. */
 export interface BlockHeader {
   row: BlockRow;
+  /** The block's own rate, its frames over its seconds. */
+  rate_hz: number;
   geometry: Geometry;
   runs: { run: number; path_id: number; clean: boolean; first: number; last: number }[];
   trips: { trip: number; partial: boolean; first: number; last: number }[];

@@ -437,7 +437,7 @@ query parameters on GET and in the body otherwise.
     PUT  /api/sessions/{sid}/blocks          body edits, notes, settings, saves the review and builds the blocks
     POST /api/rebuild                        body settings, rebuilds every reviewed session, returns counts
     GET  /api/blocks?which=real|set:{id}     readiness: block rows with verdicts at settings, totals, built settings
-    GET  /api/blocks/{bid}                   header: environment geometry, runs, trips  (and /arrays as Arrow)
+    GET  /api/blocks/{bid}                   header: row with rate_hz, environment geometry, runs, trips, phases, heading spans (and /arrays as Arrow)
     GET  /api/blocks/{bid}/windows           window rows with their checks at settings
     GET  /api/windows   PUT /api/windows     windows.json, read and select
     GET  /api/sets   POST /api/sets          synthetic sets, and generate one (body: sources, params, seed, length, settings)

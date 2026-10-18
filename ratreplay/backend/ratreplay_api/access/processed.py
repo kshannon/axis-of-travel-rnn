@@ -44,7 +44,7 @@ BLOCK_SCHEMA = pa.schema([
 BLOCKS_CSV_SCHEMA = pa.schema([
     ("block_id", pa.string()), ("session_id", pa.string()), ("subject_id", pa.string()), ("date", pa.string()),
     ("protocol", pa.string()), ("environment", pa.string()), ("epoch", pa.string()), ("kind", pa.string()),
-    ("frame_start", pa.int64()), ("frame_end", pa.int64()), ("n_frames", pa.int64()), ("duration_s", pa.float64()),
+    ("frame_start", pa.int64()), ("frame_end", pa.int64()), ("n_frames", pa.int64()), ("duration_s", pa.float64()), ("rate_hz", pa.int64()),
     ("n_runs", pa.int64()), ("n_clean_runs", pa.int64()), ("n_trips", pa.int64()), ("n_complete_trips", pa.int64()),
     ("heading_lost_s", pa.float64()), ("heading_filled_s", pa.float64()), ("heading_held_s", pa.float64()),
     ("status", pa.string()), ("reviewed_by", pa.string()),

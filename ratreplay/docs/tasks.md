@@ -65,7 +65,7 @@ anything that touches real data.
       Rebuild all, Sessions page. Check: Data page shows three folders. [Pages 1, 2]
 - [x] F2 Replay page on ReviewManager: block cards show the manager's window counts, Save blocks and its
       result toast, `session/windows.ts` deleted. [Page 3]
-- [ ] F3 Blocks and Windows pages on ValidationManager: real or set, settings being tried, built settings
+- [x] F3 Blocks and Windows pages on ValidationManager: real or set, settings being tried, built settings
       shown, Select these settings. [Pages 4, 5]
 - [ ] F4 Synthetic page: sets with provenance and comparison, generate, delete. [Page 6]
 - [ ] F5 move `src/**/*.test.ts` to `frontend/tests/`, keep the pure modules only (timeline geometry,

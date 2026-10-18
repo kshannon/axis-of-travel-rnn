@@ -164,6 +164,7 @@ def test_a_block_comes_with_its_row_geometry_and_spans_as_indices_and_its_arrays
     track, arena = manager.block(TRACK), manager.block(ARENA)
     n, arrays = track["row"]["n_frames"], manager.arrays(TRACK)
     assert track["row"] == next(row for row in ProcessedAccess(built[1]).blocks() if row["block_id"] == TRACK)
+    assert track["rate_hz"] == track["row"]["rate_hz"] == arena["rate_hz"] == 60 and track["rate_hz"] == round(1 / (arrays["t"][1] - arrays["t"][0]))
     assert track["geometry"]["name"] == track["row"]["environment"] and track["geometry"]["walls"] and arena["geometry"]["circle"]["radius"] > 0
     spans = [*track["runs"], *track["trips"], *track["phases"]]
     assert spans and all(0 <= s["first"] <= s["last"] < n for s in spans) and (track["phases"][0]["first"], track["phases"][-1]["last"]) == (0, n - 1)

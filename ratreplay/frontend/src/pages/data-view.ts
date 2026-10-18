@@ -1,6 +1,5 @@
 import type { Counts, Folder, Health, Kind, Rebuilt, WindowSettings } from "../api/types";
-import { percent } from "../ui/format";
-import { counted } from "../ui/text";
+import { counted, settingsText } from "../ui/text";
 
 /** The steps the work takes, left to right, and the one this page is. */
 export const FLOW = ["Data", "Sessions and Replay", "Blocks and Windows", "Synthetic (later)"];
@@ -66,11 +65,6 @@ export function foldersView(health: Health): Record<Kind, FolderView> {
     processed: folderView("processed", health.processed),
     environments: folderView("environments", health.environments),
   };
-}
-
-function settingsText(s: WindowSettings): string {
-  return `a ${s.window_s} s window every ${s.stride_s} s, burn-in ${s.burn_in_s} s, horizon ${s.horizon_s} s, ${s.rate_hz} Hz, ` +
-    `measured heading at least ${percent(s.min_heading_measured)}, at least ${counted(s.min_complete_trips, "complete trip")}`;
 }
 
 /** What the confirmation says before every reviewed session is built again: how many, at which settings, into which folder. */

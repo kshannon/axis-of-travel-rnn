@@ -207,3 +207,11 @@ client.
   yet, draw them later or drop `stops`. For F3: wire `settingsStore().use()` on the Blocks page and in
   Rebuild all so the cross page settings path is live, the e2e flow spec expects an absolute review path
   (S2 decides, the API gives the relative one).
+- F3: the block index row carries `rate_hz` (a fact of the build, no arithmetic in the manager or the
+  engine's windows). The settings store seeds from the selection in windows.json before the API defaults,
+  so a fresh load starts from what the person last chose. Rebuild all sends the selection when one
+  exists, else the settings being tried, Save blocks on Replay builds at the settings being tried, the
+  difference touches the informative metadata only. "Built at other settings" marks a session whose
+  recorded settings differ from the ones tried, the comparison is raw over the seven fields. Select is
+  disabled for a dataset other than real, F4 decides how a synthetic set's settings are selected. The
+  e2e blocks, windows and flow specs target removed controls and fail until S2.

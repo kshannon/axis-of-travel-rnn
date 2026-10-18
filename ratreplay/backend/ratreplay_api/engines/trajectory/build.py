@@ -62,14 +62,14 @@ def block_problems(columns, rate_hz, rules):
 
 def block_row(block, columns, found, session_row, reviewed_by):
     """
-    The block's row of the blocks index: the block and its session, where it lies, its runs and trips, the seconds of heading lost, filled and held, its status and reviewer, and the registration and kinematics version it was built under.
+    The block's row of the blocks index: the block and its session, where it lies and at which rate, its runs and trips, the seconds of heading lost, filled and held, its status and reviewer, and the registration and kinematics version it was built under.
     """
     rate_hz, p, run, trip = found["rate_hz"], found["frame"][block["epoch"]], columns["run"], columns["trip"]
     n_frames = len(columns["frame"])
     return {"block_id": block["block_id"], "session_id": session_row["session_id"], "subject_id": session_row["subject_id"],
             "date": str(session_row["date"]), "protocol": session_row["protocol"], "environment": block["environment"],
             "epoch": block["epoch"], "kind": block["epoch"], "frame_start": block["frame_start"], "frame_end": block["frame_end"],
-            "n_frames": n_frames, "duration_s": n_frames / rate_hz,
+            "n_frames": n_frames, "duration_s": n_frames / rate_hz, "rate_hz": int(rate_hz),
             "n_runs": len(np.unique(run[run > 0])), "n_clean_runs": len(np.unique(run[(run > 0) & columns["clean"]])),
             "n_trips": len(np.unique(np.abs(trip[trip != 0]))), "n_complete_trips": len(np.unique(trip[trip > 0])),
             "heading_lost_s": float(np.isnan(columns["heading"]).sum() / rate_hz), "heading_filled_s": float(columns["heading_filled"].sum() / rate_hz),
