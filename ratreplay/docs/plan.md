@@ -215,3 +215,28 @@ client.
   recorded settings differ from the ones tried, the comparison is raw over the seven fields. Select is
   disabled for a dataset other than real, F4 decides how a synthetic set's settings are selected. The
   e2e blocks, windows and flow specs target removed controls and fail until S2.
+- S1: the system tests run over an empty processed folder, the fixtures no longer run the old processor
+  for the client. They found and fixed one bug, a save on an unknown session was a 500, now 404. Rebuild
+  all on a review whose session vanished reports a per session build_error, not an error.
+- R1: both READMEs are written from the routers and the system tests. The root README gained a RatReplay
+  section and the two newer config keys. The dangling docs/ links in the root README follow Kyle's
+  uncommitted move of the docs tree and were left alone.
+- S2: three flows (review and save, readiness and select, data and rebuild), a generate flow arrives with
+  F4. The review path in the toast stays relative (review/<sid>.json), the F2 question is settled. The
+  Data page keeps the previous health while it refreshes, so a test must wait for the new answer.
+
+## Real slice done, 2026-10-18
+
+Tasks U1 to S2 and R1 are committed, 21 commits since the docs. At the last commit: 144 backend tests
+(unit, integration, system), 83 Vitest, 3 Playwright flows, 170 project tests, build green. Agent time
+about 11 h against the plan's 15 to 19 h for the same tasks. Next is K.
+
+K, for Kyle: restart the API (`pixi run ratreplay-api`, the running process predates most commits) and
+rebuild the frontend (`pixi run ratreplay-build`). On the Data page the three folders should read ok. The
+processed folder from the processor's runs is ignored except its `review/` files, which the tool reads,
+so the index shows them as reviewed and loading one will warn "reviewed under other rules" because the
+saved rule names changed. Rebuild all from the Data page builds every reviewed session into the new
+layout, or review session by session with Save blocks. Then the Blocks page at the settings you want,
+Select these settings, and report: the health counts, how many sessions built, failed blocks and their
+problems, build errors, the readiness totals, anything that looks wrong, and how long rebuild all and
+readiness took.
