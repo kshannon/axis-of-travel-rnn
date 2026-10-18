@@ -43,7 +43,7 @@ one condition (arena, track, rotated track). Run: one traversal of a path in the
 must contain. Block: a continuous stretch of one epoch with no pause, gap or jump, at least 10 s, the
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
 person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
-writes. Built blocks: parquet files in metres at 20 Hz with trip and phase labels, written from a
+writes. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
 review. Metadata: per session, what the build used (rules, settings, review stamp, code version, built
 at) and per block the window count and verdict at those settings, informative, readiness recomputes them.
 Window: a fixed length slice of a block at a stride with burn-in and horizon, cut by the RNN project,
@@ -175,7 +175,7 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
   under the minimum length, no block outside its epoch, no edit on a removed block, a moved edge snaps
   to a run edge within `snap_s`), the resulting blocks and the refusals with reasons.
 - `blocks(arrays, review, environment, rules)`: the labelled blocks (trip, phase, frames in metres at
-  the output rate) for a session, from the review's blocks or the initial blocks when there is none.
+  the lab rate) for a session, from the review's blocks or the initial blocks when there is none.
   The same call for real and generated arrays.
 - `windows(block, settings)`: the window rows (start, end, burn-in, horizon, trips inside, measured
   heading share, position finite) and the verdict of each, plus the block's verdict (no window fits,
@@ -351,7 +351,7 @@ flowchart LR
         R1 --> R2 --> R3 --> R4
     end
     T --> R1
-    R2 --> Pf[("processed folder: review json, blocks parquet in metres at 20 Hz, metadata per session, windows.json")]
+    R2 --> Pf[("processed folder: review json, blocks parquet in metres at the lab rate, metadata per session, windows.json")]
     Pf --> R3
     Pf --> R4
     R4 --> Sf[("synthetic folder: sets of blocks with provenance")]
@@ -372,7 +372,7 @@ file in tests). Edit the file and press Reload on the Data page to change a fold
 
     transformed/   sessions.csv, epochs.csv, runs.csv, frames/{sid}.parquet, manifest.json   (read only)
     processed/     review/{sid}.json            the person's edits and notes, written whole
-                   blocks/{block_id}.parquet    one built block, metres, 20 Hz, trip and phase labels
+                   blocks/{block_id}.parquet    one built block, metres, the lab rate, trip and phase labels
                    blocks.csv                   one row per built block, a session's rows replaced together
                    metadata/{sid}.json          rules, settings, review stamp, code version, built at, and per
                                                 block the window count and verdict at those settings (informative)
@@ -385,7 +385,7 @@ so a failure while building leaves the previous build whole. A crash inside the 
 leave the index naming files that are gone or orphan files with no row, and health reports both
 (missing block files, orphan parquet or temporary files), so the state is loud and the next save of that
 session repairs it. A session with blocks on disk loads them back and overwrites them on the next save.
-Block ids carry the session id, the kind and the first frame.
+Block ids are the session id, the epoch and a number within the epoch, as the processor formed them.
 
 ## Backend, `ratreplay/backend/ratreplay_api/`
 

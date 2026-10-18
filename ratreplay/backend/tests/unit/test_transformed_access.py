@@ -10,6 +10,9 @@ from ratreplay_api import contract
 from ratreplay_api.access.transformed import FRAMES, TransformedAccess
 from ratreplay_api.utilities.errors import NotFound
 
+# The frames columns TrajectoryEngine.blocks copies into a block, required here though contract.py lists them as optional.
+READ_BY_BLOCKS = ("filled_front", "filled_back")
+
 
 def test_health_of_the_synthetic_folder_has_no_problem_and_the_fixtures_counts(transformed):
     health = TransformedAccess(transformed).health()
@@ -62,7 +65,11 @@ def test_the_annotations_are_empty_when_the_file_is_absent(transformed):
     assert access.sessions()["annotations"] == [] and access.health()["problems"] == []
 
 
-def test_the_schema_is_the_contracts_transformed_part():
+def test_the_schema_is_the_contracts_transformed_part_with_the_two_columns_the_blocks_read_also_required():
     # Goes with contract.py when task L deletes it.
-    assert TransformedAccess("unused").schema() == contract.build()["transformed"]
+    expected = contract.build()["transformed"]
+    frames = next(f for f in expected["files"] if f["path"].startswith("frames/"))
+    for column in frames["columns"]:
+        column["required"] = column["required"] or column["name"] in READ_BY_BLOCKS
+    assert TransformedAccess("unused").schema() == expected
 

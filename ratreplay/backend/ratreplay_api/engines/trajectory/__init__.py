@@ -2,7 +2,7 @@
 TrajectoryEngine: the one contract for selecting, cutting, labelling and windowing trajectories, six operations over arrays with every rule a parameter.
 """
 
-from . import funnel, session
+from . import build, funnel, session
 from .edits import apply_edits
 
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
@@ -63,6 +63,9 @@ RULES = {
     "running_px_per_s": 20.0,
     "offset_warn_deg": 30.0,
 
+    # Checks, reported as problems of a block and never a reason to drop it: the most a step in t may differ from one frame.
+    "t_step_tolerance_s": 1e-6,
+
     # Kinematics: the Savitzky-Golay window in seconds and order, and the version naming this derivation in a build.
     "smooth_window_s": 0.15,
     "smooth_order": 2,
@@ -107,9 +110,9 @@ class TrajectoryEngine:
 
     def blocks(self, arrays, review, environment, rules):
         """
-        The labelled blocks (trip, phase, frames in metres at the output rate) of a session from the review's blocks or the initial blocks, for real and generated arrays alike.
+        The labelled blocks (trip, phase, frames in metres at the lab rate) of a session from the review's confirmed and edited blocks or the initial blocks, for real and generated arrays alike, as a dict of blocks (each a row and arrays for ProcessedAccess.write_blocks), frame (the registration) and warnings, so a manager never calls session as well.
         """
-        raise NotImplementedError("task E3")
+        return build.blocks(arrays, review, environment, rules)
 
     def windows(self, block, settings):
         """

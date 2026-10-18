@@ -14,7 +14,7 @@ from ratreplay_api.engines.generator import GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
 
 # Each rule key and the project constant it comes from (snap_s from the old tool's edit rules, which E2 ports, led_separation_m
-# from the processor's checks).
+# from the processor's checks, as t_step_tolerance_s is).
 SOURCES = {
     "protocol": (select, "PROTOCOL"), "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"),
     "excluded_groups": (select, "EXCLUDED_GROUPS"), "pause_step_s": (select, "PAUSE_STEP_S"),
@@ -30,7 +30,7 @@ SOURCES = {
     "speed_smooth_frames": (frame, "SPEED_SMOOTH_FRAMES"),
     "running_px_per_s": (frame, "RUNNING_PX_PER_S"), "offset_warn_deg": (frame, "OFFSET_WARN_DEG"),
     "smooth_window_s": (trajectory, "SMOOTH_WINDOW_S"), "smooth_order": (trajectory, "SMOOTH_ORDER"),
-    "kinematics_version": (trajectory, "KINEMATICS_VERSION"),
+    "kinematics_version": (trajectory, "KINEMATICS_VERSION"), "t_step_tolerance_s": (processor, "T_STEP_TOLERANCE_S"),
 }
 
 # Each operation and its parameters as architecture.md names them, and the task that fills it.
@@ -42,7 +42,7 @@ TRAJECTORY = {
 }
 GENERATOR = {"session": (("recipe", "environment", "seed", "length"), "E6")}
 ENGINES = ((TrajectoryEngine, TRAJECTORY), (GeneratorEngine, GENERATOR))
-DONE = ("E1", "E2")
+DONE = ("E1", "E2", "E3")
 
 
 def test_every_rule_equals_the_project_constant_it_comes_from():

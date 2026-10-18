@@ -41,8 +41,8 @@ TABLES = {
 }
 OPTIONAL_TABLES = ("annotations.csv",)
 FRAMES_DIR = "frames"
-FRAMES_REQUIRED = ("frame", "t", "front_x", "front_y", "back_x", "back_y", "head_dir", "unfilled_front", "unfilled_back",
-                   "mashup_x", "mashup_y")
+FRAMES_REQUIRED = ("frame", "t", "front_x", "front_y", "back_x", "back_y", "head_dir", "filled_front", "filled_back",
+                   "unfilled_front", "unfilled_back", "mashup_x", "mashup_y")
 MANIFEST = "manifest.json"
 TRANSFORMED_MANIFEST_KEYS = ("run.timestamp",)
 

@@ -137,3 +137,13 @@ client.
   skipped. The 3,200 random edit list parity against the old engine and the Dash tool is now a real test
   (`tests/test_apply_parity.py`, one second) with four documented divergences allowed: reach, restores,
   too short, epoch. It goes with the oracle in R2.
+- E3: blocks are at the lab rate (60 Hz) in metres, as the processor wrote them, the 20 Hz is the training
+  rate the RNN project resamples to at window time (architecture.md corrected, Kyle to confirm). Block ids
+  are `{sid}_{epoch}_{NN}` as the processor formed them. `kind` equals the epoch. Status stays `auto` (the
+  processor wrote `automatic`, no consumer filters on it). `filled_front` and `filled_back` become
+  required transformed columns, E6's generator must emit them. `blocks()` returns per block row, arrays
+  and `problems` (position not finite, t steps irregular, the processor's two checks that apply and
+  windows do not cover) and does not drop a block for them. For Kyle in M1: the processor failed such a
+  block whole and listed it in the manifest, the alternative is to build it and let the window checks
+  reject only the windows that touch the problem. The "reviewed under other rules" warning belongs to
+  ReviewManager (it holds the review's saved rules).

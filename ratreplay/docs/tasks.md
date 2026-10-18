@@ -33,7 +33,7 @@ anything that touches real data.
       the synthetic sessions, the held fill fires on lab shaped data. [TrajectoryEngine]
 - [x] E2 `apply`: the edit rules from `engines/edits.py`. Test: the existing edit tests and the parity run
       against the old tool (3,200 random edit lists), with the three deliberate refusals. [TrajectoryEngine]
-- [ ] E3 `blocks`: labels (trip, phase), frames to metres at 20 Hz, from `src/process_lab_data/labels.py`
+- [x] E3 `blocks`: labels (trip, phase), frames to metres at the lab rate, from `src/process_lab_data/labels.py`
       and `output.py` and `src/axis_of_travel_rnn/trajectory.py`. Test: parity with the processor's blocks
       on the synthetic sessions, same call on generated arrays gives blocks in the same schema. [TrajectoryEngine]
 - [ ] E4 `windows`: rows and verdicts from `src/axis_of_travel_rnn/windows.py`. Test: the existing window
