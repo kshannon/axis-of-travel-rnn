@@ -9,11 +9,11 @@ import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
 
-def read_csv(path):
+def read_csv(path, schema=None):
     """
-    A csv file as a list of dicts, one per row, types inferred, a blank as None unless the column holds other text.
+    A csv file as a list of dicts, one per row, types inferred except for the columns the Arrow schema names, a blank as None unless the column holds other text.
     """
-    return pacsv.read_csv(path).to_pylist()
+    return pacsv.read_csv(path, convert_options=pacsv.ConvertOptions(column_types=schema)).to_pylist()
 
 
 def read_parquet(path):

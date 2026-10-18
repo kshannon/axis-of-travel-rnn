@@ -102,3 +102,10 @@ client.
   composition root and ValidationManager (tasks L and M2), not to an access. `sessions()` returns the
   ids of the sessions with frames so ReviewManager.index (M1) does not call `session()` per row. The
   schema parity test against `contract.py` goes when L deletes `contract.py`.
+- A2: the build records per block the window count and verdict at its settings in the session metadata
+  (informative, readiness recomputes). The rename pass is the one window where a crash leaves a loud
+  mixed state, health names it (missing, orphan and temporary files). For M1: `date` from the
+  transformed sessions table is a date and the csv column is text, so the build writes `str(date)`.
+  The access does not check edits (EDIT_FIELDS is description only), `TrajectoryEngine.apply` refuses
+  unknown ops (E2). For M2: add a `built()` verb (sessions with metadata, including those with zero
+  blocks) and an arrays-only read if readiness over all blocks is slow.

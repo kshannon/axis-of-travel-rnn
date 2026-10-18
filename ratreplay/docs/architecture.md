@@ -44,7 +44,8 @@ must contain. Block: a continuous stretch of one epoch with no pause, gap or jum
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
 person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
 writes. Built blocks: parquet files in metres at 20 Hz with trip and phase labels, written from a
-review. Metadata: per session, what the build used (rules, settings, review stamp, code version).
+review. Metadata: per session, what the build used (rules, settings, review stamp, code version, built
+at) and per block the window count and verdict at those settings, informative, readiness recomputes them.
 Window: a fixed length slice of a block at a stride with burn-in and horizon, cut by the RNN project,
 never stored here. Settings: window length, stride, burn-in, horizon, rate. Readiness: the verdicts of
 the windows of a dataset at given settings. Recipe: the statistics of real blocks the generator fits.
@@ -364,14 +365,18 @@ file in tests). Edit the file and press Reload on the Data page to change a fold
     processed/     review/{sid}.json            the person's edits and notes, written whole
                    blocks/{block_id}.parquet    one built block, metres, 20 Hz, trip and phase labels
                    blocks.csv                   one row per built block, a session's rows replaced together
-                   metadata/{sid}.json          rules, settings, review stamp, code version of the build
+                   metadata/{sid}.json          rules, settings, review stamp, code version, built at, and per
+                                                block the window count and verdict at those settings (informative)
                    windows.json                 the selected window settings, readiness totals, when, by whom
     synthetic/     sets/{set_id}/blocks/{block_id}.parquet, blocks.csv, provenance.json
     configs/environments/{kind}.yaml            geometry and registration of each environment
 
-A session's processed files are written to temporary names and renamed, so a failed build leaves the
-previous build or nothing, never half a session. A session with blocks on disk loads them back and
-overwrites them on the next save. Block ids carry the session id, the kind and the first frame.
+A session's processed files are staged under temporary names and renamed into place in one short pass,
+so a failure while building leaves the previous build whole. A crash inside the rename pass itself can
+leave the index naming files that are gone or orphan files with no row, and health reports both
+(missing block files, orphan parquet or temporary files), so the state is loud and the next save of that
+session repairs it. A session with blocks on disk loads them back and overwrites them on the next save.
+Block ids carry the session id, the kind and the first frame.
 
 ## Backend, `ratreplay/backend/ratreplay_api/`
 

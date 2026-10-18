@@ -13,7 +13,7 @@ anything that touches real data.
       error and knows no key names. [Utilities]
 - [x] A1 `access/transformed.py`, TransformedAccess from `stores/transformed.py` with the schema from
       `contract.py`. Test: health on a good, a missing and a wrong column folder names the problem. [Accesses]
-- [ ] A2 `access/processed.py`, ProcessedAccess from `stores/processed.py` and `stores/review.py`:
+- [x] A2 `access/processed.py`, ProcessedAccess from `stores/processed.py` and `stores/review.py`:
       review, write_review, blocks, block, metadata, write_blocks (temp names and rename, a session's rows
       replaced together), window_settings, write_window_settings. Test: write_blocks twice gives identical
       files, a second session is untouched, an interrupted write leaves the previous build. [Resources on disk]
