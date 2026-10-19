@@ -169,3 +169,20 @@ anything that touches real data.
       drawn as dead time (a break in every lane, no span bridges a pause), and a failed session load
       reported in the warning stack with the page left usable, never silently half disabled. Kyle,
       2026-10-18. [Page 3]
+- [ ] K18 Triple T start offset: Olson 2017 Figure 1 shows the start site up the stem above a bottom
+      return corridor, our yaml put the start on the bottom edge, so the registration anchors the data
+      too low (the bottom corridor spills under the outline, the y scale warning follows). Add a
+      `start_offset` parameter to the triple_t builder (both copies until R2), measured from a session's
+      own occupancy on the Environments page (distance from the start anchor to the bottom corridor
+      centreline, in metres), set it in the yaml, Rebuild all re-registers. Kyle, 2026-10-18.
+      Built: the parameter in both builders and the measurement on the Environments page, open until
+      Kyle sets the yaml from his sessions (steps in plan.md).
+      [EnvironmentAccess, Page 7, configs/environments]
+- [ ] K19 Replay session picker in the status header: the session id becomes a searchable drop down of
+      the index (filter by id or rat, dataset sessions first, reviewed and excluded marked) with previous
+      and next arrows beside it that follow the index order, unsaved edits asked about before leaving.
+      Kyle, 2026-10-18. [Page 3]
+- [ ] K20 A new block or a mark inside an epoch the rules do not cut (a variant under another condition)
+      is refused with the real reason, "this epoch is variant under condition rot45, the rules cut blocks
+      only from arena and track under baseline", not the between two cuts message, and the session lane
+      marks such an epoch as not cut. Kyle, 2026-10-18. [TrajectoryEngine.apply, Page 3]

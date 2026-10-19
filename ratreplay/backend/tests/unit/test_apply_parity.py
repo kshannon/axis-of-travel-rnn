@@ -36,6 +36,8 @@ OVER_REMOVED = 0.35
 REACH = "reach"
 REFUSALS = {rules_of.RESTORES_MESSAGE: "restores", rules_of.TOO_SHORT_MESSAGE.format(10.0): "too short"}
 SAME = "same"
+# The refusal texts that carry a frame, by their first word, counted under one name: no block holds frame N, frame N is in no epoch the rules cut.
+NUMBERED = {"no": "no block", "frame": "uncut"}
 SESSIONS = [(S1, 1, 0), (S6, 6, 1)]
 
 
@@ -114,7 +116,7 @@ def compare(session, old, seed):
         made = engine.apply(initial, edits, session)
         assert made["cuts"] == dash.cuts_of(edits), edits
         assert made["flagged_runs"] == dash.flagged_runs(edits), edits
-        reasons.update("no block" if r["reason"].startswith("no block") else r["reason"] for r in made["refusals"])
+        reasons.update(NUMBERED.get(r["reason"].split(" ")[0], r["reason"]) for r in made["refusals"])
         for k in range(1, len(edits) + 1):
             if noted(dash.apply_edits(old["blocks"], edits[:k], old)) != engine.apply(initial, edits[:k], session)["blocks"]:
                 why = cause(initial, session, edits, k)
@@ -133,7 +135,7 @@ def test_random_edit_lists_equal_the_dash_tool_until_a_documented_difference(tra
     assert [{key: b[key] for key in rules_of.BLOCK_KEYS[:5]} for b in old["blocks"]] == [{key: b[key] for key in rules_of.BLOCK_KEYS[:5]} for b in session["initial_blocks"]]
     causes, reasons = compare(session, old, seed)
     assert sum(causes.values()) == LISTS and set(causes) == {SAME, REACH, *REFUSALS.values()}
-    assert set(reasons) == {"no block", rules_of.CROSSES_MESSAGE, rules_of.SHORT_MESSAGE.format(10.0), rules_of.OVERLAPS_MESSAGE, *REFUSALS}
+    assert set(reasons) == {"no block", "uncut", rules_of.CROSSES_MESSAGE, rules_of.SHORT_MESSAGE.format(10.0), rules_of.OVERLAPS_MESSAGE, *REFUSALS}
 
 
 @pytest.mark.parametrize("sid", [S1, S6])

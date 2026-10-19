@@ -277,3 +277,17 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
 - Kyle, 2026-10-18, note for later: the Incoming index's "Protocol" and "In dataset" columns go once the
   converter joins RatReplay and the ingestion is redone from the MATLAB files (the funnel's two remaining
   reasons become ingestion facts). Nothing changes now.
+- 2026-10-18, registration finding resolved to the yaml: the paper (Olson 2017, methods and Figure 1)
+  confirms the 1.6 by 1.25 m envelope, 8 cm corridors, the 60 cm arena 20 cm above the 20 cm track under
+  a 2.6 m camera, LEDs 5 cm apart. The start site sits up the stem above a bottom return corridor that
+  our triple_t.yaml does not have (its topology was marked inferred). K18 adds the start offset,
+  measured from the data.
+- K18, how to use the start offset: every built track row records `start_offset_measured_m`, the distance
+  in metres up the room's y axis from the start anchor to the bottom outer corridor's occupancy peak
+  (the first y peak of the running frames, the one the y scale estimate uses), at the track scale. It
+  reads off the Environments page as "Start above bottom corridor, m" with its range in the ranges line.
+  Read it over a few sessions, set `start_offset` in `configs/environments/triple_t.yaml` to their median,
+  Rebuild all. The start then lands that far up the stem and the bottom corridor's occupancy lies on the
+  outline (check it on the Replay map). The column measures the data and the track scale does not use the
+  anchor, so it keeps reading the same value after the rebuild, it does not go to 0, and the x and y scale
+  warning is not expected to clear from this change alone: it comes from the two scale estimates.

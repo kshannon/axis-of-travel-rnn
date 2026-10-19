@@ -5,7 +5,7 @@ TrajectoryEngine.apply on a scripted session: each op, the refusals and their re
 from copy import deepcopy
 from pathlib import Path
 
-from fixtures import S1
+from fixtures import S1, S6
 
 from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import TransformedAccess
@@ -16,9 +16,11 @@ ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 RATE_HZ = 60
 
 # An arena block of 1800 frames, then track blocks over three stretches, a fourth stretch too short to keep and the
-# cuts between them. The track holds three runs.
+# cuts between them. The track holds three runs. The epochs the rules cut hold the stretches with room for the margins,
+# and no epoch lies between the arena and the track or after the track.
 STRETCHES = [("arena", 301, 2100), ("track", 2701, 3999), ("track", 4050, 5700), ("track", 6301, 7700), ("track", 8301, 8700)]
 ENVIRONMENT_OF = {"arena": "open_arena", "track": "triple_t"}
+EPOCH_BOUNDS = {"arena": (1, 2200), "track": (2601, 9000)}
 RUNS = [{"epoch": "track", "run": 1, "path_id": 3, "clean": True, "frame_start": 2800, "frame_end": 2920},
         {"epoch": "track", "run": 2, "path_id": 7, "clean": False, "frame_start": 3100, "frame_end": 3200},
         {"epoch": "track", "run": 3, "path_id": 3, "clean": True, "frame_start": 4500, "frame_end": 4620}]
@@ -27,9 +29,17 @@ BLOCKS = [{"block_id": f"{S1}_{epoch}_{i:02d}", "epoch": epoch, "environment": E
           for (epoch, start, end), i in zip(STRETCHES[:4], [1, 1, 2, 3])]
 SESSION = {"rules": RULES, "session_id": S1, "rate_hz": RATE_HZ, "runs": RUNS,
            "stretches": [{"epoch": epoch, "frame_start": start, "frame_end": end} for epoch, start, end in STRETCHES],
-           "epochs": [{"epoch": epoch, "environment": environment} for epoch, environment in ENVIRONMENT_OF.items()]}
+           "epochs": [{"epoch": epoch, "environment": environment, "condition": "baseline", "frame_start": EPOCH_BOUNDS[epoch][0],
+                       "frame_end": EPOCH_BOUNDS[epoch][1]} for epoch, environment in ENVIRONMENT_OF.items()]}
 AUTO = [(start, end) for _, start, end in STRETCHES[:4]]
 TOO_SHORT = rules_of.TOO_SHORT_MESSAGE.format(10.0)
+
+
+def uncut(frame):
+    """
+    The reason for a frame in no epoch the rules cut, under the default rules.
+    """
+    return rules_of.UNCUT_MESSAGE.format(frame, "arena and track", "baseline")
 
 
 def apply(edits, blocks=BLOCKS, session=SESSION):
@@ -86,13 +96,36 @@ def test_confirm_toggles_an_auto_block_and_leaves_a_dropped_one():
 
 def test_a_new_block_is_refused_over_a_cut_a_kept_block_or_under_ten_seconds_and_added_otherwise():
     dropped = made([{"op": "drop", "frame": 5000}])
-    ranges_refused = [(3990, 4100), (7600, 7800), (2000, 2800), (4100, 4698), (2800, 3999)]
+    ranges_refused = [(3990, 4100), (7600, 7800), (2000, 2800), (2050, 2400), (100, 900), (4100, 4698), (2800, 3999)]
     edits = [{"op": "new", "frame_start": first, "frame_end": last} for first, last in ranges_refused]
     assert [reason for _, _, reason in refused(edits, dropped)] == [
-        rules_of.CROSSES_MESSAGE, rules_of.CROSSES_MESSAGE, rules_of.CROSSES_MESSAGE, rules_of.SHORT_MESSAGE.format(10.0), rules_of.OVERLAPS_MESSAGE]
+        *[rules_of.CROSSES_MESSAGE] * 5, rules_of.SHORT_MESSAGE.format(10.0), rules_of.OVERLAPS_MESSAGE]
     blocks = made([{"op": "drop", "frame": 5000}, {"op": "new", "frame_start": 4100, "frame_end": 5000}])
     assert ranges(blocks)[2:4] == [(4050, 5700, "dropped"), (4100, 5000, "edited")]
     assert (blocks[3]["block_id"], blocks[3]["epoch"], blocks[3]["environment"], blocks[3]["note"]) == (f"{S1}_track_03", "track", "triple_t", None)
+
+
+def test_a_new_block_starting_in_no_epoch_the_rules_cut_is_refused_with_that_reason_not_the_cuts():
+    starts = [2300, 9100]
+    edits = [{"op": "new", "frame_start": first, "frame_end": first + 900} for first in starts]
+    assert refused(edits) == [(i, "new", uncut(first)) for i, first in enumerate(starts)]
+    assert uncut(2300) == "frame 2300 is in no epoch the rules cut, the rules cut blocks only from arena and track under baseline"
+    assert made(edits) == made([])
+    # A block that starts in a cut epoch and runs out of it, or crosses a pause, still lies across cuts.
+    across = [{"op": "new", "frame_start": 2050, "frame_end": 2400}, {"op": "new", "frame_start": 3990, "frame_end": 4100}]
+    assert [reason for _, _, reason in refused(across)] == [rules_of.CROSSES_MESSAGE, rules_of.CROSSES_MESSAGE]
+
+
+def test_a_new_block_in_an_epoch_under_another_condition_is_refused_with_the_rules_from_the_engines_session(transformed):
+    access = EnvironmentAccess(ENVIRONMENTS)
+    environments = {name: access.environment(name) for name in access.environments()}
+    session = TrajectoryEngine().session(TransformedAccess(transformed).session(S6), environments, RULES)
+    # S6's arena is under rot45 and its variant epoch is not a kind the rules cut, its baseline track holds a pause at frame 2701.
+    edits = [{"op": "new", "frame_start": 500, "frame_end": 1300}, {"op": "new", "frame_start": 4600, "frame_end": 5300},
+             {"op": "new", "frame_start": 2200, "frame_end": 3100}]
+    result = TrajectoryEngine().apply(session["initial_blocks"], edits, session)
+    assert [(r["index"], r["reason"]) for r in result["refusals"]] == [(0, uncut(500)), (1, uncut(4600)), (2, rules_of.CROSSES_MESSAGE)]
+    assert ranges(result["blocks"]) == [(3001, 4200, "auto")]
 
 
 def test_a_split_gives_two_blocks_renumbered_in_order():

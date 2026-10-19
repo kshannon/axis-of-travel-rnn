@@ -15,6 +15,7 @@ ANCHORS = {"confirm": "frame", "move": "at", "split": "frame", "drop": "frame"}
 # Why an edit is refused, and what a cut writes on the blocks it removes. The seconds are the min_block_s rule.
 UNKNOWN_MESSAGE = "{} is not an edit op"
 NO_BLOCK = "no block holds frame {}"
+UNCUT_MESSAGE = "frame {} is in no epoch the rules cut, the rules cut blocks only from {} under {}"
 CROSSES_MESSAGE = "a new block must lie between two cuts: no pause, gap or epoch bound inside it"
 SHORT_MESSAGE = "a new block must last {:g} s or more"
 OVERLAPS_MESSAGE = "a new block cannot overlap a block that is kept, remove that block first"
@@ -40,6 +41,16 @@ def stretch_of(session, frame):
     The stretch holding the lab frame, or None.
     """
     return next((s for s in session["stretches"] if s["frame_start"] <= frame <= s["frame_end"]), None)
+
+
+def uncut_reason(session, frame):
+    """
+    Why no block can lie at the lab frame, it being in none of the epochs the rules cut, or None when it is in one.
+    """
+    if any(e["frame_start"] <= frame <= e["frame_end"] for e in session["epochs"]):
+        return None
+    rules = session["rules"]
+    return UNCUT_MESSAGE.format(frame, " and ".join(rules["epochs"]), rules["condition"])
 
 
 def snapped(frame, epoch, session):
@@ -158,9 +169,13 @@ def crowded(blocks):
 
 def new_refusal(blocks, edit, session):
     """
-    Why a new block over the edit's range is refused, or None when it lies in one stretch, lasts long enough and is clear of the blocks kept.
+    Why a new block over the edit's range is refused, or None when it starts in an epoch the rules cut, lies in one stretch, lasts long enough and is clear of the blocks kept.
     """
     first, last = edit["frame_start"], edit["frame_end"]
+    # Its first frame in an epoch the rules do not cut is the reason, before the cuts: no stretch is there to lie between.
+    uncut = uncut_reason(session, first)
+    if uncut:
+        return uncut
     stretch = stretch_of(session, first)
     if stretch is None or last > stretch["frame_end"]:
         return CROSSES_MESSAGE
@@ -173,7 +188,7 @@ def new_refusal(blocks, edit, session):
 
 def refusal(blocks, edit, session):
     """
-    Why the edit is illegal on these blocks, or None: its op is unknown, no block holds the frame it anchors to, a new block does not fit, it would bring a removed block back over a kept one, or it would leave a kept block under min_block_s.
+    Why the edit is illegal on these blocks, or None: its op is unknown, no block holds the frame it anchors to, a new block does not fit (it starts outside the epochs the rules cut, crosses a cut, is short or overlaps a kept block), it would bring a removed block back over a kept one, or it would leave a kept block under min_block_s.
     """
     op = edit["op"]
     if op not in EDITS:
