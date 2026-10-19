@@ -1,7 +1,7 @@
-import type { MadeBlock, ReviewBlock, SessionHeader, Span } from "../api/types";
+import type { HeadingSpan, MadeBlock, ReviewBlock, SessionHeader, Span } from "../api/types";
 import { cutsOf, splitAtPauses } from "../session/cuts";
 import { counted } from "../ui/text";
-import { colourOf } from "./layers";
+import { colourOf, HEAD_DIR } from "./layers";
 import type { LayerKey, Layers } from "./layers";
 import { FRAMES_LANE, runFill, runKind } from "./lanes";
 import type { Bar, FrameLayer, LaneSpec, Scene } from "./lanes";
@@ -26,6 +26,7 @@ const GAP_ALPHA = 0.3;
 const MARGIN_ALPHA = 0.45;
 const HEADING_BAND = 0.14;
 const SECONDS_PER_MINUTE = 60;
+const TIP_DECIMALS = 1;
 
 export const blockName = (position: number): string => `block ${position + 1}`;
 /** The number alone, what a block bar writes when its name does not fit. */
@@ -66,6 +67,22 @@ function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
 }
 
 /**
+ * The hover of the heading spans: each is a bar nobody sees, over the heading band of the frames lane (its last row, as tall as the band),
+ * saying its length, the layer's words and the reason the engine gave, so the client words no rule. It is cut at the pauses as the drawn
+ * span is, each piece saying the whole span's tip. A layer that is off has no bar.
+ */
+function headingBars(header: SessionHeader, layers: Layers): Bar[] {
+  const { pauses } = cutsOf(header);
+  const rows = 1 / HEADING_BAND;
+  return (["filled", "held", "lost"] as const).flatMap((key) =>
+    !layers[key] ? [] : header.heading_spans[key].flatMap(({ first, last, seconds, reason }) =>
+      splitAtPauses([[first, last]], pauses).map(([from, to]): Bar => ({
+        lane: FRAMES_LANE, first: from, last: to, fill: colourOf(key), alpha: 0, rows, row: rows - 1,
+        tip: `${seconds.toFixed(TIP_DECIMALS)} s ${HEAD_DIR[key]}, ${reason}`,
+      }))));
+}
+
+/**
  * The frames lane: the lost tracking and margins behind, the heading bands, the speed trace, then the jumps in front, each for the
  * layers that are on. A span is in frames and a pause is between two frames, so every span is cut at the pauses before it is drawn.
  */
@@ -75,9 +92,10 @@ function frameLayers(header: SessionHeader, layers: Layers, speed: Float64Array,
     layers[key] ? [{ kind: "span", spans: splitAtPauses(spans, pauses), colour: colourOf(key), alpha, from, to: 1, hatched }] : [];
   const tick = (frames: number[], key: LayerKey, to: number): FrameLayer[] => (layers[key] ? [{ kind: "tick", frames, colour: colourOf(key), to }] : []);
   const { lost, filled, held } = header.heading_spans;
+  const pairs = (found: HeadingSpan[]): Span[] => found.map(({ first, last }) => [first, last]);
   return [
     ...span(gaps, "gaps", 0, GAP_ALPHA, true), ...span(margins, "margins", 0, MARGIN_ALPHA),
-    ...span(filled, "filled", 1 - HEADING_BAND), ...span(held, "held", 1 - HEADING_BAND), ...span(lost, "lost", 1 - HEADING_BAND),
+    ...span(pairs(filled), "filled", 1 - HEADING_BAND), ...span(pairs(held), "held", 1 - HEADING_BAND), ...span(pairs(lost), "lost", 1 - HEADING_BAND),
     ...(layers.speed ? [{ kind: "trace" as const, values: speed, top: speedTop }] : []),
     ...tick(jumps, "jumps", 1),
   ];
@@ -89,7 +107,7 @@ export function sessionScene(
 ): Scene {
   return {
     lanes: SESSION_LANES, rateHz: header.rate_hz, nFrames: header.n_frames,
-    bars: [...epochBars(header), ...runBars(header, new Set(flaggedRuns)), ...blockBars(blocks, header.rate_hz)],
+    bars: [...epochBars(header), ...runBars(header, new Set(flaggedRuns)), ...blockBars(blocks, header.rate_hz), ...headingBars(header, layers)],
     frames: frameLayers(header, layers, speed, speedTop), breaks: [...cutsOf(header).pauses].sort((a, b) => a - b),
   };
 }

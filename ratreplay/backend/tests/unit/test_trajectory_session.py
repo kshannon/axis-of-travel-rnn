@@ -31,6 +31,9 @@ CUT_KEYS = ("pauses", "jumps", "gaps", "margins")
 # never measured the start offset, so the engine's registration is the processor's with this one key added to the track.
 CIRCLE_CENTRE_PX = np.array([295.0, 200.0])
 ADDED_KEY = "start_offset_measured_m"
+# The reasons a heading span carries, as the rules' 3 s fill limit words them.
+OVER_LIMIT = "over the fill limit of 3 s"
+ARC = "along the shortest arc"
 
 
 def loaded(transformed, sid):
@@ -40,6 +43,13 @@ def loaded(transformed, sid):
     found = TransformedAccess(transformed).session(sid)
     access = EnvironmentAccess(ENVIRONMENTS)
     return {**found, "arrays": {name: values.copy() for name, values in found["arrays"].items()}}, {n: access.environment(n) for n in access.environments()}
+
+
+def pairs(spans):
+    """
+    The (first, last) frame pairs of the heading spans, by kind.
+    """
+    return {key: [(span["first"], span["last"]) for span in found] for key, found in spans.items()}
 
 
 def processor_epochs(transformed, sid):
@@ -166,9 +176,9 @@ def test_the_heading_fills_equal_the_processors(transformed):
     frames, rate_hz = found["arrays"], found["session"]["rate_hz"]
     session = TrajectoryEngine().session(found, environment, RULES)
     filled, kind = select.fill_heading(frames["head_dir"], frames["t"], old_frame.still(frames, found["epochs"]), rate_hz)
-    assert session["heading_spans"] == {"lost": select.spans(frames["frame"], np.isnan(filled)), "filled": select.spans(frames["frame"], kind == select.INTERPOLATED),
-                                        "held": select.spans(frames["frame"], kind == select.HELD)}
-    assert session["heading_spans"] == {"lost": [], "filled": [(2800, 2919)], "held": []}
+    assert pairs(session["heading_spans"]) == {"lost": select.spans(frames["frame"], np.isnan(filled)), "filled": select.spans(frames["frame"], kind == select.INTERPOLATED),
+                                               "held": select.spans(frames["frame"], kind == select.HELD)}
+    assert session["heading_spans"] == {"lost": [], "filled": [{"first": 2800, "last": 2919, "seconds": 2.0, "reason": ARC}], "held": []}
     parameters = old_frame.frame_parameters(frames, found["epochs"], found["runs"])
     expected = old_frame.heading_to_room(filled, parameters["led_offset_rad"], parameters["track"]["rotation_rad"])
     np.testing.assert_array_equal(session["kinematics"]["heading"], expected)
@@ -182,13 +192,15 @@ def test_the_held_fill_fires_on_a_still_stretch_with_the_heading_lost_and_a_movi
     frames, rate_hz = found["arrays"], found["session"]["rate_hz"]
     filled, kind = select.fill_heading(frames["head_dir"], frames["t"], old_frame.still(frames, found["epochs"]), rate_hz)
     assert (kind == select.HELD).sum() == 250 and np.all(filled[LOST_FRAMES] == 1.0)
-    assert session["heading_spans"] == {"lost": [], "filled": [], "held": select.spans(frames["frame"], kind == select.HELD)} == \
+    assert pairs(session["heading_spans"]) == {"lost": [], "filled": [], "held": select.spans(frames["frame"], kind == select.HELD)} == \
         {"lost": [], "filled": [], "held": [(3050, 3299)]}
+    assert session["heading_spans"]["held"][0]["reason"] == "the rat was still"
     parameters = old_frame.frame_parameters(frames, found["epochs"], found["runs"])
     expected = old_frame.heading_to_room(filled, parameters["led_offset_rad"], parameters["track"]["rotation_rad"])
     np.testing.assert_array_equal(session["kinematics"]["heading"], expected)
     found["arrays"].update(circling)
-    assert TrajectoryEngine().session(found, environment, RULES)["heading_spans"] == {"lost": [(3050, 3299)], "filled": [], "held": []}
+    assert TrajectoryEngine().session(found, environment, RULES)["heading_spans"] == \
+        {"lost": [{"first": 3050, "last": 3299, "seconds": 250 / 60, "reason": OVER_LIMIT}], "filled": [], "held": []}
 
 
 @pytest.mark.parametrize("sid", [S1, S6])
@@ -301,7 +313,8 @@ def test_a_changed_rule_changes_the_output_so_no_rule_is_a_constant_of_a_module(
     assert longer["initial_blocks"] == [] and longer["rules"]["min_block_s"] == 25.0
     untrimmed = engine.session(found, environment, {**RULES, "pause_margin_s": 0.0})
     assert [(b["frame_start"], b["frame_end"]) for b in untrimmed["initial_blocks"]] == [(1, 1800), (1801, 3600)] and untrimmed["margins"] == []
-    assert engine.session(found, environment, {**RULES, "heading_fill_s": 1.0})["heading_spans"] == {"lost": [(2800, 2919)], "filled": [], "held": []}
+    assert engine.session(found, environment, {**RULES, "heading_fill_s": 1.0})["heading_spans"] == \
+        {"lost": [{"first": 2800, "last": 2919, "seconds": 2.0, "reason": "over the fill limit of 1 s"}], "filled": [], "held": []}
 
 
 def test_the_occupancy_counts_every_frame_inside_the_room_and_the_stops_find_the_still_stretch(transformed):
@@ -348,10 +361,43 @@ def test_a_session_with_no_selected_track_epoch_is_refused_by_name(transformed):
 
 def test_a_heading_fill_across_the_wrap_takes_the_short_arc_through_pi():
     heading = np.concatenate([np.full(10, 3.0), np.full(5, np.nan), np.full(10, -3.0)])
-    filled, kind = new_heading.fill(heading, np.arange(len(heading)) / 60, np.zeros(len(heading), bool), 60, RULES)
-    assert (kind[10:15] == new_heading.INTERPOLATED).all() and (kind[:10] == new_heading.UNTOUCHED).all()
+    filled, found = new_heading.fill(heading, np.arange(len(heading)) / 60, np.zeros(len(heading), bool), 60, RULES)
+    assert found == [(10, 15, new_heading.FILLED, ARC)]
     assert np.cos(filled[10:15]).max() < -0.98
     np.testing.assert_allclose(np.diff(np.unwrap(filled[9:16])), (2 * np.pi - 6.0) / 6)
+
+
+def gap_after(before, gap, after):
+    """
+    A heading of measured frames with a run of lost ones between them.
+    """
+    return np.concatenate([np.full(before, 0.5), np.full(gap, np.nan), np.full(after, 0.5)])
+
+
+@pytest.mark.parametrize("heading, pause_at, still, key, first, last, reason", [
+    (gap_after(10, 250, 10), None, False, "lost", 11, 260, OVER_LIMIT),
+    (gap_after(10, 250, 10), 100, True, "lost", 11, 260, "contains a pause"),
+    (gap_after(10, 20, 10), 20, False, "lost", 11, 30, "contains a pause"),
+    (gap_after(0, 20, 10), None, False, "lost", 1, 20, "touches the start of the recording"),
+    (gap_after(10, 20, 0), None, False, "lost", 11, 30, "touches the end of the recording"),
+    (gap_after(0, 30, 0), None, False, "lost", 1, 30, "no measured heading on either side"),
+    (gap_after(10, 120, 10), None, False, "filled", 11, 130, ARC),
+    (gap_after(10, 250, 10), None, True, "held", 11, 260, "the rat was still"),
+])
+def test_every_heading_span_carries_the_reason_the_fill_decided_it(heading, pause_at, still, key, first, last, reason):
+    t = np.arange(len(heading)) / 60
+    if pause_at is not None:
+        t[pause_at:] += 5.0
+    _, found = new_heading.fill(heading, t, np.full(len(heading), still), 60, RULES)
+    spans = new_heading.fill_spans(np.arange(1, len(heading) + 1), found, 60)
+    assert spans[key] == [{"first": first, "last": last, "seconds": pytest.approx((last - first + 1) / 60), "reason": reason}]
+    assert [other for other in spans if other != key and spans[other]] == []
+
+
+def test_the_fill_limit_in_the_reason_is_the_rules_own():
+    heading = gap_after(10, 100, 10)
+    _, found = new_heading.fill(heading, np.arange(len(heading)) / 60, np.zeros(len(heading), bool), 60, {**RULES, "heading_fill_s": 1.5})
+    assert [span["reason"] for span in new_heading.fill_spans(np.arange(1, len(heading) + 1), found, 60)["lost"]] == ["over the fill limit of 1.5 s"]
 
 
 @pytest.mark.parametrize("injected", [0.7, -2.5])

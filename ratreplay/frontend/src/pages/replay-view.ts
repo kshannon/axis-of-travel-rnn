@@ -1,4 +1,4 @@
-import type { Edit, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, Span, WindowSettings } from "../api/types";
+import type { Edit, HeadingSpan, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { HEAD_DIR } from "../draw/layers";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
@@ -63,8 +63,8 @@ function yieldOf(block: MadeBlock) {
 const DECIMALS = 1;
 
 /** The frames of a block that lie in the spans, both ends included. */
-const framesIn = (spans: Span[], block: Pick<ReviewBlock, "frame_start" | "frame_end">) =>
-  spans.reduce((total, [first, last]) => total + Math.max(0, Math.min(last, block.frame_end) - Math.max(first, block.frame_start) + 1), 0);
+const framesIn = (spans: HeadingSpan[], block: Pick<ReviewBlock, "frame_start" | "frame_end">) =>
+  spans.reduce((total, { first, last }) => total + Math.max(0, Math.min(last, block.frame_end) - Math.max(first, block.frame_start) + 1), 0);
 
 /** What happened to the head direction inside a block, in seconds and in the words of the timeline's layers, nothing when all of it was measured. */
 export function headingText(block: Pick<ReviewBlock, "frame_start" | "frame_end">, header: Pick<SessionHeader, "heading_spans" | "rate_hz">): string {

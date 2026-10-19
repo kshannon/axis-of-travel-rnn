@@ -4,6 +4,9 @@ import { blockCards, factsLine, headingText, saveToast, sessionNotes, sessionSta
 
 const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
+// Only the frames of a heading span count here, the seconds and the reason are the engine's and the timeline's.
+const span = (first: number, last: number) => ({ first, last, seconds: (last - first + 1) / 60, reason: "" });
+
 const header = {
   rate_hz: 60, n_frames: 6000, subject_id: "NS14", date: "2015-01-01", protocol: "standard", group: "NS14Data", selected_epochs: ["arena", "track"],
   epochs: [{ epoch: "arena", frame_start: 1, frame_end: 1800, duration_s: 30 }, { epoch: "variant", frame_start: 1801, frame_end: 3600, duration_s: 30 }],
@@ -12,7 +15,9 @@ const header = {
     { frame: 10, reason: "pause" }, { frame: 20, reason: "jump" }, { frame: 30, reason: "jump" }, { frame: 40, frame_end: 50, reason: "gap" },
   ],
   margins: [],
-  heading_spans: { lost: [[1, 30]], filled: [[301, 360], [1000, 1059]], held: [[1401, 1500]] },
+  heading_spans: {
+    lost: [span(1, 30)], filled: [span(301, 360), span(1000, 1059)], held: [span(1401, 1500)],
+  },
 } as unknown as SessionHeader;
 
 // What the manager answers for a kept block, and for a removed one.

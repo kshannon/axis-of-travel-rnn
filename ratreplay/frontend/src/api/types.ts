@@ -3,6 +3,14 @@
 export type Kind = "transformed" | "processed" | "environments";
 export type Span = [first: number, last: number];
 
+/** A stretch of lost, filled or held head direction: its first and last lab frame, its length, and why the engine left it so. */
+export interface HeadingSpan {
+  first: number;
+  last: number;
+  seconds: number;
+  reason: string;
+}
+
 /** The times a folder reports. The converter run's timestamp is the transformed folder's alone. */
 export interface ManifestInfo {
   timestamp?: string;
@@ -245,7 +253,7 @@ export interface SessionHeader {
   /** The geometry in metres of each environment of the session's epochs, by name. */
   environments: Record<string, Geometry>;
   frame: SessionFrame;
-  heading_spans: { lost: Span[]; filled: Span[]; held: Span[] };
+  heading_spans: { lost: HeadingSpan[]; filled: HeadingSpan[]; held: HeadingSpan[] };
   cut_points: CutPoint[];
   margins: Span[];
   stretches: Stretch[];

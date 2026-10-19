@@ -38,7 +38,7 @@ def build(arrays, environment, rules):
     epochs = cuts.selected(arrays["epochs"], rules)
     if not any(e["epoch"] == frame.TRACK for e in epochs):
         raise Invalid(NO_TRACK.format(sid=row["session_id"], condition=rules["condition"]))
-    filled, kind = heading.fill(frames["head_dir"], t, heading.still(frames, epochs, rules), rate_hz, rules)
+    filled, fills = heading.fill(frames["head_dir"], t, heading.still(frames, epochs, rules), rate_hz, rules)
     offset, concentration, n_running = heading.led_offset(frames, rules)
     registration = frame.parameters(frames, epochs, runs, environment, rules)
     rotation = registration[frame.TRACK]["rotation_rad"]
@@ -54,7 +54,7 @@ def build(arrays, environment, rules):
         "kinematics": {"t": t, "x": x, "y": y, "x_smooth": x_smooth, "y_smooth": y_smooth, "heading": room.heading_to_room(filled, offset, rotation),
                        "speed": speed, "turn_rate": turn_rate, "motion": motion,
                        "n_lights": (2 - frames["unfilled_front"] - frames["unfilled_back"]).astype(np.int8)},
-        "heading_spans": heading.fill_spans(frames["frame"], filled, kind),
+        "heading_spans": heading.fill_spans(frames["frame"], fills, rate_hz),
         "cut_points": cuts.cut_points(frames, epochs, max_gap, rules),
         "margins": [m for found in margins for m in found],
         "stretches": cuts.stretch_rows(epochs, pieces),

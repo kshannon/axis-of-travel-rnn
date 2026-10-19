@@ -25,11 +25,11 @@ def block_slice(frame, block):
 
 def in_spans(frame, spans):
     """
-    True on the frames inside any of the (first, last) frame pairs.
+    True on the frames inside any of the spans' first and last frames.
     """
     mask = np.zeros(len(frame), bool)
-    for first, last in spans:
-        mask |= (frame >= first) & (frame <= last)
+    for span in spans:
+        mask |= (frame >= span["first"]) & (frame <= span["last"])
     return mask
 
 

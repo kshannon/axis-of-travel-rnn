@@ -193,7 +193,7 @@ anything that touches real data.
 - [x] K22 Playback: the speed slider becomes a labelled stepper ("speed 1x", minus and plus over the
       steps), and the keyboard hints (space, z, enter) become key caps with a title saying what the key
       does, so neither reads as a button or a progress bar. Kyle, 2026-10-18. [Page 3]
-- [ ] K23 Timeline span tips explain the rule: hovering a heading span shows its length and why it is
+- [x] K23 Timeline span tips explain the rule: hovering a heading span shows its length and why it is
       what it is ("4.1 s missing, over the 3 s fill limit", "touches a pause", "2.0 s interpolated",
       "0.8 s held, the rat was still"), the engine returning the reason per span so the client states
       nothing of its own. Kyle, 2026-10-18. [TrajectoryEngine.session heading spans, Page 3]
@@ -202,3 +202,6 @@ anything that touches real data.
       interpolated, held, missing, seconds on hover) from the engine's per block numbers handed through
       the manager (the client stops summing spans), the verdict reasons one per line with a mark, the
       same card on the Blocks page. [Pages 3 and 4, ReviewManager]
+- [ ] K25 Map controls as two groups: layer checkboxes (occupancy, geometry, trail) and one radio for the
+      epoch scope (follow the cursor, arena, track, both), the map title naming what is shown. Kyle,
+      2026-10-18. [Page 3]

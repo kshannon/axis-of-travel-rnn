@@ -199,14 +199,13 @@ def test_a_slow_stretch_in_a_run_is_a_pause_only_when_it_is_longer_than_pause_mi
 
 
 def test_the_heading_fill_masks_of_a_block_equal_the_per_frame_fill_kind_for_spans_across_its_edges():
-    frame, filled = np.arange(1, 101), np.zeros(100)
-    kind = np.zeros(100, np.int8)
-    kind[18:31], kind[60:71] = heading.INTERPOLATED, heading.HELD
-    spans = heading.fill_spans(frame, filled, kind)
-    assert spans["filled"] == [(19, 31)] and spans["held"] == [(61, 71)]
+    frame, filled, held = np.arange(1, 101), np.zeros(100, bool), np.zeros(100, bool)
+    filled[18:31], held[60:71] = True, True
+    spans = heading.fill_spans(frame, [(18, 31, heading.FILLED, heading.ARC), (60, 71, heading.HELD, heading.STILL)], 60)
+    assert [(s["first"], s["last"]) for s in spans["filled"]] == [(19, 31)] and [(s["first"], s["last"]) for s in spans["held"]] == [(61, 71)]
     for at in (slice(24, 66), slice(24, 80), slice(0, 100), slice(40, 55)):
-        np.testing.assert_array_equal(build.in_spans(frame[at], spans["filled"]), kind[at] == heading.INTERPOLATED)
-        np.testing.assert_array_equal(build.in_spans(frame[at], spans["held"]), kind[at] == heading.HELD)
+        np.testing.assert_array_equal(build.in_spans(frame[at], spans["filled"]), filled[at])
+        np.testing.assert_array_equal(build.in_spans(frame[at], spans["held"]), held[at])
 
 
 def test_the_arrays_hold_the_block_schema_columns_and_no_motion_and_the_processed_access_takes_them(tmp_path, transformed):

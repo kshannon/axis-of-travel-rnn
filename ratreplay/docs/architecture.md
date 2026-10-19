@@ -179,6 +179,8 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
   margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and
   the rules it used. What the Replay page draws, and what `apply` reads its rules from.
+  Each heading span carries `first`, `last`, `seconds` and the `reason` the fill decided it (over the fill limit, contains a pause,
+  touches an end of the recording, no measured heading on either side, interpolated, held), so the page words no rule.
   The registration records the measured start offset (start site to bottom corridor peak, in metres).
 - `apply(blocks, edits, session)`: the edit legality rules (no overlap with a kept block, no kept block
   under the minimum length, no block outside its epoch, no edit on a removed block, a moved edge snaps
