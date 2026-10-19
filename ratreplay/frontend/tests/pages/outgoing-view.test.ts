@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { formatGroups } from "../../src/api/describe";
 import type { Folder, FormatContract, Readiness, Rebuilt, SessionRow, WindowSettings } from "../../src/api/types";
-import { builtElsewhere, COLUMNS, failedLines, outgoingGroups, outRows, rebuildSummary, rowNote, writeView } from "../../src/pages/outgoing-view";
+import { builtElsewhere, COLUMNS, failedLines, outgoingGroups, outRows, rebuildSummary, rowNote, syntheticView, writeView } from "../../src/pages/outgoing-view";
 
 const PROCESSED: Folder = {
   root: "/data/processed", exists: true, problems: [], counts: { reviews: 2, blocks: 3, sessions: 2 }, manifest: { modified: "2026-10-17T09:00:00+00:00" },
@@ -27,9 +27,17 @@ test("a key the config lacks shows the problem naming it, no root and no note", 
   expect(view.problems).toEqual(notSet.problems);
 });
 
-test("the outgoing format keeps the processed files' tables and the review file's, and leaves the transformed ones to the Incoming page", () => {
-  const contract = { version: 1, transformed: { files: [] }, processed: { files: [{ path: "review/<session_id>.json", optional: true, edits: {} }] }, settings: {}, rules: {} } as unknown as FormatContract;
-  expect(outgoingGroups(formatGroups(contract)).map((g) => g.title)).toEqual(["Processed folder", "Review file"]);
+test("the outgoing format keeps the processed files' tables, the review file's and the synthetic folder's, and leaves the transformed ones to the Incoming page", () => {
+  const contract = { version: 1, transformed: { files: [] }, processed: { files: [{ path: "review/<session_id>.json", optional: true, edits: {} }] }, synthetic: { files: [] }, settings: {}, rules: {} } as unknown as FormatContract;
+  expect(outgoingGroups(formatGroups(contract)).map((g) => g.title)).toEqual(["Processed folder", "Review file", "Synthetic folder"]);
+});
+
+test("the synthetic folder's view counts its sets, blocks and guesses, says what an absent or empty folder means, and has nothing yet while it holds no set", () => {
+  const folder: Folder = { root: "/data/synthetic", exists: true, problems: [], counts: { sets: 1, blocks: 2, guesses: 3 }, manifest: { modified: "2026-10-19T09:00:00+00:00" } };
+  expect(syntheticView(folder)).toMatchObject({ status: "ok", note: "", counts: [{ label: "sets", value: 1 }, { label: "blocks", value: 2 }, { label: "guesses", value: 3 }] });
+  expect(syntheticView({ ...folder, exists: false, counts: {}, manifest: null }).note).toMatch(/first Generate on Synthetic creates it/);
+  const empty = syntheticView({ ...folder, counts: { sets: 0, blocks: 0, guesses: 0 }, manifest: null });
+  expect([empty.status, empty.note]).toEqual(["nothing yet", "No set yet, Generate on Synthetic writes here."]);
 });
 
 test("the rebuild toast gives the totals, names the first review skipped, the first session you excluded with its note and the first build that stopped", () => {

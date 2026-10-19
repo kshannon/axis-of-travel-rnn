@@ -6,7 +6,7 @@ const OK: Folder = { root: "/data/t", exists: true, problems: [], counts: {}, ma
 const NOT_SET: Folder = { root: null, exists: false, problems: ["TRANSFORMED_LAB_DATA is not set in configs/local.yaml"], counts: {}, manifest: null };
 const NOT_CREATED: Folder = { root: "/data/p", exists: false, problems: [], counts: {}, manifest: null };
 const health = (transformed: Folder, processed: Folder, environments: Folder = OK): Health => (
-  { transformed, processed, environments, config_path: "configs/local.yaml" }
+  { transformed, processed, synthetic: OK, environments, config_path: "configs/local.yaml" }
 );
 
 test("a page waits for the folders to be read", () => {

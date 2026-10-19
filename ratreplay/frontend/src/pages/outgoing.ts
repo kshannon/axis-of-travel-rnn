@@ -11,7 +11,7 @@ import { counted } from "../ui/text";
 import { stampWithSince } from "../ui/time";
 import { toast } from "../ui/toast";
 import { outgoingRoot } from "./outgoing-html";
-import { COLUMNS, failedLines, outgoingGroups, outRows, rebuildPrompt, rebuildSummary, rowNote, writeView } from "./outgoing-view";
+import { COLUMNS, failedLines, outgoingGroups, outRows, rebuildPrompt, rebuildSummary, rowNote, syntheticView, writeView } from "./outgoing-view";
 import type { OutRow } from "./outgoing-view";
 import type { Page } from "./page";
 import { selectedLine } from "./settings-view";
@@ -39,6 +39,10 @@ function registerOutgoing(): void {
       get view() {
         const { found } = healthStore();
         return found && writeView(found.processed);
+      },
+      get syntheticView() {
+        const { found } = healthStore();
+        return found && syntheticView(found.synthetic);
       },
       /** Why what is built cannot be listed, none when the three folders are usable. */
       get blocked() {

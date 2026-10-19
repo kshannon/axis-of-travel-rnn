@@ -52,9 +52,11 @@ test("the contract gives one table per file, marking the columns the tool reads,
         { path: "review/<session_id>.json", optional: true, keys: ["session_id"], block_keys: ["block_id"], statuses: ["auto"], edits: { move: ["frame", "edge", "at"] } },
       ],
     },
+    synthetic: { files: [{ path: "sets/<set_id>/provenance.json", optional: false, keys: ["set_id", "seed"] }] },
     settings: { window_s: 40 },
   } as unknown as FormatContract;
-  const [transformed, processed, review, settings] = formatGroups(contract);
+  const [transformed, processed, review, synthetic, settings] = formatGroups(contract);
+  expect(synthetic.tables.map((table) => table.title)).toEqual(["sets/<set_id>/provenance.json"]);
   expect(transformed.tables[0].rows).toEqual([["run", "int64", "used by RatReplay"], ["notes", "string", ""]]);
   expect(processed.tables.map((table) => table.title)).toEqual(["windows.json (optional)", "review/<session_id>.json (optional)"]);
   expect(processed.tables[0].rows).toEqual([["settings"], ["totals"]]);

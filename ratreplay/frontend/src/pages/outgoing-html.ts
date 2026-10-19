@@ -7,23 +7,24 @@ import { compareTable, formatBody, formatChip } from "./tables-html";
 const REBUILD_HINT = "Build the blocks of every reviewed session again";
 const REBUILD_BLOCKED = "Needs the three folders usable and at least one review";
 
-const writeBody = `
-  <div data-testid="processed" class="flex flex-col gap-3">
-    <p x-show="!view" class="text-sm text-muted">Reading the data folders</p>
-    <template x-if="view">
+/** One write path: its state and root, the note under it, its problems, its counts as tiles and when it last changed, `view` being the Alpine expression of a WriteView. */
+function folderBody(testId: string, view: string, label: string): string {
+  return `
+  <div data-testid="${testId}" class="flex flex-col gap-3">
+    <template x-if="${view}">
       <div class="flex flex-col gap-3">
         <div class="grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-x-3 text-sm">
-          ${statusMark("view.status")}
-          <span class="text-muted">blocks written to</span>
-          <code class="min-w-0 break-all font-mono text-xs" :title="view.root" x-text="view.root"></code>
+          ${statusMark(`${view}.status`)}
+          <span class="text-muted">${label}</span>
+          <code class="min-w-0 break-all font-mono text-xs" :title="${view}.root" x-text="${view}.root"></code>
         </div>
-        <p x-show="view.note" class="text-xs text-muted" x-text="view.note"></p>
-        <ul x-show="view.problems.length" class="list-disc space-y-0.5 pl-5 text-xs text-bad">
-          <template x-for="problem in view.problems"><li x-text="problem"></li></template>
+        <p x-show="${view}.note" class="text-xs text-muted" x-text="${view}.note"></p>
+        <ul x-show="${view}.problems.length" class="list-disc space-y-0.5 pl-5 text-xs text-bad">
+          <template x-for="problem in ${view}.problems"><li x-text="problem"></li></template>
         </ul>
         <div class="flex flex-wrap items-end gap-x-6 gap-y-2">
           <dl class="grid grid-cols-3 gap-2">
-            <template x-for="entry in view.counts" :key="entry.label">
+            <template x-for="entry in ${view}.counts" :key="entry.label">
               <div class="min-w-24 ${TILE}">
                 <dt class="${TILE_LABEL}" x-text="entry.label"></dt>
                 <dd class="${TILE_VALUE}" x-text="entry.value"></dd>
@@ -31,13 +32,21 @@ const writeBody = `
             </template>
           </dl>
           <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-            <template x-for="row in view.times" :key="row.label">
+            <template x-for="row in ${view}.times" :key="row.label">
               <div class="contents"><dt class="text-muted" x-text="row.label"></dt><dd x-text="stamp(row.stamp)"></dd></div>
             </template>
           </dl>
         </div>
       </div>
     </template>
+  </div>`;
+}
+
+const writeBody = `
+  <div class="flex flex-col gap-4">
+    <p x-show="!view" class="text-sm text-muted">Reading the data folders</p>
+    ${folderBody("processed", "view", "blocks written to")}
+    ${folderBody("synthetic", "syntheticView", "synthetic sets written to")}
   </div>`;
 
 const selectedBody = `
@@ -92,7 +101,7 @@ const builtBody = `
 /** The Outgoing page: the write path with its state, the selected windows.json, what is built per session with Rebuild all, and the processed files' format folded at the bottom. */
 export const outgoingRoot = `
   <div x-data="outgoingPage" class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,1fr)_auto] gap-4">
-    ${card("Write path", writeBody, "col-span-8")}
+    ${card("Write paths", writeBody, "col-span-8")}
     ${card("Selected for export", selectedBody, "col-span-4")}
     ${card("Built", builtBody, "col-span-12")}
     ${foldedCard("Outgoing data format", formatBody, "col-span-12", formatChip)}

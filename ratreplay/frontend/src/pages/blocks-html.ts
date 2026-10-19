@@ -20,8 +20,8 @@ const judgedBody = `
     <template x-if="choices.length > 1">
       <label class="flex items-center gap-2 text-xs text-muted">
         <span>dataset</span>
-        <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT} w-28">
-          <template x-for="choice in choices" :key="choice"><option :value="choice" :selected="choice === which" x-text="choice"></option></template>
+        <select x-model="which" @change="change()" aria-label="Dataset" class="${INPUT} w-auto">
+          <template x-for="choice in choices" :key="choice.value"><option :value="choice.value" :selected="choice.value === which" x-text="choice.label"></option></template>
         </select>
       </label>
     </template>

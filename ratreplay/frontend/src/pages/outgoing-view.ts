@@ -11,10 +11,12 @@ import type { SettingRow } from "./settings-view";
 const NOT_SET = "not set";
 const NOT_CREATED = "Does not exist yet, the first save in Replay creates it.";
 const NOTHING_SAVED = "Nothing saved yet, saving blocks in Replay writes here.";
-const PROCESSED_FORMATS = ["Processed folder", "Review file"];
+const NO_SETS_FOLDER = "Does not exist yet, the first Generate on Synthetic creates it.";
+const NO_SETS = "No set yet, Generate on Synthetic writes here.";
+const PROCESSED_FORMATS = ["Processed folder", "Review file", "Synthetic folder"];
 const NOT_BUILT = "not built yet";
 
-/** What the card of the write path shows: where blocks are written, its state, what it holds and when it last changed. */
+/** What the card of a write path shows: where files are written, its state, what it holds and when it last changed. */
 export interface WriteView {
   root: string;
   status: Status;
@@ -24,22 +26,33 @@ export interface WriteView {
   times: { label: string; stamp: string }[];
 }
 
-/** The note under the path: what its absence or emptiness means, since the first save creates the folder. */
-function noteOf(folder: Folder): string {
+type Counted = readonly (readonly [label: string, value: number | undefined])[];
+
+/** The note under the path: what its absence or emptiness means, since the first write creates the folder. */
+function noteOf(folder: Folder, notCreated: string, empty: string): string {
   if (folder.problems.length) return "";
-  if (!folder.exists) return NOT_CREATED;
-  return folder.manifest ? "" : NOTHING_SAVED;
+  if (!folder.exists) return notCreated;
+  return folder.manifest ? "" : empty;
+}
+
+function viewOf(folder: Folder, held: number | undefined, counts: Counted, note: string): WriteView {
+  return {
+    root: folder.root ?? NOT_SET, status: folderStatus(folder, held), problems: folder.problems, note,
+    counts: counts.flatMap(([label, value]) => (value === undefined ? [] : [{ label, value }])),
+    times: folder.manifest ? [{ label: "folder last changed", stamp: folder.manifest.modified }] : [],
+  };
 }
 
 /** The processed folder as the Outgoing page shows it. */
 export function writeView(folder: Folder): WriteView {
   const { reviews, blocks, sessions } = folder.counts;
-  const counts = [["reviews", reviews], ["blocks", blocks], ["built sessions", sessions]] as const;
-  return {
-    root: folder.root ?? NOT_SET, status: folderStatus(folder, blocks), problems: folder.problems, note: noteOf(folder),
-    counts: counts.flatMap(([label, value]) => (value === undefined ? [] : [{ label, value }])),
-    times: folder.manifest ? [{ label: "folder last changed", stamp: folder.manifest.modified }] : [],
-  };
+  return viewOf(folder, blocks, [["reviews", reviews], ["blocks", blocks], ["built sessions", sessions]], noteOf(folder, NOT_CREATED, NOTHING_SAVED));
+}
+
+/** The synthetic folder as the Outgoing page shows it: its sets, their blocks and the guesses made against them. */
+export function syntheticView(folder: Folder): WriteView {
+  const { sets, blocks, guesses } = folder.counts;
+  return viewOf(folder, sets, [["sets", sets], ["blocks", blocks], ["guesses", guesses]], noteOf(folder, NO_SETS_FOLDER, NO_SETS));
 }
 
 /** The tables of the processed files out of the format's groups. */

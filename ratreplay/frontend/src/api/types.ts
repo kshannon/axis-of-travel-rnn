@@ -1,6 +1,6 @@
 // The shapes the API answers with, read from ratreplay/backend/ratreplay_api (routers, managers, engines) and its integration tests.
 
-export type Kind = "transformed" | "processed" | "environments";
+export type Kind = "transformed" | "processed" | "synthetic" | "environments";
 export type Span = [first: number, last: number];
 
 /** A stretch of lost, filled or held head direction: its first and last lab frame, its length, and why the engine left it so. */
@@ -25,6 +25,8 @@ export interface Counts {
   reviews?: number;
   blocks?: number;
   environments?: number;
+  sets?: number;
+  guesses?: number;
 }
 
 /** One folder as its access reports it. The root is null when the config lacks the key, the counts are empty while it has problems. */
@@ -39,6 +41,7 @@ export interface Folder {
 export interface Health {
   transformed: Folder;
   processed: Folder;
+  synthetic: Folder;
   environments: Folder;
   config_path: string;
 }
@@ -530,10 +533,162 @@ export interface FormatContract {
   version: number;
   transformed: { files: FormatFile[] };
   processed: { files: FormatFile[] };
+  synthetic: { files: FormatFile[] };
   /** The default window settings. */
   settings: WindowSettings;
   /** The engine's rules with their values, in the engine's order. */
   rules: Record<string, unknown>;
+}
+
+// The synthetic sets and the quiz, from managers/synthesis.py and engines/trajectory/recipe.py.
+
+/** One row of the sets index: when and by whom the set was made, what it drew on, what it holds and how the guesses against it stand. */
+export interface SetRow {
+  set_id: string;
+  created_at: string;
+  created_by: string;
+  sources: string[];
+  seed: number;
+  /** The seconds generated per epoch kind. */
+  length_s: Record<string, number>;
+  n_blocks: number;
+  kinds: string[];
+  n_guesses: number;
+  n_correct: number;
+}
+
+/** A distribution as the recipe summarises it, every entry null when there were no values. */
+export interface Quantiles {
+  q05: number | null;
+  q25: number | null;
+  q50: number | null;
+  q75: number | null;
+  q95: number | null;
+  mean: number | null;
+}
+
+/** The recipe of the blocks of one kind: the numbers the generator fits and real and synthetic blocks are compared on. The track and arena keys are each kind's own. */
+export interface Recipe {
+  counts: { blocks: number; frames: number; seconds: number };
+  speed: Quantiles;
+  turn_rate: Quantiles;
+  turn_rate_abs_mean: number | null;
+  still_fraction: number | null;
+  heading_spread_rad: number | null;
+  pauses: { per_min: number; duration_s: Quantiles };
+  phase_share: Record<string, number>;
+  /** Track: the runs per path id, the dwells per site, the trips per minute and the share of outbound runs per goal. */
+  runs?: Record<string, { count: number; duration_s: Quantiles }>;
+  dwell_s?: Record<string, Quantiles>;
+  trips_per_min?: number;
+  goal_share?: Record<string, number>;
+  /** Arena: its environment, the distance to the boundary and the occupancy over the room's grid. */
+  environment?: string;
+  boundary_distance_m?: Quantiles;
+  occupancy_grid?: number[][];
+}
+
+/** The recipes by kind, a kind with no blocks absent. */
+export type Recipes = Record<string, Recipe>;
+
+/** What a set records about how it was made. */
+export interface Provenance {
+  set_id: string;
+  created_at: string;
+  created_by: string;
+  sources: string[];
+  environments: Record<string, string>;
+  camera: Record<string, unknown>;
+  seed: number;
+  length_s: Record<string, number>;
+  rules: Record<string, unknown>;
+  settings: WindowSettings;
+  code_version: string;
+  generator: { version: number };
+  recipe_real: Recipes;
+  recipe_synthetic: Recipes;
+  warnings: string[];
+  failed: { block_id: string; problems: string[] }[];
+}
+
+export interface SetHeader extends Provenance {
+  blocks: BlockRow[];
+}
+
+/** The body of a generate: the source sessions, the seed, the seconds per epoch kind and the settings recorded in the provenance. */
+export interface GenerateBody {
+  sources: string[];
+  seed: number;
+  length_s: Record<string, number>;
+  settings: WindowSettings;
+}
+
+export interface Generated {
+  set_id: string;
+  built: number;
+  failed: { block_id: string; problems: string[] }[];
+  warnings: string[];
+  kinds: string[];
+}
+
+export interface DeletedSet {
+  deleted: boolean;
+  blocks: number;
+}
+
+export type Side = "left" | "right";
+
+/** An open quiz pair: its opaque id, the kind of both blocks and the two sides to read. */
+export interface Pair {
+  pair_id: string;
+  kind: string;
+  sides: Side[];
+}
+
+/** One side of a pair as the quiz player's header, only what both sides share. */
+export interface PairHeader {
+  row: { kind: string; environment: string; n_frames: number; duration_s: number; rate_hz: number };
+  rate_hz: number;
+  geometry: Geometry;
+}
+
+export interface PairArrays {
+  x: Float64Array;
+  y: Float64Array;
+  heading: Float64Array;
+  speed: Float64Array;
+}
+
+export interface Tally {
+  n: number;
+  correct: number;
+  by: Record<string, { n: number; correct: number }>;
+}
+
+/** One guess as the set's guesses.json holds it, guessed_real being the block the person called real. */
+export interface Guess {
+  at: string;
+  by: string;
+  pair_id: string;
+  real_block: string;
+  synthetic_block: string;
+  kind: string;
+  guessed_real: string;
+  correct: boolean;
+}
+
+/** The reveal after a guess: whether it was right, which side and blocks were which, and the set's tally. */
+export interface Reveal {
+  correct: boolean;
+  real_side: Side;
+  real_block: string;
+  synthetic_block: string;
+  tally: Tally;
+}
+
+export interface SetGuesses {
+  tally: Tally;
+  guesses: Guess[];
 }
 
 // The parts of FastAPI's OpenAPI document the About page reads.

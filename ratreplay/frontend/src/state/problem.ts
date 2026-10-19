@@ -1,7 +1,7 @@
 import type { Health, Kind } from "../api/types";
 
 const READING = "Reading the data folders.";
-const NAMES: Record<Kind, string> = { transformed: "The transformed lab data", processed: "The processed lab data", environments: "The environments" };
+const NAMES: Record<Kind, string> = { transformed: "The transformed lab data", processed: "The processed lab data", synthetic: "The synthetic data", environments: "The environments" };
 
 /**
  * Why a page that needs these folders cannot show, none when each is usable. A folder is unusable when it has problems,

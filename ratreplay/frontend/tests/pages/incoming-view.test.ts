@@ -65,23 +65,26 @@ const folder = (extra: Partial<Folder> = {}): Folder => ({
 });
 const ENVIRONMENTS: Folder = { root: "/repo/configs/environments", exists: true, problems: [], counts: { environments: 4 }, manifest: { modified: "2026-08-23T17:37:33+00:00" } };
 const PROCESSED: Folder = { root: "/data/processed", exists: true, problems: ["1 block files missing"], counts: {}, manifest: null };
-const health = (transformed: Folder, environments = ENVIRONMENTS): Health => ({ transformed, processed: PROCESSED, environments, config_path: "configs/local.yaml" });
+const SYNTHETIC: Folder = { root: "/data/synthetic", exists: true, problems: [], counts: { sets: 0, blocks: 0, guesses: 0 }, manifest: null };
+const health = (transformed: Folder, environments = ENVIRONMENTS): Health => ({ transformed, processed: PROCESSED, synthetic: SYNTHETIC, environments, config_path: "configs/local.yaml" });
 
-test("the strip has a line for the lab data, the environment geometry and the config file, the Reload button on the last, and says nothing of the processed folder", () => {
+test("the strip has a line for the lab data, the environment geometry, the synthetic sets (ok while empty, a set is not expected) and the config file, the Reload button on the last, and says nothing of the processed folder", () => {
   const lines = stripLines(health(folder()));
   expect(lines.map((l) => [l.label, l.path, l.status, l.reloads])).toEqual([
     ["lab data read from", "/data/transformed", "ok", false],
     ["environment geometry read from", "/repo/configs/environments", "ok", false],
+    ["synthetic sets read from", "/data/synthetic", "ok", false],
     ["config file", "configs/local.yaml", "ok", true],
   ]);
   expect(lines[0].detail).toMatch(/^6 sessions, converter run 2026-10-13 /);
   expect(lines[1].detail).toBe("4 environments");
+  expect(lines[2].detail).toBe("0 sets");
   expect(stripProblems(lines)).toEqual([]);
 });
 
 test("a lab data folder that exists and holds no sessions has nothing yet, and the strip card takes the worst of its lines", () => {
   const empty = stripLines(health(folder({ counts: { sessions: 0 } })));
-  expect(empty.map((line) => line.status)).toEqual(["nothing yet", "ok", "ok"]);
+  expect(empty.map((line) => line.status)).toEqual(["nothing yet", "ok", "ok", "ok"]);
   expect(stripStatus(empty)).toBe("nothing yet");
   expect(stripStatus(stripLines(health(folder())))).toBe("ok");
   expect(stripStatus(stripLines(health(folder({ counts: { sessions: 0 } }), { ...ENVIRONMENTS, problems: ["no yaml files"] })))).toBe("problem");
@@ -98,8 +101,8 @@ test("a folder with problems shows them under the strip with the line they belon
 });
 
 test("the incoming format keeps the transformed files' tables and leaves the processed ones, the review file and the settings to their pages", () => {
-  const contract = { version: 1, transformed: { files: [] }, processed: { files: [{ path: "review/<session_id>.json", optional: true, edits: {} }] }, settings: {}, rules: {} } as unknown as FormatContract;
+  const contract = { version: 1, transformed: { files: [] }, processed: { files: [{ path: "review/<session_id>.json", optional: true, edits: {} }] }, synthetic: { files: [] }, settings: {}, rules: {} } as unknown as FormatContract;
   const groups = formatGroups(contract);
-  expect(groups.map((g) => g.title)).toEqual(["Transformed folder", "Processed folder", "Review file", "Window settings"]);
+  expect(groups.map((g) => g.title)).toEqual(["Transformed folder", "Processed folder", "Review file", "Synthetic folder", "Window settings"]);
   expect(incomingGroups(groups).map((g) => g.title)).toEqual(["Transformed folder"]);
 });

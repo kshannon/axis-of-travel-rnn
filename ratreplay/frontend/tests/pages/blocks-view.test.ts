@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { Readiness, ReadinessBlock, WindowSettings } from "../../src/api/types";
-import { COLUMNS, indexFacts, indexRows } from "../../src/pages/blocks-view";
+import { COLUMNS, datasetName, indexFacts, indexRows, whichChoices } from "../../src/pages/blocks-view";
 
 const TRIED: WindowSettings = { window_s: 5, stride_s: 10, burn_in_s: 1, horizon_s: 0.5, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 const LONGER: WindowSettings = { ...TRIED, window_s: 40, min_complete_trips: 2 };
@@ -37,4 +37,12 @@ test("the verdict column shows ok or every reason, and the built column sorts th
   expect([column("verdict").text(a), column("verdict").text(b)]).toEqual(["ok", "trouble, no window of 40 s plus 0.5 s horizon fits in this 20 s block, reason from the server"]);
   expect([column("built").text(a), column("built").text(b)]).toEqual(["as tried", "built at other settings"]);
   expect(column("built").value(a)).toBeLessThan(column("built").value(b) as number);
+});
+
+test("the dataset choices are the real blocks then every synthetic set as set:{id}, each named for the judged line", () => {
+  expect(whichChoices(["syn_1", "syn_2"])).toEqual([
+    { value: "real", label: "real lab blocks" }, { value: "set:syn_1", label: "synthetic set syn_1" }, { value: "set:syn_2", label: "synthetic set syn_2" },
+  ]);
+  expect(whichChoices([])).toEqual([{ value: "real", label: "real lab blocks" }]);
+  expect(datasetName("set:syn_1")).toBe("synthetic set syn_1");
 });

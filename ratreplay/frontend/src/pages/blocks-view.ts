@@ -8,12 +8,23 @@ import type { SettingRow } from "./settings-view";
 
 const SECONDS_PER_MINUTE = 60;
 
-/** The datasets the index can judge. The Synthetic page adds its sets to the choices. */
+/** The datasets the index can judge: the real blocks, and each synthetic set as the API names it, `set:{id}`. */
 export const REAL = "real";
-export const WHICH_CHOICES: readonly string[] = [REAL];
+const SET = "set:";
+const REAL_NAME = "real lab blocks";
 
-/** What the judged line calls a dataset when there is no choice to show: the real one is the lab's blocks. */
-export const datasetName = (which: string): string => (which === REAL ? "real lab blocks" : which);
+export interface WhichChoice {
+  value: string;
+  label: string;
+}
+
+/** What the judged line and the dataset choice call a dataset: the real one is the lab's blocks, a set is named by its id. */
+export const datasetName = (which: string): string => (which === REAL ? REAL_NAME : `synthetic set ${which.slice(SET.length)}`);
+
+/** The choices of the dataset: the real blocks first, then every synthetic set in the order given. */
+export function whichChoices(sets: readonly string[]): WhichChoice[] {
+  return [REAL, ...sets.map((id) => `${SET}${id}`)].map((value) => ({ value, label: datasetName(value) }));
+}
 
 export function verdictText(verdict: Verdict): string {
   return verdict.ok ? "ok" : `trouble, ${verdict.reasons.join(", ")}`;

@@ -1,7 +1,8 @@
 import { decodeColumns } from "./arrow";
 import type {
-  BlockArrays, BlockHeader, BlockWindows, EnvironmentEntry, ExclusionSaved, FormatContract, Health, OpenApiDocument, Preview, PreviewBody, Readiness, Rebuilt,
-  SaveBody, SavedBlocks, Selected, SelectedResult, SessionArrays, SessionHeader, SessionRow, WindowSettings,
+  BlockArrays, BlockHeader, BlockWindows, DeletedSet, EnvironmentEntry, ExclusionSaved, FormatContract, GenerateBody, Generated, Health, OpenApiDocument, Pair, PairArrays,
+  PairHeader, Preview, PreviewBody, Readiness, Rebuilt, Reveal, SaveBody, SavedBlocks, Selected, SelectedResult, SessionArrays, SessionHeader, SessionRow, SetGuesses, SetHeader,
+  SetRow, Side, WindowSettings,
 } from "./types";
 
 const HEALTH = "/api/health";
@@ -9,12 +10,14 @@ const SESSIONS = "/api/sessions";
 const REBUILD = "/api/rebuild";
 const BLOCKS = "/api/blocks";
 const WINDOWS = "/api/windows";
+const SETS = "/api/sets";
+const PAIRS = "/api/pairs";
 const REAL = "real";
 const UNREACHABLE = "Cannot reach the API, is it running?";
 
 // The version of the format contract this page is built for, and the keys of `/api/format` its pages cannot do without. An API
 // that answers another version, or without a key, is not the one this page was built with.
-export const FORMAT_VERSION = 3;
+export const FORMAT_VERSION = 4;
 const NEEDED_KEYS = ["settings", "rules"] as const;
 export const STALE_API = "The API is older than this page, restart it (pixi run ratreplay-api)";
 
@@ -96,6 +99,19 @@ export const getBlockWindows = (blockId: string, settings: Partial<WindowSetting
   json<BlockWindows>("GET", withSettings(`${BLOCKS}/${blockId}/windows`, settings));
 export const getSelected = () => json<Selected>("GET", WINDOWS);
 export const selectSettings = (settings: WindowSettings) => json<SelectedResult>("PUT", WINDOWS, { settings });
+
+// The Synthetic page: the sets, generating and deleting one.
+export const listSets = () => json<SetRow[]>("GET", SETS);
+export const generateSet = (body: GenerateBody) => json<Generated>("POST", SETS, body);
+export const getSet = (setId: string) => json<SetHeader>("GET", `${SETS}/${setId}`);
+export const deleteSet = (setId: string) => json<DeletedSet>("DELETE", `${SETS}/${setId}`);
+
+// The Quiz page: a pair opened over a set, its two sides, the guess and the guesses made against the set.
+export const createPair = (setId: string, kind: string | null = null) => json<Pair>("POST", `${SETS}/${setId}/pairs`, { kind });
+export const pairBlock = (pairId: string, side: Side) => json<PairHeader>("GET", `${PAIRS}/${pairId}/${side}`);
+export const pairArrays = (pairId: string, side: Side) => columns<PairArrays>(`${PAIRS}/${pairId}/${side}/arrays`);
+export const submitGuess = (setId: string, pairId: string, side: Side) => json<Reveal>("POST", `${SETS}/${setId}/guesses`, { pair_id: pairId, side });
+export const setGuesses = (setId: string) => json<SetGuesses>("GET", `${SETS}/${setId}/guesses`);
 
 // The Environments page.
 export const getEnvironments = () => json<EnvironmentEntry[]>("GET", "/api/environments");

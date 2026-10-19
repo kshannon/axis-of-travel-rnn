@@ -30,13 +30,14 @@ function fileTable(file: FormatFile): Table {
   return { title, head: ["column", "type", "use"], rows };
 }
 
-/** The data format contract as groups of tables, one table per file, the review file's keys, statuses and edits after the processed folder's. */
+/** The data format contract as groups of tables, one table per file, the review file's keys, statuses and edits after the processed folder's, then the synthetic folder's. */
 export function formatGroups(contract: FormatContract): FormatGroup[] {
   const review = contract.processed.files.find((file) => file.edits);
   return [
     { title: "Transformed folder", tables: contract.transformed.files.map(fileTable) },
     { title: "Processed folder", tables: contract.processed.files.map(fileTable) },
     ...(review ? [{ title: "Review file", tables: reviewTables(review) }] : []),
+    { title: "Synthetic folder", tables: contract.synthetic.files.map(fileTable) },
     {
       title: "Window settings",
       tables: [{ title: "defaults", head: ["setting", "value"], rows: Object.entries(contract.settings).map(([name, value]) => [name, String(value)]) }],

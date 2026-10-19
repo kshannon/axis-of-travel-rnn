@@ -19,7 +19,7 @@ test("read the folders, review a session, refuse a split, split the track block,
 
   await test.step("the Incoming page reads the folders ok and counts the sessions, none reviewed yet", async () => {
     await page.goto("/#/incoming");
-    await expect(strip.getByText("ok", { exact: true })).toHaveCount(3); // the lab data, the environment geometry and the config file
+    await expect(strip.getByText("ok", { exact: true })).toHaveCount(4); // the lab data, the environment geometry, the synthetic sets and the config file
     await expect(strip.getByText("problem", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("config-path")).toContainText("local.yaml");
     await expect(totals).toHaveAttribute("aria-label", /2 of 6 sessions in the dataset, 0 reviewed, 0 excluded, 0 blocks confirmed/);

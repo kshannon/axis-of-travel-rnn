@@ -33,14 +33,18 @@ function transformedDetail(folder: Folder): string {
   return [sessions === undefined ? "" : counted(sessions, "session"), run ? `converter run ${formatStamp(run)}` : ""].filter(Boolean).join(", ");
 }
 
-/** The three lines of the strip: the lab data, the environment geometry and the config file that names them. */
+/** The four lines of the strip: the lab data, the environment geometry, the synthetic sets and the config file that names them. */
 export function stripLines(health: Health): StripLine[] {
-  const { transformed, environments } = health;
+  const { transformed, environments, synthetic } = health;
   return [
     { label: "lab data read from", path: transformed.root ?? NOT_SET, status: folderStatus(transformed, transformed.counts.sessions), problems: transformed.problems, detail: transformedDetail(transformed), reloads: false },
     {
       label: "environment geometry read from", path: environments.root ?? NOT_SET, status: environments.problems.length ? "problem" : "ok", problems: environments.problems,
       detail: environments.counts.environments === undefined ? "" : counted(environments.counts.environments, "environment"), reloads: false,
+    },
+    {
+      label: "synthetic sets read from", path: synthetic.root ?? NOT_SET, status: synthetic.problems.length ? "problem" : "ok", problems: synthetic.problems,
+      detail: synthetic.counts.sets === undefined ? "" : counted(synthetic.counts.sets, "set"), reloads: false,
     },
     { label: "config file", path: health.config_path, status: "ok", problems: [], detail: "", reloads: true },
   ];

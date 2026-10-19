@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { errorText, listBlocks } from "../api/client";
+import { errorText, listBlocks, listSets } from "../api/client";
 import type { WindowSettings } from "../api/types";
 import { blockScene } from "../draw/block-scene";
 import { EnvironmentBackdrop, extentOf } from "../draw/environment";
@@ -10,6 +10,7 @@ import { Visit } from "../router";
 import { BlockPlayer } from "../session/block";
 import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { startPlayback } from "../session/playback";
+import { healthStore } from "../state/health";
 import { settingsStore } from "../state/settings";
 import type { Fact } from "../ui/facts";
 import { folderPage } from "../ui/gate";
@@ -17,8 +18,8 @@ import { clickHeader, sortArrow, sortRows } from "../ui/table";
 import type { Sort } from "../ui/table";
 import { toast } from "../ui/toast";
 import { blocksRoot } from "./blocks-html";
-import { blockLine, COLUMNS, datasetName, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, totalTiles, WHICH_CHOICES } from "./blocks-view";
-import type { IndexRow, TotalTile } from "./blocks-view";
+import { blockLine, COLUMNS, datasetName, indexFacts, indexRows, liveTiles, NO_LINE, openBlockFacts, REAL, totalTiles, whichChoices } from "./blocks-view";
+import type { IndexRow, TotalTile, WhichChoice } from "./blocks-view";
 import type { Page } from "./page";
 import { judgedLine } from "./settings-view";
 
@@ -42,7 +43,7 @@ function registerBlocks(): void {
       busy: false,
       opening: false,
       error: "",
-      choices: WHICH_CHOICES,
+      choices: whichChoices([]) as WhichChoice[],
       which: chosen,
       tried: null as WindowSettings | null,
       judgedLine: "",
@@ -110,16 +111,24 @@ function registerBlocks(): void {
         this.loading = false;
       },
 
+      /** The datasets to choose from: the real blocks, and the synthetic sets while their folder is usable. A chosen set that is gone gives way to the real blocks. */
+      async loadChoices() {
+        const sets = healthStore().problem("synthetic") ? [] : await listSets();
+        this.choices = whichChoices(sets.map((set) => set.set_id));
+        if (!this.choices.some((choice) => choice.value === this.which)) this.which = REAL;
+      },
+
       /** Every block's verdict and the totals at the settings in use, which the Settings page sets and the Replay page counts at too. */
       async judge() {
         const mine = ++latest;
+        await this.loadChoices();
         const index = await listBlocks({ ...(await settingsStore().load()) }, this.which);
         if (mine !== latest) return;
         chosen = this.which;
         this.tried = index.settings;
         this.rows = indexRows(index);
         this.totals = totalTiles(index.totals);
-        this.judgedLine = judgedLine(index.settings, this.choices.length > 1 ? "" : datasetName(this.which));
+        this.judgedLine = judgedLine(index.settings, datasetName(this.which));
         this.error = "";
         await BlockPlayer.holding()?.useSettings({ ...index.settings });
       },
