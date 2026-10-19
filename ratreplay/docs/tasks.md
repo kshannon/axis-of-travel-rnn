@@ -202,6 +202,16 @@ anything that touches real data.
       interpolated, held, missing, seconds on hover) from the engine's per block numbers handed through
       the manager (the client stops summing spans), the verdict reasons one per line with a mark, the
       same card on the Blocks page. [Pages 3 and 4, ReviewManager]
-- [ ] K25 Map controls as two groups: layer checkboxes (occupancy, geometry, trail) and one radio for the
+- [x] K25 Map controls as two groups: layer checkboxes (occupancy, geometry, trail) and one radio for the
       epoch scope (follow the cursor, arena, track, both), the map title naming what is shown. Kyle,
       2026-10-18. [Page 3]
+- [ ] K26 A page loads its data when it is shown, not at boot: the Replay page's remembered session was
+      loading while Incoming was on screen and its error surfaced there. Kyle, 2026-10-18. [Frontend]
+- [ ] K27 Dark theme restyled toward Monokai: warm dark greys for the page, card and lines (not near
+      black), silver text, amber and an 80s sci fi yellow as the accent and the attention colour, the ok
+      green and the problem orange tuned to that family, the timeline and map colours checked against the
+      new ground. Reference: the Alien Romulus poster duotone, amber yellow #F2A900 to #FFC233 as the accent,
+      burnt red orange #D9442B for a problem, warm charcoal ground with a hint of brown, cream text. Second reference, the Nostromo cockpit: warm dark brown ground, brass and ochre
+      panel surfaces for cards and strips, amber indicator lights for the status marks, CRT phosphor green
+      for ok and for data on a dark panel, red only where something is wrong. The speed colouring of the trail and its legend use the magma
+      scale (or its yellow end) instead of viridis, which also fits the light theme. The light theme stays. Kyle, 2026-10-18. [UX rules]

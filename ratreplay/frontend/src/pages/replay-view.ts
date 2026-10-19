@@ -1,5 +1,6 @@
 import type { Edit, HeadingSpan, MadeBlock, Preview, Refusal, Review, ReviewBlock, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { HEAD_DIR } from "../draw/layers";
+import { ALL_EPOCHS, FOLLOW_CURSOR } from "../draw/occupancy";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { cutsOf } from "../session/cuts";
@@ -113,6 +114,14 @@ export function summaryTiles(preview: Preview, header: SessionHeader, settings: 
 
 export function factsLine(header: SessionHeader): string {
   return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames, ${counted(header.n_initial_blocks, "block")} automatically derived`;
+}
+
+/** What the map card's title says is drawn: the session, the epochs of the scope (the one under the cursor when it is followed, and none when that epoch is not one the rules cut) and the block selected. */
+export function mapTitle(sessionId: string, scope: string, kinds: string[], epochNow: string, selectedName: string): string {
+  let epochs = scope;
+  if (scope === FOLLOW_CURSOR) epochs = `${kinds.includes(epochNow) ? epochNow : "no epoch"} (following the cursor)`;
+  else if (scope === ALL_EPOCHS) epochs = kinds.join(" and ");
+  return [sessionId, epochs, selectedName].filter(Boolean).join(", ");
 }
 
 /** The window settings in use as one line, what the counts on the cards and tiles are at. */

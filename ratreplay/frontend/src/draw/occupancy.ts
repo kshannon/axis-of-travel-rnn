@@ -7,37 +7,53 @@ import type { Backdrop, Extent, Projection } from "./map";
 
 const OCCUPANCY_ALPHA = 0.55;
 
-/**
- * What the map draws of the room, each on or off on its own: the occupancy, the geometry of the environments, the epoch kinds
- * (arena and track) and whether only the epoch under the cursor is drawn. The trail is the map view's.
- */
+/** The scope that draws the epoch under the cursor, and the one that draws every selected epoch. Any other scope is the name of one epoch kind, such as "arena". */
+export const FOLLOW_CURSOR = "follow";
+export const ALL_EPOCHS = "all";
+
+/** What the map draws of the room: the occupancy and the geometry of the environments, each on or off on its own, and the epochs they are drawn for. The trail is the map view's. */
 export interface MapChoice {
   occupancy: boolean;
   geometry: boolean;
-  /** Only the epoch under the cursor, out of the kinds that are on. */
-  follow: boolean;
-  /** Which epoch kinds are on, by name. A page adds each kind of a session as on when it opens it. */
-  kinds: Record<string, boolean>;
+  /** The epochs drawn: FOLLOW_CURSOR, ALL_EPOCHS or one epoch kind by name. Exactly one holds. */
+  scope: string;
 }
 
 /** Occupancy and geometry on, following the epoch under the cursor. */
 export function defaultMapChoice(): MapChoice {
-  return { occupancy: true, geometry: true, follow: true, kinds: {} };
+  return { occupancy: true, geometry: true, scope: FOLLOW_CURSOR };
+}
+
+export interface ScopeOption {
+  value: string;
+  label: string;
+  title: string;
+}
+
+/** The choices of the epoch scope for a session: follow the cursor, each selected kind, then every kind together when there is more than one, called both for two kinds and all for more. */
+export function scopeOptions(kinds: string[]): ScopeOption[] {
+  const together = kinds.length > 2 ? "all" : "both";
+  return [
+    { value: FOLLOW_CURSOR, label: "follow cursor", title: "Draw only the epoch under the cursor, the map changes where the cursor crosses into the next epoch" },
+    ...kinds.map((kind) => ({ value: kind, label: kind, title: `Draw the ${kind} epoch only` })),
+    ...(kinds.length > 1 ? [{ value: ALL_EPOCHS, label: together, title: `Draw ${kinds.join(" and ")} together` }] : []),
+  ];
 }
 
 type Drawn = Pick<SessionHeader, "occupancy" | "epochs" | "selected_epochs" | "environments">;
 
-/** The epoch kinds a choice shows at a frame index: those that are on, and with follow only the one under the cursor. */
-export function epochsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs">, choice: MapChoice, index: number): string[] {
-  const on = header.selected_epochs.filter((kind) => choice.kinds[kind]);
-  return choice.follow ? on.filter((kind) => kind === epochAt(header.epochs, index + 1)) : on;
+/** The epoch kinds a scope shows at a frame index: the kind under the cursor, one kind, or every selected kind. A kind the rules do not select is never shown. */
+export function epochsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs">, scope: string, index: number): string[] {
+  if (scope === ALL_EPOCHS) return header.selected_epochs;
+  const wanted = scope === FOLLOW_CURSOR ? epochAt(header.epochs, index + 1) : scope;
+  return header.selected_epochs.filter((kind) => kind === wanted);
 }
 
-/** The environments of the epochs a choice shows at a frame index, each once, an epoch the rules do not cut having none. */
-export function environmentsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs" | "environments">, choice: MapChoice, index: number): string[] {
+/** The environments of the epochs a scope shows at a frame index, each once. With the cursor followed only the epoch holding the frame counts, and an epoch the rules do not cut has no environment. */
+export function environmentsShown(header: Pick<SessionHeader, "epochs" | "selected_epochs" | "environments">, scope: string, index: number): string[] {
   const frame = index + 1;
-  const kinds = epochsShown(header, { ...choice, follow: false }, index);
-  const shown = (e: Epoch) => kinds.includes(e.epoch) && (!choice.follow || (e.frame_start <= frame && frame <= e.frame_end));
+  const kinds = epochsShown(header, scope, index);
+  const shown = (e: Epoch) => kinds.includes(e.epoch) && (scope !== FOLLOW_CURSOR || (e.frame_start <= frame && frame <= e.frame_end));
   return [...new Set(header.epochs.filter(shown).map((e) => e.environment).filter((name) => header.environments[name]))];
 }
 
@@ -77,12 +93,12 @@ export class OccupancyBackdrop implements Backdrop {
     const { left, top, width, height } = roomRect(project, this.extent);
     ctx.imageSmoothingEnabled = false;
     if (this.choice.occupancy) {
-      for (const kind of epochsShown(this.header, this.choice, index)) {
+      for (const kind of epochsShown(this.header, this.choice.scope, index)) {
         const image = this.image(kind, colours.ink);
         if (image) ctx.drawImage(image, left, top, width, height);
       }
     }
-    if (this.choice.geometry) for (const name of environmentsShown(this.header, this.choice, index)) this.environments.get(name)!.draw(ctx, project, colours);
+    if (this.choice.geometry) for (const name of environmentsShown(this.header, this.choice.scope, index)) this.environments.get(name)!.draw(ctx, project, colours);
   }
 
   /** The counts of an epoch as a small image, one pixel per bin and the row of the highest y first, drawn in the ink of the theme. */

@@ -1,8 +1,7 @@
 import { scaleLinear } from "d3";
 import { expect, test } from "vitest";
 import type { Geometry, SessionHeader } from "../../src/api/types";
-import { defaultMapChoice, environmentsShown, epochsShown, roomRect, rowsFromTop } from "../../src/draw/occupancy";
-import type { MapChoice } from "../../src/draw/occupancy";
+import { ALL_EPOCHS, defaultMapChoice, environmentsShown, epochsShown, FOLLOW_CURSOR, roomRect, rowsFromTop, scopeOptions } from "../../src/draw/occupancy";
 
 const geometry = (name: string) => ({ name }) as Geometry;
 const header = {
@@ -15,30 +14,36 @@ const header = {
   environments: { open_arena: geometry("open_arena"), triple_t: geometry("triple_t") },
 } as unknown as SessionHeader;
 
-// Every layer is its own choice: the kinds on, and with follow only the epoch under the cursor.
-const choice = (changes: Partial<MapChoice> = {}): MapChoice => ({ ...defaultMapChoice(), kinds: { arena: true, track: true }, ...changes });
-
+// The epoch scope is one choice of four: the epoch under the cursor, one kind, or every selected kind.
 test("following the cursor shows the epoch under it, which is the lab frame after the index", () => {
-  expect(epochsShown(header, choice(), 0)).toEqual(["arena"]);
-  expect(epochsShown(header, choice(), 1800)).toEqual(["track"]);
-  expect(epochsShown(header, choice(), 9000)).toEqual([]);
-  expect(environmentsShown(header, choice(), 1799)).toEqual(["open_arena"]);
-  expect(environmentsShown(header, choice(), 1800)).toEqual(["triple_t"]);
+  expect(epochsShown(header, FOLLOW_CURSOR, 0)).toEqual(["arena"]);
+  expect(epochsShown(header, FOLLOW_CURSOR, 1800)).toEqual(["track"]);
+  expect(epochsShown(header, FOLLOW_CURSOR, 9000)).toEqual([]);
+  expect(environmentsShown(header, FOLLOW_CURSOR, 1799)).toEqual(["open_arena"]);
+  expect(environmentsShown(header, FOLLOW_CURSOR, 1800)).toEqual(["triple_t"]);
 });
 
-test("without following, each epoch kind that is on shows, and an epoch the rules do not cut has no geometry", () => {
-  const all = choice({ follow: false });
-  expect(epochsShown(header, all, 0)).toEqual(["arena", "track"]);
-  expect(environmentsShown(header, all, 0)).toEqual(["open_arena", "triple_t"]);
-  expect(environmentsShown(header, choice({ follow: false, kinds: { arena: false, track: true } }), 0)).toEqual(["triple_t"]);
-  expect(environmentsShown(header, choice({ follow: false, kinds: { variant: true } }), 0)).toEqual([]);
-  expect(environmentsShown(header, choice(), 4000)).toEqual([]);
+test("a kind shows that kind wherever the cursor is, and both shows every selected kind", () => {
+  expect(epochsShown(header, "track", 0)).toEqual(["track"]);
+  expect(environmentsShown(header, "track", 0)).toEqual(["triple_t"]);
+  expect(environmentsShown(header, "arena", 4000)).toEqual(["open_arena"]);
+  expect(epochsShown(header, ALL_EPOCHS, 9000)).toEqual(["arena", "track"]);
+  expect(environmentsShown(header, ALL_EPOCHS, 0)).toEqual(["open_arena", "triple_t"]);
 });
 
-test("a kind that is off is never shown, even under the cursor, and with every kind off nothing is", () => {
-  expect(epochsShown(header, choice({ kinds: { arena: false, track: true } }), 0)).toEqual([]);
-  expect(epochsShown(header, choice({ follow: false, kinds: { arena: false, track: false } }), 0)).toEqual([]);
-  expect(environmentsShown(header, choice({ kinds: {} }), 0)).toEqual([]);
+test("an epoch the rules do not cut is never shown, and has no geometry, under any scope", () => {
+  expect(epochsShown(header, "variant", 0)).toEqual([]);
+  expect(environmentsShown(header, "variant", 0)).toEqual([]);
+  expect(epochsShown(header, FOLLOW_CURSOR, 4000)).toEqual([]);
+  expect(environmentsShown(header, FOLLOW_CURSOR, 4000)).toEqual([]);
+  expect(environmentsShown(header, ALL_EPOCHS, 4000)).not.toContain("triple_t_rot90");
+});
+
+test("the scope choices are follow cursor, each selected kind, then both for two kinds and all for more, none for a single kind", () => {
+  expect(defaultMapChoice().scope).toBe(FOLLOW_CURSOR);
+  expect(scopeOptions(["arena", "track"]).map((o) => [o.value, o.label])).toEqual([[FOLLOW_CURSOR, "follow cursor"], ["arena", "arena"], ["track", "track"], [ALL_EPOCHS, "both"]]);
+  expect(scopeOptions(["arena", "track", "variant"]).at(-1)).toMatchObject({ value: ALL_EPOCHS, label: "all" });
+  expect(scopeOptions(["track"]).map((o) => o.value)).toEqual([FOLLOW_CURSOR, "track"]);
 });
 
 test("the room's image sits on the projected room corners, however much wider than the room the projection reaches", () => {

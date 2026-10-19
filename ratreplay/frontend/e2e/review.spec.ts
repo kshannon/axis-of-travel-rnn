@@ -78,8 +78,8 @@ test("read the folders, review a session, refuse a split, split the track block,
 
   await test.step("a click on the frames lane selects a frame, a second click on it and escape let go of it", async () => {
     const box = (await page.getByTestId("timeline").boundingBox())!;
-    const unit = (box.height - 38) / 7; // the lanes weigh 1, 1, 3 and 2, the frames lane is the third
-    const frames = { x: box.width / 2, y: 12 + 3.5 * unit };
+    const unit = (box.height - 38) / 8; // the lanes weigh 1, 2, 3 and 2, the frames lane is the third
+    const frames = { x: box.width / 2, y: 12 + 4.5 * unit };
     const selection = page.getByTestId("selection");
     await page.getByTestId("timeline").click({ position: frames });
     await expect(selection).toContainText(/^frame \d+, at /);

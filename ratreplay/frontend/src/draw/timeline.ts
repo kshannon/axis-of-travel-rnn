@@ -316,19 +316,19 @@ export class Timeline {
     ctx.stroke();
   }
 
-  /** A bar in its box with its name written inside when it fits, hatched and outlined when it asks. */
+  /** A bar in its box, hatched when it asks, with its name written over the hatching when it fits, and outlined when it asks. */
   private drawBar(ctx: CanvasRenderingContext2D, scale: Scale, bar: Bar): void {
     const [x, y, w, h] = barBox(scale, this.bands, bar, this.rate);
     const fill = colourOf(this.colours, bar.fill);
     ctx.fillStyle = withAlpha(bar.light ? lighter(fill) : fill, bar.alpha ?? 1);
     ctx.fillRect(x, y, w, h);
+    if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h, HATCH_COLOUR, 1, HATCH_PX);
     const name = fittingLabel([bar.text, bar.short], w, (text) => ctx.measureText(text).width);
     if (name) {
       ctx.fillStyle = this.colours.ink;
       ctx.textAlign = "center";
       ctx.fillText(name, x + w / 2, y + h / 2);
     }
-    if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h, HATCH_COLOUR, 1, HATCH_PX);
     if (bar.outline) {
       ctx.strokeStyle = colourOf(this.colours, bar.outline);
       ctx.lineWidth = LINE_PX;

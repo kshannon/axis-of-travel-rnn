@@ -4,6 +4,7 @@ import { escapeClears, laneSelection, selectionText, toggled } from "../../src/p
 
 const header = {
   rate_hz: 60,
+  rules: { outbound_paths: [1, 2, 3, 4], return_paths: [9, 10] },
   epochs: [{ epoch: "track", environment: "triple_t", condition: "baseline", frame_start: 1, frame_end: 36_000, duration_s: 600 }],
   runs: [{ run: 12, path_id: 1, clean: true, frame_start: 6001, frame_end: 6186 }, { run: 13, path_id: 9, clean: false, frame_start: 7001, frame_end: 7060 }, { run: 14, path_id: 5, clean: true, frame_start: 8001, frame_end: 8060 }],
 } as unknown as SessionHeader;
@@ -28,9 +29,9 @@ test("escape lets go of the marks first and then of the selection", () => {
 });
 
 test("what is selected is said in words and outlined in its own lane", () => {
-  expect(selectionText(header, { kind: "run", index: 0 }, null, -1)).toBe("run 12, outbound path 1, 3.1 s");
-  expect(selectionText(header, { kind: "run", index: 1 }, null, -1)).toBe("run 13, return path 9, 1.0 s, dirty");
-  expect(selectionText(header, { kind: "run", index: 2 }, null, -1)).toBe("run 14, path 5, 1.0 s");
+  expect(selectionText(header, { kind: "run", index: 0 }, null, -1)).toBe("run 12, outbound path 1, 3.1 s, clean");
+  expect(selectionText(header, { kind: "run", index: 1 }, null, -1)).toBe("run 13, return path 9, 1.0 s, not clean by the lab");
+  expect(selectionText(header, { kind: "run", index: 2 }, null, -1)).toBe("run 14, path 5, 1.0 s, clean");
   expect(selectionText(header, { kind: "epoch", index: 0 }, null, -1)).toBe("epoch track, triple_t, baseline, 10.0 min");
   expect(selectionText(header, { kind: "frame", frame: 2341 }, null, -1)).toBe("frame 2341, at 0:39");
   expect(selectionText(header, null, block, 4)).toBe("block 5, edited, 20.0 s");

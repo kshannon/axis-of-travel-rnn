@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { allLayers, LAYERS } from "../../src/draw/layers";
-import { runFill } from "../../src/draw/lanes";
+import { LAB_PATHS, runFill } from "../../src/draw/runs";
 import { sessionScene } from "../../src/draw/session-scene";
 import type { SessionHeader } from "../../src/api/types";
 import { colourOf, PALETTE_NAMES } from "../../src/ui/palette";
@@ -47,7 +47,7 @@ test("a name stands for the theme's colour, as a name or as var(--name), else a 
 
 test("every colour the timeline names resolves to a theme colour, so a canvas never gets an unknown name", () => {
   const header = {
-    rate_hz: 60, n_frames: 600, epochs: [{ epoch: "track", frame_start: 1, frame_end: 600 }, { epoch: "other", frame_start: 1, frame_end: 600 }],
+    rate_hz: 60, n_frames: 600, rules: LAB_PATHS, epochs: [{ epoch: "track", frame_start: 1, frame_end: 600 }, { epoch: "other", frame_start: 1, frame_end: 600 }],
     runs: [1, 9, 5].map((path_id, run) => ({ run, path_id, clean: true, frame_start: 1, frame_end: 10 })),
     cut_points: [], margins: [], heading_spans: { lost: [], filled: [], held: [] },
   } as unknown as SessionHeader;
@@ -55,7 +55,7 @@ test("every colour the timeline names resolves to a theme colour, so a canvas ne
   const scene = sessionScene(header, blocks as never, [0], allLayers(), new Float64Array(0), 1);
   const names = [
     ...scene.bars.flatMap((bar) => [bar.fill, bar.outline ?? bar.fill]), ...scene.frames.flatMap((layer) => (layer.kind === "trace" ? [] : [layer.colour])),
-    ...LAYERS.map((layer) => layer.colour), ...[1, 9, 5].map(runFill),
+    ...LAYERS.map((layer) => layer.colour), ...[1, 9, 5].map((path) => runFill(path, LAB_PATHS)),
   ];
   for (const theme of [LIGHT, DARK]) for (const name of names) expect(colourOf(theme as Palette, name)).toMatch(/^#[0-9a-f]{6}$/);
 });

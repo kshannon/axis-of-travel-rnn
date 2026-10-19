@@ -1,12 +1,13 @@
 import type { MadeBlock, Run, SessionHeader } from "../api/types";
-import { runKind, timeLabel } from "../draw/lanes";
+import { timeLabel } from "../draw/lanes";
+import { cleanText, pathsOf, pathText } from "../draw/runs";
 import { blockName } from "../draw/session-scene";
 import type { LaneSelection } from "../draw/timeline";
 
 /** What a click on a lane other than the blocks lane picks: an epoch or a run by its place in the header, or a frame of the frames lane. */
 export type Picked = { kind: "epoch" | "run"; index: number } | { kind: "frame"; frame: number };
 
-type Drawn = Pick<SessionHeader, "epochs" | "runs" | "rate_hz">;
+type Drawn = Pick<SessionHeader, "epochs" | "runs" | "rate_hz" | "rules">;
 
 const MINUTE_S = 60;
 
@@ -37,7 +38,7 @@ export function laneSelection(header: Pick<SessionHeader, "epochs" | "runs">, pi
 
 const seconds = (header: Drawn, first: number, last: number) => ((last - first + 1) / header.rate_hz).toFixed(1);
 
-/** What is selected in words, such as "run 12, outbound path 1, 3.1 s", "block 5, edited, 20.0 s" or "frame 2341, at 0:39". */
+/** What is selected in words, such as "run 12, outbound path 1, 3.1 s, clean", "block 5, edited, 20.0 s" or "frame 2341, at 0:39". */
 export function selectionText(header: Drawn, picked: Picked | null, block: MadeBlock | null, position: number): string {
   if (block) return `${blockName(position)}, ${block.status}, ${seconds(header, block.frame_start, block.frame_end)} s`;
   if (!picked) return "nothing selected";
@@ -47,6 +48,5 @@ export function selectionText(header: Drawn, picked: Picked | null, block: MadeB
     return `epoch ${e.epoch}, ${e.environment}, ${e.condition}, ${(e.duration_s / MINUTE_S).toFixed(1)} min`;
   }
   const r = header.runs[picked.index];
-  const kind = runKind(r.path_id);
-  return `run ${r.run}, ${kind === "other" ? "" : `${kind} `}path ${r.path_id}, ${seconds(header, r.frame_start, r.frame_end)} s${r.clean ? "" : ", dirty"}`;
+  return `run ${r.run}, ${pathText(r.path_id, pathsOf(header))}, ${seconds(header, r.frame_start, r.frame_end)} s, ${cleanText(r)}`;
 }

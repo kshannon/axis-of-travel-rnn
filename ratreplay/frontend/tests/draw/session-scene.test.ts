@@ -9,6 +9,7 @@ const span = (first: number, last: number, reason: string) => ({ first, last, se
 const header = {
   rate_hz: 60, n_frames: 36_000,
   epochs: [{ epoch: "track", environment: "triple_t", condition: "baseline", frame_start: 1, frame_end: 36_000, duration_s: 600 }],
+  rules: { outbound_paths: [1, 2, 3, 4], return_paths: [9, 10] },
   runs: [{ run: 1, epoch: "track", path_id: 1, clean: true, frame_start: 6001, frame_end: 6600 }, { run: 2, epoch: "track", path_id: 9, clean: false, frame_start: 7001, frame_end: 7100 }],
   cut_points: [{ frame: 2701, reason: "pause" }, { frame: 3000, reason: "jump" }, { frame: 10, frame_end: 20, reason: "gap" }], margins: [[21, 30]],
   heading_spans: {
@@ -24,10 +25,12 @@ const block = (frame_start: number, frame_end: number, status: ReviewBlock["stat
 const speed = new Float64Array(10);
 const scene = (blocks: MadeBlock[], flagged: number[] = [], layers = allLayers()) => sessionScene(header, blocks, flagged, layers, speed, 1);
 
-test("a dirty run is hatched, a flagged run outlined and said so", () => {
+test("a run is coloured by its path with the path number inside, hatched when the lab did not call it clean, outlined in the warning colour when flagged, and says so in the words of the run line", () => {
   const runs = scene([], [2]).bars.filter((bar) => bar.lane === "runs");
-  expect(runs.map((bar) => [bar.hatched, bar.outline])).toEqual([[false, undefined], [true, "bad"]]);
-  expect(runs[1].tip).toContain("dirty, flagged,");
+  expect(runs.map((bar) => [bar.fill, bar.text, bar.hatched, bar.outline])).toEqual([["accent", "1", false, undefined], ["soft", "9", true, "warn"]]);
+  expect(runs[0].short).toBeUndefined(); // the number or nothing
+  expect(runs[0].tip).toMatch(/^run 1, outbound path 1, clean, 600 frames/);
+  expect(runs[1].tip).toMatch(/^run 2, return path 9, not clean by the lab, flagged, 100 frames/);
 });
 
 test("blocks are named by their place in time order, can be picked by it and a removed one is faint", () => {

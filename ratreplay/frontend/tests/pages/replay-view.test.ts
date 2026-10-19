@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { MadeBlock, Preview, ReviewBlock, SavedBlocks, SessionHeader } from "../../src/api/types";
-import { blockCards, factsLine, headingText, saveToast, sessionNotes, sessionStatus, summaryTiles } from "../../src/pages/replay-view";
+import { blockCards, factsLine, headingText, mapTitle, saveToast, sessionNotes, sessionStatus, summaryTiles } from "../../src/pages/replay-view";
 
 const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
@@ -128,4 +128,12 @@ test("a block card says what happened to the head direction inside the block, in
 test("the facts line gives the rat, the recording and how many blocks were automatically derived", () => {
   expect(factsLine({ ...header, n_initial_blocks: 14 })).toBe("rat NS14, 2015-01-01, standard, 60 Hz, 6000 frames, 14 blocks automatically derived");
   expect(factsLine({ ...header, n_initial_blocks: 1 })).toMatch(/1 block automatically derived$/);
+});
+
+test("the map title names the session and what is drawn: the epoch under the cursor when followed, one kind, or every kind", () => {
+  const kinds = ["arena", "track"];
+  expect(mapTitle("NS14_rec1", "follow", kinds, "track", "")).toBe("NS14_rec1, track (following the cursor)");
+  expect(mapTitle("NS14_rec1", "follow", kinds, "variant", "")).toBe("NS14_rec1, no epoch (following the cursor)"); // an epoch the rules do not cut is not drawn
+  expect(mapTitle("NS14_rec1", "arena", kinds, "track", "")).toBe("NS14_rec1, arena");
+  expect(mapTitle("NS14_rec1", "all", kinds, "track", "block 2")).toBe("NS14_rec1, arena and track, block 2");
 });

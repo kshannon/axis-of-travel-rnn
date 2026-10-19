@@ -1,7 +1,8 @@
 import type { BlockHeader, BlockWindow, Span, WindowSettings } from "../api/types";
 import { colourOf } from "./layers";
-import { FRAMES_LANE, runFill, runKind } from "./lanes";
+import { FRAMES_LANE } from "./lanes";
 import type { Bar, FrameLayer, LaneSpec, Scene } from "./lanes";
+import { cleanText, LAB_PATHS, pathText, runFill } from "./runs";
 
 export const BLOCK_LANES: readonly LaneSpec[] = [
   { name: "runs", weight: 2 }, { name: FRAMES_LANE, weight: 3 }, { name: "trips", weight: 1.5 }, { name: "windows", weight: 3 },
@@ -30,8 +31,8 @@ export function windowRows(settings: Pick<WindowSettings, "window_s" | "horizon_
 
 function runBars(header: BlockHeader): Bar[] {
   return header.runs.map((r) => ({
-    lane: "runs", first: frameOf(r.first), last: frameOf(r.last), fill: runFill(r.path_id), hatched: !r.clean,
-    tip: `run ${r.run}, path ${r.path_id} ${runKind(r.path_id)}, ${r.clean ? "clean" : "dirty"}, ${((r.last - r.first + 1) / header.rate_hz).toFixed(1)} s from ${(r.first / header.rate_hz).toFixed(1)} s`,
+    lane: "runs", first: frameOf(r.first), last: frameOf(r.last), fill: runFill(r.path_id, LAB_PATHS), hatched: !r.clean,
+    tip: `run ${r.run}, ${pathText(r.path_id, LAB_PATHS)}, ${cleanText(r)}, ${((r.last - r.first + 1) / header.rate_hz).toFixed(1)} s from ${(r.first / header.rate_hz).toFixed(1)} s`,
   }));
 }
 

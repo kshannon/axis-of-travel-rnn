@@ -1,11 +1,11 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, BUTTON_WARN, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
 const MAP_HELP = `
-  <p>The room in metres, north up, the same frame for every epoch. The checkboxes under the title switch each layer on or off. Occupancy is where the animal spent time in an epoch, darker is more. Geometry is the environment of the epoch: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. Arena and track choose which epochs are drawn, and following the cursor's epoch draws only the epoch under the cursor.</p>
+  <p>The room in metres, north up, the same frame for every epoch. The layers are checkboxes, each on or off on its own. Occupancy is where the animal spent time in an epoch, darker is more. Geometry is the environment of the epoch: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. The epochs are one choice of several, and the title says which is drawn. Follow cursor draws the occupancy and geometry of the epoch under the cursor only, so the map changes where the cursor crosses into the next epoch. Arena or track draws that epoch alone, and both draws every epoch of the session together.</p>
   <p class="mt-2">The trail is the last 2 s of the path coloured by speed in m/s. The red dot is the cursor's position and the red arrow the head direction after the fill and the LED offset. The thin line is the path of what is selected on the timeline. Positions outside the room are drawn outside the outline, where a registration problem shows, and are counted in the Session card.</p>`;
 
 const TIMELINE_HELP = `
@@ -115,28 +115,40 @@ const checkbox = (model: string, label: string, title = "") => `
     <input type="checkbox" x-model="${model}" @change="mapLayersChanged()" class="accent-accent" /><span>${label}</span>
   </label>`;
 
-// A layer each on its own: the occupancy, the geometry, the epoch kinds of the session, the trail, and whether only the epoch under the cursor is drawn.
+// A segment of the epoch scope: pressed when it is the scope, a small block of buttons of which exactly one is on.
+const SCOPE_SEGMENT = "px-2 py-0.5 text-xs";
+const scopeSegment = `
+  <button type="button" @click="setScope(option.value)" :aria-pressed="mapLayers.scope === option.value" :title="option.title"
+    :class="mapLayers.scope === option.value ? 'bg-accent/15 font-medium text-accent' : 'bg-ink/5 text-ink hover:bg-ink/15'" class="${SCOPE_SEGMENT}" x-text="option.label"></button>`;
+
+// Two groups on one row: the layers, each its own checkbox, and the epoch scope as a block of segments, one choice of follow cursor, each epoch kind of the session or all of them.
 const mapBody = `
   <div class="flex h-full min-h-0 flex-col gap-2">
-    <div role="group" aria-label="Map layers" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-      ${checkbox("mapLayers.occupancy", "occupancy", "Where the animal spent time, darker is more")}
-      ${checkbox("mapLayers.geometry", "geometry", "The walls, boundary, centerline and reward sites of the environment")}
-      <template x-for="kind in epochKinds" :key="kind">
-        <label class="inline-flex cursor-pointer items-center gap-1.5" :title="'Draw the ' + kind + ' epoch'">
-          <input type="checkbox" x-model="mapLayers.kinds[kind]" @change="mapLayersChanged()" class="accent-accent" /><span x-text="kind"></span>
-        </label>
-      </template>
-      ${checkbox("mapLayers.trail", "trail", "The last 2 s of the path coloured by speed, with the speed colours")}
-      ${checkbox("mapLayers.follow", "follow the cursor's epoch", "Draw only the epoch under the cursor")}
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted">
+      <div role="group" aria-label="Map layers" class="flex items-center gap-x-3">
+        ${checkbox("mapLayers.occupancy", "occupancy", "Where the animal spent time, darker is more")}
+        ${checkbox("mapLayers.geometry", "geometry", "The walls, boundary, centerline and reward sites of the environment")}
+        ${checkbox("mapLayers.trail", "trail", "The last 2 s of the path coloured by speed, with the speed colours")}
+      </div>
+      <div role="group" aria-label="Epoch scope" class="flex items-center">
+        <div class="${SEGMENTS}">
+          <template x-for="option in scopes" :key="option.value">${scopeSegment}</template>
+        </div>
+      </div>
     </div>
     <div x-ref="map" data-testid="map" class="relative min-h-0 flex-1"></div>
   </div>`;
 
 // Under the playback: the run the flag acts on and the notes of the session.
+const FLAG_OFF = "select or hover a run";
+const FLAG_TITLE = "Mark the lab\\'s run label as wrong, its frames get no run or trip label when the blocks are built";
+const UNFLAG_TITLE = "Take the flag back, the frames of the run get their run and trip label again";
+
 const flagAndNotes = `
   <div class="flex items-center gap-2">
-    <button type="button" @click="act('flag')" ${disabledWhy("runNow === null", "select or hover a run", "Flag or unflag the run under the cursor")} class="${BUTTON}" x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
-    <span class="min-w-0 truncate text-xs text-muted" x-text="runLine"></span>
+    <button type="button" @click="act('flag')" :disabled="runNow === null" :title="runNow === null ? '${FLAG_OFF}' : runFlagged ? '${UNFLAG_TITLE}' : '${FLAG_TITLE}'" class="shrink-0 whitespace-nowrap ${BUTTON_WARN}"
+      x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
+    <span class="min-w-0 text-xs text-muted" :title="runLine" x-text="runLine"></span>
   </div>
   <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} min-h-10 flex-1 resize-none"></textarea>`;
 
@@ -201,7 +213,7 @@ const timelineBody = `
     ${layerRow}
   </div>`;
 
-const mapTitle = `Map <span class="normal-case" x-text="mapTitle"></span>`;
+const mapTitle = `Map<span class="normal-case" x-text="', ' + mapTitle"></span>`;
 
 /** The Replay page's cards in a grid of three rows: the session status and its summary, the blocks with the map and the playback, the timeline with the editing buttons above the lanes and the layers below them. */
 export const replayGrid = `

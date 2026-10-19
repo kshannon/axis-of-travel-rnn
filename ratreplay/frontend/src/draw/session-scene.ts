@@ -3,12 +3,13 @@ import { cutsOf, splitAtPauses } from "../session/cuts";
 import { counted } from "../ui/text";
 import { colourOf, HEAD_DIR } from "./layers";
 import type { LayerKey, Layers } from "./layers";
-import { FRAMES_LANE, runFill, runKind } from "./lanes";
+import { FRAMES_LANE } from "./lanes";
 import type { Bar, FrameLayer, LaneSpec, Scene } from "./lanes";
+import { pathsOf, runFill, runText } from "./runs";
 
-/** The lanes of the session timeline. The runs lane is as thin as the epochs lane, a run is only a coloured stretch. */
+/** The lanes of the session timeline. The runs lane is as tall as the blocks lane, a run bar carries its path number, its hatching and its outline. */
 export const SESSION_LANES: readonly LaneSpec[] = [
-  { name: "session", weight: 1 }, { name: "runs", weight: 1 }, { name: FRAMES_LANE, weight: 3 }, { name: "blocks", weight: 2 },
+  { name: "session", weight: 1 }, { name: "runs", weight: 2 }, { name: FRAMES_LANE, weight: 3 }, { name: "blocks", weight: 2 },
 ];
 
 // Palette colours. A block the person has not judged yet is the accent faint, a confirmed one the same blue strong.
@@ -43,11 +44,12 @@ function epochBars(header: SessionHeader): Bar[] {
   }));
 }
 
-/** A run is hatched when dirty and outlined when flagged. */
+/** A run is coloured by its path, which it writes inside when it fits, hatched when the lab did not call it clean and outlined in the warning colour when flagged. */
 function runBars(header: SessionHeader, flagged: Set<number>): Bar[] {
+  const paths = pathsOf(header);
   return header.runs.map((r, pick) => ({
-    lane: "runs", first: r.frame_start, last: r.frame_end, fill: runFill(r.path_id), hatched: !r.clean, outline: flagged.has(r.run) ? "bad" : undefined, pick,
-    tip: `run ${r.run}, path ${r.path_id} ${runKind(r.path_id)}, ${r.clean ? "clean" : "dirty"}${flagged.has(r.run) ? ", flagged" : ""}, ${framesOf(r.frame_start, r.frame_end)} frames (${r.frame_start} to ${r.frame_end})`,
+    lane: "runs", first: r.frame_start, last: r.frame_end, fill: runFill(r.path_id, paths), text: String(r.path_id), hatched: !r.clean, outline: flagged.has(r.run) ? "warn" : undefined, pick,
+    tip: `${runText(r, paths, flagged.has(r.run))}, ${framesOf(r.frame_start, r.frame_end)} frames (${r.frame_start} to ${r.frame_end})`,
   }));
 }
 

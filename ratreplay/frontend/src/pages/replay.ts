@@ -5,7 +5,8 @@ import { allLayers, LAYERS, layerMeanings } from "../draw/layers";
 import type { LayerKey } from "../draw/layers";
 import { FRAMES_LANE, timeLabel } from "../draw/lanes";
 import { MapView, THIN_PATH } from "../draw/map";
-import { defaultMapChoice, OccupancyBackdrop } from "../draw/occupancy";
+import { defaultMapChoice, FOLLOW_CURSOR, OccupancyBackdrop, scopeOptions } from "../draw/occupancy";
+import { pathsOf, runText } from "../draw/runs";
 import { sessionScene } from "../draw/session-scene";
 import { Timeline } from "../draw/timeline";
 import type { LaneClick } from "../draw/timeline";
@@ -30,7 +31,7 @@ import { chipsOf, leaveQuestion, neighbours, pickerOrder, stepReason } from "./r
 import type { Step } from "./replay-picker";
 import { escapeClears, laneSelection, pickedRun, selectionText, toggled } from "./replay-selection";
 import type { Picked } from "./replay-selection";
-import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
+import { blockCards, factsLine, liveTiles, mapTitle, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
 import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Incoming page.";
@@ -109,7 +110,11 @@ function registerReplay(): void {
         return `${SPEEDS[this.speedIndex]}x`;
       },
       get mapTitle() {
-        return [this.sessionId, this.epochNow, this.selectedName].filter(Boolean).join(", ");
+        return mapTitle(this.sessionId, this.mapLayers.scope, this.epochKinds, this.epochNow, this.selectedName);
+      },
+      /** The choices of the epoch scope: follow the cursor, each epoch kind the session has, then all of them together. */
+      get scopes() {
+        return scopeOptions(this.epochKinds);
       },
       /** The sessions the list shows and the arrows walk: those matching the filter, which is empty while the list is closed. */
       get listed() {
@@ -162,7 +167,7 @@ function registerReplay(): void {
           selected = null;
           picked = null;
           timeline.load(this.scene());
-          for (const kind of header.selected_epochs) mapLayers.kinds[kind] ??= true;
+          if (!scopeOptions(header.selected_epochs).some((option) => option.value === mapLayers.scope)) this.mapLayers.scope = FOLLOW_CURSOR; // the epoch kept from the last session is not in this one
           occupancy = new OccupancyBackdrop(header);
           occupancy.choice = mapLayers;
           map.trail = mapLayers.trail;
@@ -220,7 +225,7 @@ function registerReplay(): void {
         this.runNow = run?.run ?? null;
         this.runFlagged = run !== null && ws.preview.flagged_runs.includes(run.run);
         const chosen = pickedRun(ws.header, picked) !== null;
-        this.runLine = run ? `${chosen ? "selected " : ""}run ${run.run}, path ${run.path_id} ${run.clean ? "clean" : "dirty"}${this.runFlagged ? ", flagged" : ""}` : "no run under the cursor";
+        this.runLine = run ? `${chosen ? "selected " : ""}${runText(run, pathsOf(ws.header), this.runFlagged)}` : "no run under the cursor";
       },
 
       /** Redraw everything that follows the edits: the cards, the summary, the lanes' blocks, the selection and the marks. */
@@ -265,10 +270,14 @@ function registerReplay(): void {
         ws.clock.seek(index, performance.now());
         this.show();
       },
-      /** A map layer was switched: the backdrop reads the choice itself, the trail is the map's. */
+      /** A map layer or the epoch scope was switched: the backdrop reads the choice itself, the trail is the map's. */
       mapLayersChanged() {
         map.trail = mapLayers.trail;
         map.redraw();
+      },
+      setScope(scope: string) {
+        this.mapLayers.scope = scope;
+        this.mapLayersChanged();
       },
       toggleLayer(key: LayerKey) {
         this.layers[key] = !this.layers[key];

@@ -9,6 +9,8 @@ export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent font-medium text-page en
 // A button that is only a glyph, square, the glyph an inline svg and the words in its aria-label and title.
 export const BUTTON_ICON = "rounded-md border border-ink/30 bg-ink/5 p-1.5 text-ink enabled:hover:bg-ink/15 disabled:cursor-not-allowed disabled:opacity-40";
 export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabled:hover:bg-bad/10`;
+// The same in the warning colour, for an action that marks something as wrong without destroying it.
+export const BUTTON_WARN = `${BUTTON_BASE} border border-warn/60 text-warn enabled:hover:bg-warn/10`;
 
 // Buttons of one group as one block, such as the zoom controls: SEGMENTS holds the SEGMENT buttons divided by the line colour,
 // every segment a neutral fill with the ink as its text and a shade lighter or darker under the pointer. The primary action

@@ -26,11 +26,6 @@ const LABEL_PAD_PX = 6;
 const MIN_SPAN_S = 5;
 const PAGE_MARGIN = 0.1;
 
-// The paths of the lab's tasks: the outbound runs and the return runs, any other path is neither. Palette colours: the blue and its paler shade, and the grey.
-const OUTBOUND_PATHS = [1, 2, 3, 4];
-const RETURN_PATHS = [9, 10];
-const RUN_COLOURS = { outbound: "accent", return: "soft", other: "neutral" };
-
 const TICK_STEPS_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
@@ -88,14 +83,6 @@ export interface Scene {
 
 /** The lane the frame layers are drawn in. */
 export const FRAMES_LANE = "frames";
-
-export function runKind(pathId: number): "outbound" | "return" | "other" {
-  if (OUTBOUND_PATHS.includes(pathId)) return "outbound";
-  return RETURN_PATHS.includes(pathId) ? "return" : "other";
-}
-
-/** The palette colour of a run's bar by its path. */
-export const runFill = (pathId: number): string => RUN_COLOURS[runKind(pathId)];
 
 /** The vertical band of each lane in a canvas of this height. */
 export function laneBands(height: number, lanes: readonly LaneSpec[]): Bands {
