@@ -16,9 +16,11 @@ SYNTHETIC_LATER = "synthetic sets arrive with the synthetic slice"
 NOTHING_BUILT = "nothing is built yet, no settings to select"
 
 # What a session's registration row carries, as the build wrote it in the metadata's frame: per epoch kind the scale, LED separation, rotation,
-# flip and offset, for the track also its scale along each room axis (named as the row names them), and for the session the LED offset.
+# flip and offset, for the track also its scale along each room axis (named as the row names them) and its measured start offset (missing
+# from a build made before it was recorded), and for the session the LED offset.
 KIND_KEYS = ("scale_px_per_m", "led_separation_m", "rotation_rad", "flip", "offset_m")
 AXIS_SCALES = {"scale_x": "scale_x_px_per_m", "scale_y": "scale_y_px_per_m"}
+TRACK_KEYS = ("start_offset_measured_m",)
 SESSION_KEYS = ("led_offset_rad", "led_offset_r", "led_offset_n")
 
 # The columns of a built block the player gets. The phase is a string and travels as spans.
@@ -76,6 +78,7 @@ def registrations_of(sid, made, epochs):
     where = {epoch["epoch"]: epoch["environment"] for epoch in epochs}
     return [(where[kind], {"session_id": sid, "kind": kind, **{key: frame[kind][key] for key in KIND_KEYS},
                            **{name: frame[kind][key] for name, key in AXIS_SCALES.items() if key in frame[kind]},
+                           **{key: frame[kind][key] for key in TRACK_KEYS if key in frame[kind]},
                            **{key: frame[key] for key in SESSION_KEYS}, "warnings": made["warnings"], "built_at": made["built_at"]})
             for kind in sorted(where) if kind in frame]
 

@@ -6,6 +6,11 @@ edge, four goal sites, two perimeter returns. Derived, forced by the pinned
 values: side return gap and goal-to-top connector. East-west goal approaches
 and the return topology are inferred from the paper's figure.
 
+The paper's start site sits up the stem above the bottom corridor. The
+optional ``start_offset`` (metres, default 0) is that distance: the stem
+continues below the start to meet the bottom corridor, the start and the
+whole maze body move up by it, and the envelope stays as pinned.
+
 Route names encode the two free choices: turn direction at the first T and
 turn direction at the final junction (the middle turn is forced). ``ee`` is
 the outermost east goal, ``ew`` the inner east goal, and so on.
@@ -19,20 +24,22 @@ def build_triple_t(params, room, name="triple_t") -> EnvSpec:
     h = w / 2.0
     L1, L2, L3, L4 = params["run_segments"]
     EX, EY = params["envelope"]
+    offset = params.get("start_offset", 0.0)
     rx, ry = room
     cx = rx / 2.0
     x0, y0 = (rx - EX) / 2.0, (ry - EY) / 2.0
 
     gap = EX / 2.0 - (L2 + L4) - h - w       # maze body to side return corridor
-    conn = EY - (L1 + L3) - w                # goal to top corridor connector
+    conn = EY - (offset + L1 + L3) - w       # goal to top corridor connector
     if gap <= 0.02 or conn <= 0.02:
         raise ValueError(f"geometry does not close: gap={gap:.3f} conn={conn:.3f}")
 
     yb, yt = y0 + h, y0 + EY - h             # bottom / top corridor centerlines
     xl, xr = x0 + h, x0 + EX - h             # side corridor centerlines
 
-    S = [cx, yb]
-    T1 = [cx, yb + L1]
+    foot = [cx, yb]                          # stem meets the bottom corridor
+    S = [cx, yb + offset]
+    T1 = [cx, S[1] + L1]
     CE, CW = [cx + L2, T1[1]], [cx - L2, T1[1]]
     UE, UW = [CE[0], T1[1] + L3], [CW[0], T1[1] + L3]
     gy = UE[1]
@@ -40,7 +47,7 @@ def build_triple_t(params, room, name="triple_t") -> EnvSpec:
          "g_ww": [CW[0] - L4, gy], "g_we": [CW[0] + L4, gy]}
 
     centerline = [
-        segment("stem", S, T1),
+        segment("stem", foot, T1),
         segment("cross_e", T1, CE), segment("cross_w", T1, CW),
         segment("up_e", CE, UE), segment("up_w", CW, UW),
         segment("approach_ee", UE, G["g_ee"]), segment("approach_ew", UE, G["g_ew"]),
@@ -53,12 +60,13 @@ def build_triple_t(params, room, name="triple_t") -> EnvSpec:
         centerline.append(segment(f"top_{i}", [top_x[i], yt], [top_x[i + 1], yt]))
     centerline += [
         segment("side_w", [xl, yb], [xl, yt]), segment("side_e", [xr, yb], [xr, yt]),
-        segment("bottom_w", [xl, yb], S), segment("bottom_e", S, [xr, yb]),
+        segment("bottom_w", [xl, yb], foot), segment("bottom_e", foot, [xr, yb]),
     ]
 
     routes = {"ee": [S, T1, CE, UE, G["g_ee"]], "ew": [S, T1, CE, UE, G["g_ew"]],
               "ww": [S, T1, CW, UW, G["g_ww"]], "we": [S, T1, CW, UW, G["g_we"]]}
-    returns = {"east": [[xr, yt], [xr, yb], S], "west": [[xl, yt], [xl, yb], S]}
+    back = [foot, S] if offset else [S]      # the returns climb the stem to the start
+    returns = {"east": [[xr, yt], [xr, yb]] + back, "west": [[xl, yt], [xl, yb]] + back}
 
     return EnvSpec(
         name=name, kind="triple_t", room=list(room), boundary=None,

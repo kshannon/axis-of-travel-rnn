@@ -37,9 +37,9 @@ def centroid(counts, centres, at, rules):
     return float(np.average(centres[window], weights=counts[window]))
 
 
-def peak_span(values, rules):
+def outer_peaks(values, rules):
     """
-    The distance between the first and the last peak of the histogram of these values, each placed at the centroid of its smoothing bins.
+    The first and the last peak of the histogram of these values, each placed at the centroid of its smoothing bins.
     """
     size, smooth_bins = rules["histogram_bin_px"], rules["peak_smooth_bins"]
     edges = np.arange(values.min() - smooth_bins * size, values.max() + smooth_bins * size + size, size)
@@ -47,18 +47,40 @@ def peak_span(values, rules):
     smooth = np.convolve(counts, np.ones(smooth_bins) / smooth_bins, mode="same")
     peaks, _ = find_peaks(smooth, prominence=rules["peak_prominence"] * smooth.max())
     centres = edges[:-1] + size / 2
-    return centroid(counts, centres, peaks[-1], rules) - centroid(counts, centres, peaks[0], rules)
+    return centroid(counts, centres, peaks[0], rules), centroid(counts, centres, peaks[-1], rules)
 
 
-def track_scale(frames, epoch, rotation, geometry, rules):
+def peak_span(values, rules):
+    """
+    The distance between the first and the last peak of the histogram of these values.
+    """
+    low, high = outer_peaks(values, rules)
+    return high - low
+
+
+def running_axes(frames, epoch, rotation, rules):
+    """
+    The running frames of the epoch in pixels along the room axes, x to the east and y to the north, the camera's y flipped and the track rotation taken out.
+    """
+    here = moving(frames, epoch, rules)
+    return rotated(frames["mashup_x"][here], -frames["mashup_y"][here], rotation)
+
+
+def track_scale(axes, geometry, rules):
     """
     Pixels per metre of the track: the mean of the two axis estimates, the span of the outermost occupancy peaks of the running frames along each room axis over the centreline's extent, and then each.
     """
-    here = moving(frames, epoch, rules)
-    axes = rotated(frames["mashup_x"][here], -frames["mashup_y"][here], rotation)
     points = np.array([segment[end] for segment in geometry["centerline"] for end in ("p0", "p1")])
     scale_x, scale_y = [float(peak_span(axis, rules) / extent) for axis, extent in zip(axes, points.max(axis=0) - points.min(axis=0))]
     return (scale_x + scale_y) / 2, scale_x, scale_y
+
+
+def start_offset_measured(axes, start_px, rotation, scale, rules):
+    """
+    The distance in metres along the room's y axis from the start site up to the bottom outer corridor peak of the running frames, at the track scale, positive when the start lies above that corridor.
+    """
+    _, start_y = rotated(start_px[0], -start_px[1], rotation)
+    return float((start_y - outer_peaks(axes[1], rules)[0]) / scale)
 
 
 def arena_scale(track_scale_px_per_m, rules):
@@ -126,16 +148,18 @@ def epoch_parameters(frames, epoch, scale, rotation, concentration, start_px, ge
 
 def parameters(frames, epochs, runs, environment, rules):
     """
-    The registration, JSON ready: the start and goal sites in pixels and per epoch kind the scale (the track's with its two axis estimates), LED separation, rotation, flip and offset.
+    The registration, JSON ready: the start and goal sites in pixels and per epoch kind the scale (the track's with its two axis estimates and the measured start offset), LED separation, rotation, flip and offset.
     """
     track = next(e for e in epochs if e["epoch"] == TRACK)
     rotation, concentration = track_rotation(frames, track, runs, rules)
-    scale, scale_x, scale_y = track_scale(frames, track, rotation, environment[track["environment"]], rules)
+    axes = running_axes(frames, track, rotation, rules)
+    scale, scale_x, scale_y = track_scale(axes, environment[track["environment"]], rules)
     scales = {TRACK: scale, ARENA: arena_scale(scale, rules)}
     start_px, goals_px = sites_px(frames, runs, rules)
     found = {"start_px": start_px, "goals_px": goals_px}
     for epoch in epochs:
         found[epoch["epoch"]] = epoch_parameters(frames, epoch, scales[epoch["epoch"]], rotation, concentration, start_px,
                                                  environment[epoch["environment"]], rules)
-    found[TRACK].update(scale_x_px_per_m=scale_x, scale_y_px_per_m=scale_y)
+    found[TRACK].update(scale_x_px_per_m=scale_x, scale_y_px_per_m=scale_y,
+                        start_offset_measured_m=start_offset_measured(axes, start_px, rotation, scale, rules))
     return found

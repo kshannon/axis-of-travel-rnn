@@ -17,6 +17,7 @@ NAMES = ("open_arena", "plus_maze", "triple_t", "triple_t_rot90")
 SHAPE = {"name", "kind", "room", "boundary", "walls", "centerline", "reward_sites", "circle", "params"}
 COMPARED = ("name", "kind", "room", "boundary", "walls", "centerline", "reward_sites", "params")
 BROKEN = "type: circle\nroom: {extent: [1.8, 1.8]}\n"
+START_OFFSET, TOLERANCE = 0.15, 1e-6
 
 
 @pytest.fixture
@@ -36,6 +37,27 @@ def test_the_geometry_equals_the_projects_builders_and_is_json_data(folder, name
     assert set(geometry) == SHAPE and json.loads(json.dumps(geometry)) == geometry
     for field in COMPARED:
         assert geometry[field] == getattr(spec, field), field
+
+
+def test_a_start_offset_lifts_the_start_up_the_stem_in_both_builders_and_leaves_the_envelope_as_it_was(folder):
+    (folder / "lifted.yaml").write_text((folder / "triple_t.yaml").read_text() + f"  start_offset: {START_OFFSET}\n")
+    spec = load_environment("lifted", config_dir=folder)
+    access = EnvironmentAccess(folder)
+    lifted, plain = access.environment("lifted"), access.environment("triple_t")
+    for field in COMPARED:
+        assert lifted[field] == getattr(spec, field), field
+
+    def bottom(geometry):
+        return next(s for s in geometry["centerline"] if s["name"] == "bottom_w")["p0"][1]
+
+    def outline(geometry):
+        points = [p for wall in geometry["walls"] for p in wall]
+        return [max(c) - min(c) for c in zip(*points)]
+
+    assert plain["reward_sites"]["start"][1] == bottom(plain)
+    assert lifted["reward_sites"]["start"][1] - bottom(lifted) == pytest.approx(START_OFFSET, abs=TOLERANCE)
+    assert outline(lifted) == pytest.approx(outline(plain), abs=TOLERANCE)
+    assert outline(lifted) == pytest.approx(lifted["params"]["envelope"], abs=TOLERANCE)
 
 
 def test_the_circle_is_given_for_the_open_arena_only(folder):

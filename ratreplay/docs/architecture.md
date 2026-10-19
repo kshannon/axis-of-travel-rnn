@@ -179,6 +179,7 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
   to the fill limit, held when still, else missing), stops, cut points (pauses, gaps, jumps with
   margins, epoch bounds), spans (heading lost, filled, held, margins), occupancy, initial blocks, and
   the rules it used. What the Replay page draws, and what `apply` reads its rules from.
+  The registration records the measured start offset (start site to bottom corridor peak, in metres).
 - `apply(blocks, edits, session)`: the edit legality rules (no overlap with a kept block, no kept block
   under the minimum length, no block outside its epoch, no edit on a removed block, a moved edge snaps
   to a run edge within `snap_s`), the resulting blocks and the refusals with reasons.
@@ -534,7 +535,7 @@ run on real data).
    `windows.json`, Rebuild all with its confirmation, later the synthetic sets, and the processed data
    format collapsed at the bottom.
 7. Environments: every environment with its parameters, its geometry drawn, and per built session the
-   registration it was given (scale, rotation, LED separation and offset, warnings), read only.
+   registration it was given (scale, measured start offset, rotation, LED separation and offset, warnings), read only.
 8. About: what the tool is and the rules it follows, the process and how to use it, what each action
    writes, and "Under the hood", the internal routes the browser uses as a cheat sheet (not a public API).
 

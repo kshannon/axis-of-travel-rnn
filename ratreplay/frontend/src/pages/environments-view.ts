@@ -68,6 +68,8 @@ export const rowId = (row: RegisteredSession): string => `${row.session_id}/${ro
 const scaleText = (r: RegisteredSession) =>
   r.scale_x === undefined ? oneDecimal(r.scale_px_per_m) : `${oneDecimal(r.scale_px_per_m)} (x ${oneDecimal(r.scale_x)}, y ${oneDecimal(r.scale_y!)})`;
 
+const startText = (r: RegisteredSession) => (r.start_offset_measured_m === undefined ? "" : r.start_offset_measured_m.toFixed(2));
+
 /** The chip's text, how many warnings the session's build gave. */
 export const warningsText = (r: RegisteredSession): string => String(r.warnings.length);
 
@@ -75,6 +77,7 @@ export const COLUMNS: readonly Column<RegisteredSession>[] = [
   { key: "session", label: "Session", value: (r) => r.session_id, text: (r) => r.session_id },
   { key: "kind", label: "Epoch", value: (r) => r.kind, text: (r) => r.kind },
   { key: "scale", label: "Scale, px per m", value: (r) => r.scale_px_per_m, text: scaleText, numeric: true },
+  { key: "start", label: "Start above bottom corridor, m", value: (r) => r.start_offset_measured_m ?? null, text: startText, numeric: true },
   { key: "rotation", label: "Rotation, deg", value: (r) => r.rotation_rad, text: (r) => angleText(r.rotation_rad), numeric: true },
   { key: "led", label: "LED separation, cm", value: (r) => r.led_separation_m, text: (r) => oneDecimal(r.led_separation_m * CM_PER_M), numeric: true },
   {
@@ -129,13 +132,15 @@ export function circularRange(angles: number[]): { from: number; to: number } {
   return { from: from - shift, to: (last >= from ? last : last + FULL_TURN) - shift };
 }
 
-/** The line over a table: how many sessions, the ranges of scale, rotation and LED separation over them, and how many carry a warning. Nothing else, no medians. */
+/** The line over a table: how many sessions, the ranges of scale, start above the bottom corridor (track rows only), rotation and LED separation over them, and how many carry a warning. Nothing else, no medians. */
 export function rangesLine(sessions: RegisteredSession[], summary: EnvironmentEntry["summary"]): string {
   if (!sessions.length) return "";
   const rotation = circularRange(sessions.map((r) => r.rotation_rad * DEGREES_PER_RADIAN));
+  const starts = sessions.flatMap((r) => (r.start_offset_measured_m === undefined ? [] : [r.start_offset_measured_m]));
   return [
     counted(summary.n_sessions, "session"),
     `scale ${spanOf(sessions.map((r) => r.scale_px_per_m), 1)} px per m`,
+    ...(starts.length ? [`start above bottom corridor ${spanOf(starts, 2)} m`] : []),
     `rotation ${range(rotation.from, rotation.to, 1)} deg`,
     `LED separation ${spanOf(sessions.map((r) => r.led_separation_m * CM_PER_M), 1)} cm`,
     `${counted(summary.n_warned, "session")} with a warning`,

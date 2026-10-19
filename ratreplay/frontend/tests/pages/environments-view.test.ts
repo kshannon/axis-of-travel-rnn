@@ -8,7 +8,7 @@ const RAD = Math.PI / 180;
 function registration(session_id: string, extra: Partial<RegisteredSession> = {}): RegisteredSession {
   return {
     session_id, kind: "track", scale_px_per_m: 146.04, led_separation_m: 0.0686, rotation_rad: 0, flip: true, offset_m: [-0.7768, 1.6859], scale_x: 127.02, scale_y: 165.02,
-    led_offset_rad: 3.07, led_offset_r: 0.0218, led_offset_n: 5280, warnings: [], built_at: "2026-10-18T17:48:26+00:00", ...extra,
+    start_offset_measured_m: 0.1523, led_offset_rad: 3.07, led_offset_r: 0.0218, led_offset_n: 5280, warnings: [], built_at: "2026-10-18T17:48:26+00:00", ...extra,
   };
 }
 
@@ -25,15 +25,18 @@ test("the yaml parameters become facts, a list as its items and a nested group u
   ]);
 });
 
-test("a row shows its scale with the two axis estimates on a track only, the angles in degrees, the LED separation in centimetres and the LED offset with its concentration and n", () => {
+test("a row shows its scale with the two axis estimates and its start above the bottom corridor on a track only, the angles in degrees, the LED separation in centimetres and the LED offset with its concentration and n", () => {
   const track = registration("A", { rotation_rad: -2.351 });
-  const arena = registration("A", { kind: "arena", scale_x: undefined, scale_y: undefined });
+  const arena = registration("A", { kind: "arena", scale_x: undefined, scale_y: undefined, start_offset_measured_m: undefined });
   expect(cell("scale", track)).toBe("146.0 (x 127.0, y 165.0)");
   expect(cell("scale", arena)).toBe("146.0");
+  expect([cell("start", track), cell("start", arena)]).toEqual(["0.15", ""]);
+  const start = SORTABLE.find((c) => c.key === "start")!;
+  expect([start.value(track), start.value(arena)]).toEqual([0.1523, null]);
   expect(cell("rotation", track)).toBe("-134.7");
   expect(cell("led", track)).toBe("6.9");
   expect(cell("offset", track)).toBe("175.9, r 0.02, n 5280");
-  expect(COLUMNS.map((c) => c.key)).toEqual(["session", "kind", "scale", "rotation", "led", "offset", "built"]);
+  expect(COLUMNS.map((c) => c.key)).toEqual(["session", "kind", "scale", "start", "rotation", "led", "offset", "built"]);
 });
 
 test("the warnings are a count in the table's chip, each text on its own line in the row's title and in the expanded row's list, and the table sorts on the count", () => {
@@ -55,14 +58,19 @@ test("the shortest arc of angles runs from its start to its end and goes past 18
   expect(line).toContain("rotation 0.0 deg");
 });
 
-test("the ranges line gives the sessions, the ranges of scale, rotation and LED separation and the sessions with a warning, and nothing for an environment without sessions", () => {
+test("the ranges line gives the sessions, the ranges of scale, start above the bottom corridor, rotation and LED separation and the sessions with a warning, and nothing for an environment without sessions", () => {
   const rows = [
-    registration("A", { scale_px_per_m: 145.9, rotation_rad: 170 * RAD, led_separation_m: 0.068 }),
-    registration("B", { scale_px_per_m: 146.04, rotation_rad: -170 * RAD, led_separation_m: 0.0692, warnings: ["x"] }),
+    registration("A", { scale_px_per_m: 145.9, rotation_rad: 170 * RAD, led_separation_m: 0.068, start_offset_measured_m: 0.1523 }),
+    registration("B", { scale_px_per_m: 146.04, rotation_rad: -170 * RAD, led_separation_m: 0.0692, start_offset_measured_m: 0.1871, warnings: ["x"] }),
   ];
-  expect(rangesLine(rows, { n_sessions: 2, n_warned: 1 })).toBe("2 sessions, scale 145.9 to 146.0 px per m, rotation 170.0 to 190.0 deg, LED separation 6.8 to 6.9 cm, 1 session with a warning");
-  expect(rangesLine([rows[0]], { n_sessions: 1, n_warned: 0 })).toBe("1 session, scale 145.9 px per m, rotation 170.0 deg, LED separation 6.8 cm, 0 sessions with a warning");
+  expect(rangesLine(rows, { n_sessions: 2, n_warned: 1 })).toBe("2 sessions, scale 145.9 to 146.0 px per m, start above bottom corridor 0.15 to 0.19 m, rotation 170.0 to 190.0 deg, LED separation 6.8 to 6.9 cm, 1 session with a warning");
+  expect(rangesLine([rows[0]], { n_sessions: 1, n_warned: 0 })).toBe("1 session, scale 145.9 px per m, start above bottom corridor 0.15 m, rotation 170.0 deg, LED separation 6.8 cm, 0 sessions with a warning");
   expect(rangesLine([], { n_sessions: 0, n_warned: 0 })).toBe("");
+});
+
+test("the ranges line leaves the start out when no row has one, an arena or a build made before it was recorded", () => {
+  const arena = registration("A", { kind: "arena", scale_x: undefined, scale_y: undefined, start_offset_measured_m: undefined });
+  expect(rangesLine([arena], { n_sessions: 1, n_warned: 0 })).toBe("1 session, scale 146.0 px per m, rotation 0.0 deg, LED separation 6.9 cm, 0 sessions with a warning");
 });
 
 test("the shared extent holds every geometry so they are drawn at one scale", () => {

@@ -147,10 +147,20 @@ def test_environments_list_every_yaml_with_the_registration_each_built_session_w
             made, frame = metadata[row["session_id"]], metadata[row["session_id"]]["frame"]
             expected = {**{key: frame[row["kind"]][key] for key in PER_KIND}, **{key: frame[key] for key in PER_SESSION},
                         "warnings": made["warnings"], "built_at": made["built_at"]}
-            axes = {"scale_x": frame["track"]["scale_x_px_per_m"], "scale_y": frame["track"]["scale_y_px_per_m"]} if row["kind"] == "track" else {}
+            axes = {"scale_x": frame["track"]["scale_x_px_per_m"], "scale_y": frame["track"]["scale_y_px_per_m"],
+                    "start_offset_measured_m": frame["track"]["start_offset_measured_m"]} if row["kind"] == "track" else {}
             assert row == {"session_id": row["session_id"], "kind": row["kind"], **expected, **axes}
     assert all(e["summary"] == {"n_sessions": len(e["sessions"]), "n_warned": sum(bool(r["warnings"]) for r in e["sessions"])} for e in found)
     json.dumps(found)
+
+
+def test_a_build_made_before_the_start_offset_was_recorded_shows_its_track_row_without_it(built, manager):
+    path = built[1] / "metadata" / f"{S1}.json"
+    old = json.loads(path.read_text())
+    del old["frame"]["track"]["start_offset_measured_m"]
+    path.write_text(json.dumps(old))
+    rows = {(r["session_id"], r["kind"]): r for r in {e["name"]: e for e in manager.environments()}["triple_t"]["sessions"]}
+    assert "start_offset_measured_m" not in rows[(S1, "track")] and isinstance(rows[(S6, "track")]["start_offset_measured_m"], float)
 
 
 def test_an_excluded_session_has_no_registration_to_show_and_nothing_is_written(built, manager):

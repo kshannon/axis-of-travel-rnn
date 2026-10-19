@@ -424,6 +424,8 @@ export interface RegisteredSession {
   /** The two axis estimates of the scale, on a track only. */
   scale_x?: number;
   scale_y?: number;
+  /** How far up the room's y axis the start site lies over the bottom outer corridor's occupancy peak, in metres, on a track only and missing from a build made before it was recorded. */
+  start_offset_measured_m?: number;
   led_offset_rad: number;
   /** How concentrated the running frames' LED offsets are, 0 to 1. */
   led_offset_r: number;

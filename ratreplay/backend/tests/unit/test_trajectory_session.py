@@ -8,13 +8,14 @@ import numpy as np
 import process_lab_data.__main__ as processor
 import pytest
 from axis_of_travel_rnn import trajectory
-from fixtures import S1, S2, S3, S4, S5, S6
+from fixtures import CIRCLE_PX, S1, S2, S3, S4, S5, S6
 from process_lab_data import frame as old_frame
 from process_lab_data import select
 
 from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
+from ratreplay_api.engines.trajectory import frame as new_frame
 from ratreplay_api.engines.trajectory import heading as new_heading
 from ratreplay_api.engines.trajectory import kinematics as new_kinematics
 from ratreplay_api.utilities.errors import Invalid
@@ -26,6 +27,10 @@ SESSION_KEYS = {"rules", "session_id", "rate_hz", "n_frames", "epochs", "runs", 
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end")
 STILL_FRAMES, LOST_FRAMES = slice(2999, 3399), slice(3049, 3299)
 CUT_KEYS = ("pauses", "jumps", "gaps", "margins")
+# The fixtures' rat circles CIRCLE_PX about (300, 200) in front light pixels, the mashup position being 5 px behind that, and the processor
+# never measured the start offset, so the engine's registration is the processor's with this one key added to the track.
+CIRCLE_CENTRE_PX = np.array([295.0, 200.0])
+ADDED_KEY = "start_offset_measured_m"
 
 
 def loaded(transformed, sid):
@@ -192,7 +197,8 @@ def test_the_registration_equals_the_processors_and_the_positions_are_its_conver
     session = TrajectoryEngine().session(found, environment, RULES)
     frames, epochs = found["arrays"], processor_epochs(transformed, sid)
     assert session["epochs"] == epochs
-    assert session["frame"] == old_frame.frame_parameters(frames, epochs, found["runs"])
+    without = {**session["frame"], "track": {key: value for key, value in session["frame"]["track"].items() if key != ADDED_KEY}}
+    assert without == old_frame.frame_parameters(frames, epochs, found["runs"])
     assert ("arena" in session["frame"]) == (sid == S1)
     x, y = session["kinematics"]["x"], session["kinematics"]["y"]
     for epoch in epochs:
@@ -201,6 +207,29 @@ def test_the_registration_equals_the_processors_and_the_positions_are_its_conver
         np.testing.assert_array_equal([x[here], y[here]], expected)
     registered = np.any([old_frame.inside(frames, e) for e in epochs], axis=0)
     assert np.isfinite(x[registered]).all() and np.isnan(x[~registered]).all()
+
+
+@pytest.mark.parametrize("sid", [S1, S6])
+def test_the_measured_start_offset_is_the_start_over_the_bottom_of_the_fixtures_circle(transformed, sid):
+    found, environment = loaded(transformed, sid)
+    registration = TrajectoryEngine().session(found, environment, RULES)["frame"]
+    track, start_px = registration["track"], registration["start_px"]
+    # The bottom outer peak of a circle lies a radius under its centre in the room axes (camera y flipped, track rotation taken out). The peak
+    # is the centroid of its smoothing bins, which sit on the side of the extreme the rat visits, so it may lie half their window inside it.
+    dx, dy = np.array(start_px) - CIRCLE_CENTRE_PX
+    expected_px = CIRCLE_PX + dx * np.sin(track["rotation_rad"]) - dy * np.cos(track["rotation_rad"])
+    window_px = RULES["peak_smooth_bins"] * RULES["histogram_bin_px"] / 2
+    assert track[ADDED_KEY] * track["scale_px_per_m"] == pytest.approx(expected_px, abs=window_px)
+    assert ADDED_KEY not in registration.get("arena", {})
+
+
+def test_the_measured_start_offset_of_a_hand_made_track_is_the_start_height_over_the_bottom_corridor_and_negative_under_it():
+    # Two corridors of running frames at 100 and 900 px up the room's y axis, the camera's y pointing down, 200 px per metre, no rotation.
+    spread = np.repeat(np.arange(-4.0, 5.0), 50)
+    axes = (np.zeros(2 * len(spread)), np.concatenate([100 + spread, 900 + spread]))
+    one_bin_m = RULES["histogram_bin_px"] / 200
+    assert new_frame.start_offset_measured(axes, (0.0, -400.0), 0.0, 200.0, RULES) == pytest.approx(1.5, abs=one_bin_m)
+    assert new_frame.start_offset_measured(axes, (0.0, -50.0), 0.0, 200.0, RULES) == pytest.approx(-0.25, abs=one_bin_m)
 
 
 def test_the_kinematics_equal_the_projects_inside_each_initial_block(transformed):

@@ -119,25 +119,27 @@ def build_plus_maze(params, room, name):
 
 def build_triple_t(params, room, name):
     """
-    The triple-T track of Olson et al. 2017, squared to the room: a stem, two crossbars, four goal approaches and the perimeter return.
+    The triple-T track of Olson et al. 2017, squared to the room: a stem, two crossbars, four goal approaches and the perimeter return, the start site start_offset up the stem from the bottom corridor.
     """
     width = params["corridor_width"]
     half = width / 2.0
     stem, cross, rise, reach = params["run_segments"]
     env_x, env_y = params["envelope"]
+    start_offset = params.get("start_offset", 0.0)
     cx = room[0] / 2.0
     x0, y0 = (room[0] - env_x) / 2.0, (room[1] - env_y) / 2.0
 
     side_gap = env_x / 2.0 - (cross + reach) - half - width
-    connector = env_y - (stem + rise) - width
+    connector = env_y - (start_offset + stem + rise) - width
     if side_gap <= MIN_CLOSURE or connector <= MIN_CLOSURE:
         raise ValueError(f"geometry does not close: gap={side_gap:.3f} conn={connector:.3f}")
 
     yb, yt = y0 + half, y0 + env_y - half
     xl, xr = x0 + half, x0 + env_x - half
 
-    start = [cx, yb]
-    t1 = [cx, yb + stem]
+    foot = [cx, yb]
+    start = [cx, yb + start_offset]
+    t1 = [cx, start[1] + stem]
     cross_e, cross_w = [cx + cross, t1[1]], [cx - cross, t1[1]]
     up_e, up_w = [cross_e[0], t1[1] + rise], [cross_w[0], t1[1] + rise]
     gy = up_e[1]
@@ -145,7 +147,7 @@ def build_triple_t(params, room, name):
              "g_ww": [cross_w[0] - reach, gy], "g_we": [cross_w[0] + reach, gy]}
 
     centerline = [
-        segment("stem", start, t1),
+        segment("stem", foot, t1),
         segment("cross_e", t1, cross_e), segment("cross_w", t1, cross_w),
         segment("up_e", cross_e, up_e), segment("up_w", cross_w, up_w),
         segment("approach_ee", up_e, goals["g_ee"]), segment("approach_ew", up_e, goals["g_ew"]),
@@ -157,7 +159,7 @@ def build_triple_t(params, room, name):
     for i in range(len(top_x) - 1):
         centerline.append(segment(f"top_{i}", [top_x[i], yt], [top_x[i + 1], yt]))
     centerline += [segment("side_w", [xl, yb], [xl, yt]), segment("side_e", [xr, yb], [xr, yt]),
-                   segment("bottom_w", [xl, yb], start), segment("bottom_e", start, [xr, yb])]
+                   segment("bottom_w", [xl, yb], foot), segment("bottom_e", foot, [xr, yb])]
 
     return {"name": name, "kind": "triple_t", "room": list(room), "boundary": None,
             "walls": corridor_walls(centerline, width), "centerline": centerline,
