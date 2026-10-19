@@ -2,22 +2,16 @@
 The processed folder: the reviews, the built blocks with their index and metadata, and the selected window settings.
 """
 
-import json
-import re
-
-import pyarrow as pa
-
 from ..utilities import paths, tables
+from ..utilities.blocks import BLOCK_SCHEMA, BLOCKS_CSV, BLOCKS_CSV_SCHEMA, BLOCKS_DIR
 from ..utilities.errors import Invalid, NotFound
+from ..utilities.files import JSON, PARQUET, TEMP, columns_of, read_json, require, safe_stem, temp_of, write_json
 
 # The layout (docs/architecture.md, Resources on disk). A file being written has the temporary suffix until it is renamed.
-BLOCKS_CSV = "blocks.csv"
-BLOCKS_DIR = "blocks"
+# The block files are the shared block format of utilities/blocks.py.
 REVIEW_DIR = "review"
 METADATA_DIR = "metadata"
 WINDOWS = "windows.json"
-JSON, PARQUET, TEMP = ".json", ".parquet", ".tmp"
-SAFE_STEM = re.compile(r"\w[\w.-]*")
 
 # The review file: its keys, the value a key takes when a file written before the key existed lacks it, the keys and statuses of each
 # of its blocks, and the fields each edit carries. A session is excluded when the person said so (excluded, a bool), and excluded_by
@@ -35,51 +29,6 @@ EDIT_FIELDS = {"accept": (), "confirm": ("frame",), "move": ("frame", "edge", "a
 # the session, which writes no blocks), and what selecting the window settings records.
 METADATA_KEYS = ("rules", "settings", "review_stamp", "code_version", "built_at", "windows", "frame", "warnings", "failed", "excluded")
 WINDOWS_KEYS = ("settings", "totals", "selected_at", "selected_by")
-
-# A block parquet holds the lab frame number first, so a row maps back to the converter's frames, then one row per frame
-# of the trajectory. The blocks csv holds one wide row per block: the block and its session, where it lies, what it holds,
-# how its heading was filled, how it was reviewed and the frame parameters and kinematics version it was built under.
-BLOCK_SCHEMA = pa.schema([
-    ("frame", pa.int32()), ("t", pa.float64()), ("x", pa.float64()), ("y", pa.float64()), ("heading", pa.float64()),
-    ("speed", pa.float64()), ("turn_rate", pa.float64()), ("n_lights", pa.int8()), ("heading_filled", pa.bool_()),
-    ("heading_held", pa.bool_()), ("filled_front", pa.bool_()), ("filled_back", pa.bool_()), ("phase", pa.string()),
-    ("trip", pa.int32()), ("run", pa.int32()), ("path_id", pa.int16()), ("clean", pa.bool_()),
-])
-BLOCKS_CSV_SCHEMA = pa.schema([
-    ("block_id", pa.string()), ("session_id", pa.string()), ("subject_id", pa.string()), ("date", pa.string()),
-    ("protocol", pa.string()), ("environment", pa.string()), ("epoch", pa.string()), ("kind", pa.string()),
-    ("frame_start", pa.int64()), ("frame_end", pa.int64()), ("n_frames", pa.int64()), ("duration_s", pa.float64()), ("rate_hz", pa.int64()),
-    ("n_runs", pa.int64()), ("n_clean_runs", pa.int64()), ("n_trips", pa.int64()), ("n_complete_trips", pa.int64()),
-    ("heading_lost_s", pa.float64()), ("heading_filled_s", pa.float64()), ("heading_held_s", pa.float64()),
-    ("status", pa.string()), ("reviewed_by", pa.string()),
-    ("scale_px_per_m", pa.float64()), ("rotation_rad", pa.float64()), ("led_offset_rad", pa.float64()),
-    ("kinematics_version", pa.int64()),
-])
-
-
-def columns_of(schema):
-    """
-    The Arrow schema's columns as the format lists them, name and type, every one required.
-    """
-    return [{"name": field.name, "type": str(field.type), "required": True} for field in schema]
-
-
-def require(what, keys, found):
-    """
-    Invalid naming the keys the dict lacks, nothing when it has them all.
-    """
-    missing = [key for key in keys if key not in found]
-    if missing:
-        raise Invalid(f"{what} lacks {', '.join(missing)}")
-
-
-def safe_stem(name):
-    """
-    The name when it can stand as a file name inside a folder of the root, else Invalid.
-    """
-    if not SAFE_STEM.fullmatch(str(name)):
-        raise Invalid(f"{name} is not a safe file name")
-    return name
 
 
 def check_review(sid, review):
@@ -105,28 +54,6 @@ def check_block(sid, block):
     if block["row"]["session_id"] != sid:
         raise Invalid(f"block {block['row']['block_id']} is of session {block['row']['session_id']}, not {sid}")
     safe_stem(block["row"]["block_id"])
-
-
-def temp_of(path):
-    """
-    The temporary name a file is written under before it is renamed into place.
-    """
-    return path.with_name(path.name + TEMP)
-
-
-def read_json(path):
-    """
-    The json file as data, none when it does not exist.
-    """
-    return json.loads(path.read_text()) if path.is_file() else None
-
-
-def write_json(obj, path):
-    """
-    Write obj as sorted, indented json with a trailing newline, creating the parent folders.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n")
 
 
 class ProcessedAccess:

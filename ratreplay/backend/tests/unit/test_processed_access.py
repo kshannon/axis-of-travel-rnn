@@ -9,7 +9,8 @@ import pyarrow as pa
 import pytest
 from fixtures import S1, S6
 
-from ratreplay_api.access.processed import BLOCK_SCHEMA, BLOCKS_CSV_SCHEMA, ProcessedAccess
+from ratreplay_api.access.processed import ProcessedAccess
+from ratreplay_api.utilities.blocks import BLOCK_SCHEMA, BLOCKS_CSV_SCHEMA
 from ratreplay_api.utilities import tables
 from ratreplay_api.utilities.errors import Invalid, NotFound
 

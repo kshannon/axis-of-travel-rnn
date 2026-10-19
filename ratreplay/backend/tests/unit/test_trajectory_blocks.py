@@ -16,7 +16,8 @@ from process_lab_data import output as old_output
 
 import ratreplay_api.engines.trajectory.session as session_module
 from ratreplay_api.access.environment import EnvironmentAccess
-from ratreplay_api.access.processed import BLOCK_SCHEMA, BLOCKS_CSV_SCHEMA, METADATA_KEYS, ProcessedAccess
+from ratreplay_api.access.processed import METADATA_KEYS, ProcessedAccess
+from ratreplay_api.utilities.blocks import BLOCK_SCHEMA, BLOCKS_CSV_SCHEMA
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine, build, heading, labels
 
