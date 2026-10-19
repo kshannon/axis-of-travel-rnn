@@ -2,7 +2,7 @@
 TrajectoryEngine: the one contract for selecting, cutting, labelling and windowing trajectories, six operations over arrays with every rule a parameter.
 """
 
-from . import build, funnel, session, windows
+from . import build, funnel, recipe, session, windows
 from .edits import apply_edits
 
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
@@ -119,8 +119,8 @@ class TrajectoryEngine:
         """
         return windows.windows(block, settings, rules)
 
-    def recipe(self, blocks):
+    def recipe(self, blocks, environment, rules):
         """
-        The statistics the generator fits and the numbers real and synthetic blocks are compared on.
+        The statistics the generator fits and the numbers real and synthetic blocks are compared on, keyed by kind (arena, track) from a list of blocks (each a row and arrays), the geometry of their environments by name and the rules they were built with, JSON ready, {} for no blocks.
         """
-        raise NotImplementedError("task E5")
+        return recipe.recipe(blocks, environment, rules)

@@ -37,11 +37,11 @@ TRAJECTORY = {
     "funnel": (("tables", "rules"), "E1"),
     "session": (("arrays", "environment", "rules"), "E1"), "apply": (("blocks", "edits", "session"), "E2"),
     "blocks": (("arrays", "review", "environment", "rules"), "E3"), "windows": (("block", "settings", "rules"), "E4"),
-    "recipe": (("blocks",), "E5"),
+    "recipe": (("blocks", "environment", "rules"), "E5"),
 }
-GENERATOR = {"session": (("recipe", "environment", "seed", "length"), "E6")}
+GENERATOR = {"session": (("recipe", "environments", "camera", "seed", "length_s", "session_id", "date"), "E6")}
 ENGINES = ((TrajectoryEngine, TRAJECTORY), (GeneratorEngine, GENERATOR))
-DONE = ("E1", "E2", "E3", "E4")
+DONE = ("E1", "E2", "E3", "E4", "E5", "E6")
 
 
 def test_every_rule_equals_the_project_constant_it_comes_from():
