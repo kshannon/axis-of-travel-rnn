@@ -8,19 +8,18 @@ export const HEAD_DIR = { lost: "missing", filled: "interpolated by RatReplay", 
 
 /**
  * The layers of the frames lane that a checkbox toggles, each with the colour it is drawn in and its toggle dot shows. A
- * colour is a CSS variable of the theme, so the dot and the lane follow the theme: orange for what is wrong with the
- * tracking, blue for what RatReplay filled in, muted violet for the stripes of what the lab lost, the margins in silver on
- * the dark theme and black on the light. The words say whose work it is. A pause is no layer, it is dead time and is
- * always drawn as a break across every lane.
+ * colour is a CSS variable of the theme, one per layer and borrowed from no bar, so the dot and the lane follow the theme
+ * and a layer is told from the others, the trips and the blocks at a glance. The words say whose work it is. A pause is
+ * no layer, it is dead time and is always drawn as a break across every lane.
  */
 export const LAYERS: readonly { key: LayerKey; label: string; colour: string }[] = [
-  { key: "gaps", label: "tracking lost", colour: "var(--trip)" },
-  { key: "jumps", label: "position jumped", colour: "var(--bad)" },
-  { key: "margins", label: "margins trimmed", colour: "var(--margin)" },
-  { key: "lost", label: `head dir ${HEAD_DIR.lost}`, colour: "var(--bad)" },
-  { key: "filled", label: `head dir ${HEAD_DIR.filled}`, colour: "var(--accent)" },
-  { key: "held", label: `head dir ${HEAD_DIR.held}`, colour: "var(--soft)" },
-  { key: "speed", label: "speed", colour: "var(--ink)" },
+  { key: "gaps", label: "tracking lost", colour: "var(--lost)" },
+  { key: "jumps", label: "position jumped", colour: "var(--jumped)" },
+  { key: "margins", label: "margins trimmed", colour: "var(--trimmed)" },
+  { key: "lost", label: `head dir ${HEAD_DIR.lost}`, colour: "var(--hd-missing)" },
+  { key: "filled", label: `head dir ${HEAD_DIR.filled}`, colour: "var(--hd-filled)" },
+  { key: "held", label: `head dir ${HEAD_DIR.held}`, colour: "var(--hd-held)" },
+  { key: "speed", label: "speed", colour: "var(--speed)" },
 ];
 
 export const colourOf = (key: LayerKey): string => LAYERS.find((layer) => layer.key === key)!.colour;

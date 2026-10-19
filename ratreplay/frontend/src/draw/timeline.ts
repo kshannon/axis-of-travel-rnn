@@ -390,7 +390,7 @@ export class Timeline {
   }
 
   /** The speed as a thin trace, the mean of the frames under each pixel so a long recording still draws in a few thousand points. */
-  private drawSpeed(ctx: CanvasRenderingContext2D, scale: Scale, { values, top: speedTop }: Extract<FrameLayer, { kind: "trace" }>): void {
+  private drawSpeed(ctx: CanvasRenderingContext2D, scale: Scale, { values, top: speedTop, colour }: Extract<FrameLayer, { kind: "trace" }>): void {
     const { top, bottom } = this.bands[FRAMES_LANE];
     const [from, to] = scale.domain();
     const first = Math.max(0, Math.floor(from * this.rate));
@@ -398,7 +398,7 @@ export class Timeline {
     const step = Math.max(1, Math.ceil((last - first + 1) / (this.width - PLOT.left - PLOT.right)));
     // The trace is cut at every pause: the index of the first frame after each ends a stretch, and no bin reaches across one.
     const edges = [first, ...this.scene!.breaks.map((frame) => frame - 1).filter((index) => index > first && index <= last), last + 1];
-    ctx.strokeStyle = withAlpha(this.colours.ink, SPEED_ALPHA);
+    ctx.strokeStyle = withAlpha(colourOf(this.colours, colour), SPEED_ALPHA);
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let part = 0; part + 1 < edges.length; part++) {

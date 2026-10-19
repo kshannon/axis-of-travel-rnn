@@ -70,7 +70,7 @@ function frameLayers(header: BlockHeader, speed: Float64Array, speedTop: number)
     band(header.one_light, ONE_LIGHT_COLOUR, 1 - 2 * HEADING_BAND, 1 - HEADING_BAND),
     band(header.heading_filled, colourOf("filled"), 1 - HEADING_BAND, 1),
     band(header.heading_held, colourOf("held"), 1 - HEADING_BAND, 1),
-    { kind: "trace", values: speed, top: speedTop },
+    { kind: "trace", values: speed, top: speedTop, colour: colourOf("speed") },
   ];
 }
 

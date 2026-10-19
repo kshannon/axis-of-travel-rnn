@@ -67,7 +67,7 @@ export interface Bar {
 export type FrameLayer =
   | { kind: "span"; spans: Span[]; colour: string; alpha: number; from: number; to: number; hatched?: boolean }
   | { kind: "tick"; frames: number[]; colour: string; to: number }
-  | { kind: "trace"; values: Float64Array; top: number };
+  | { kind: "trace"; values: Float64Array; top: number; colour: string };
 
 /**
  * Everything a timeline draws: its lanes, the bars and the frames lane's layers over a recording of `nFrames` at `rateHz`. `breaks`

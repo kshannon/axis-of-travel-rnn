@@ -47,7 +47,7 @@ test("a block not judged yet is the same blue as a confirmed one but fainter", (
 });
 
 test("the margins are a theme colour drawn fainter than the bars, so the cut under them shows", () => {
-  const margins = scene([]).frames.find((layer) => layer.kind === "span" && layer.colour === "var(--margin)");
+  const margins = scene([]).frames.find((layer) => layer.kind === "span" && layer.colour === "var(--trimmed)");
   expect(margins).toMatchObject({ kind: "span", spans: [[21, 30]] });
   expect((margins as { alpha: number }).alpha).toBeLessThan(0.8);
 });
@@ -73,9 +73,9 @@ test("no span of the frames lane runs across a pause: the lost heading, the lost
   expect(spans).toContainEqual([2690, 2700]);
 });
 
-test("the lost tracking is a striped span in the muted violet, and no other layer is striped", () => {
+test("the lost tracking is a striped span in its own colour, and no other layer is striped", () => {
   const gaps = scene([]).frames.find((layer) => layer.kind === "span" && layer.hatched);
-  expect(gaps).toMatchObject({ colour: "var(--trip)", spans: [[10, 20]] });
+  expect(gaps).toMatchObject({ colour: "var(--lost)", spans: [[10, 20]] });
   expect(scene([]).frames.filter((layer) => layer.kind === "span" && layer.hatched)).toHaveLength(1);
 });
 

@@ -23,15 +23,28 @@
   --ok: #14773e;
   --warn: #9a5b00;
   --bad: #c73c00;
-  /* What the timeline lanes draw: the margins beside a cut (dark on the light theme), the grey of what is neither good nor bad, the two epochs and the paler shade of the accent (the return runs). */
-  --margin: #0b0d0f;
+  /* What the timeline lanes draw: the grey of what is neither good nor bad, the two epochs and the paler shade of the accent (the return runs). */
   --neutral: #7f8e99;
   --arena: #8e9ca6;
   --track: #66757f;
   --soft: #3f9fd0;
-  /* The cursor of the timelines and the trips and lost tracking, apart from the accent and the problem colour. */
+  /* The cursor of the timelines and the trips, apart from the accent and the problem colour. */
   --cursor: #6d28d9;
   --trip: #9987c0;
+  /*
+   * The seven layers of the frames lane, each its own colour so one is told from the others and from the trips, the cursor and
+   * the ok green at a glance: tests/ui/palette.test.ts asserts 3:1 on the card and a CIE76 distance of 20 between every pair.
+   * Lost tracking a deep magenta, a jump pink, the trimmed margins grey, the heading missing in the problem orange, filled in
+   * the accent, held in teal, the speed trace in the ink. The heading filled is the accent by value, as that is RatReplay's own
+   * work, and the heading missing is bad by value, as a missing heading is a problem.
+   */
+  --lost: #79007c;
+  --jumped: #d6186a;
+  --trimmed: #686868;
+  --hd-missing: #c73c00;
+  --hd-filled: #0077ae;
+  --hd-held: #0e9f8e;
+  --speed: #0b0d0f;
 }
 
 :root.dark {
@@ -45,13 +58,20 @@
   --ok: #7ed957;
   --warn: #ffc233;
   --bad: #e65c33;
-  --margin: #cdbfa4;
   --neutral: #8a7e6c;
   --arena: #968a77;
   --track: #8a6a2e;
   --soft: #c9bb98;
   --cursor: #b49cfb;
   --trip: #9b7b3a;
+  /* The layers on the Nostromo ground: violet, pink, grey, the problem orange, amber, cyan, cream. */
+  --lost: #a071ff;
+  --jumped: #f92672;
+  --trimmed: #6f6c68;
+  --hd-missing: #e65c33;
+  --hd-filled: #f2a900;
+  --hd-held: #66d9ef;
+  --speed: #f1e6cf;
 }
 
 @theme inline {

@@ -18,8 +18,8 @@ const OTHER_EPOCH_COLOUR = "neutral";
 const BLOCK_FILLS: Record<ReviewBlock["status"], string> = { auto: "accent", confirmed: "ok", edited: "warn", dropped: "muted" };
 
 // How strong the bars are drawn, and in the frames lane the band of the heading layers at the bottom (a fraction of the
-// lane). A margin is a band over the cut it trims, light on the dark theme and dark on the light, fainter than the bars so
-// the cut shows through. The lost tracking is a striped bar, its fill under the stripes this faint.
+// lane). A margin is a grey band over the cut it trims, fainter than the bars so the cut shows through. The lost tracking
+// is a striped bar, its fill under the stripes this faint.
 const BAR_ALPHA = 0.8;
 const AUTO_ALPHA = 0.45;
 const DROPPED_ALPHA = 0.35;
@@ -98,7 +98,7 @@ function frameLayers(header: SessionHeader, layers: Layers, speed: Float64Array,
   return [
     ...span(gaps, "gaps", 0, GAP_ALPHA, true), ...span(margins, "margins", 0, MARGIN_ALPHA),
     ...span(pairs(filled), "filled", 1 - HEADING_BAND), ...span(pairs(held), "held", 1 - HEADING_BAND), ...span(pairs(lost), "lost", 1 - HEADING_BAND),
-    ...(layers.speed ? [{ kind: "trace" as const, values: speed, top: speedTop }] : []),
+    ...(layers.speed ? [{ kind: "trace" as const, values: speed, top: speedTop, colour: colourOf("speed") }] : []),
     ...tick(jumps, "jumps", 1),
   ];
 }

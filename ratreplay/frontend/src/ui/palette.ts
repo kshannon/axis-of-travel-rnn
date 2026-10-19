@@ -1,4 +1,7 @@
-export const PALETTE_NAMES = ["page", "card", "line", "ink", "muted", "accent", "ok", "warn", "bad", "margin", "neutral", "arena", "track", "soft", "cursor", "trip"] as const;
+export const PALETTE_NAMES = [
+  "page", "card", "line", "ink", "muted", "accent", "ok", "warn", "bad", "neutral", "arena", "track", "soft", "cursor", "trip",
+  "lost", "jumped", "trimmed", "hd-missing", "hd-filled", "hd-held", "speed",
+] as const;
 
 export type Palette = Record<(typeof PALETTE_NAMES)[number], string>;
 

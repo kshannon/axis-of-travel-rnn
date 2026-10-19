@@ -12,7 +12,7 @@ const MAP_HELP = `
   <p class="mt-2">The path lying on the drawn geometry is the check of the registration. The dots are the last 2 s of the path coloured by speed, the red dot is the current position and the red arrow the heading after the heading fill and the LED offset.</p>`;
 
 const TIMELINE_HELP = `
-  <p>One time axis in minutes of the block. Runs: dark blue outbound, light blue return, hatched when dirty. Frames: the speed as a grey trace, the yellow band heading filled, the teal band heading held, the grey band above them one light alone giving the position. Trips: purple, hatched when partial.</p>
+  <p>One time axis in minutes of the block. Runs: outbound in the accent, return in its paler shade (blue and light blue on the light theme, amber and sand on the dark), hatched when dirty. Frames: the speed its own faint trace, at the bottom the heading band, blue on the light theme and amber on the dark where RatReplay interpolated it, teal on the light and cyan on the dark where it was held, and the grey band above it one light alone giving the position. Trips: muted violet on the light theme and bronze on the dark, hatched when partial.</p>
   <p class="mt-2">Windows at the settings tested: each window is its burn-in in a lighter shade, the rest of it, and its horizon hatched after it. A window in trouble is red. Windows overlap, so they are staggered in rows. Click a lane to move the cursor. The wheel zooms and a drag pans.</p>`;
 
 const judgedBody = `

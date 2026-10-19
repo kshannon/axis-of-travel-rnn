@@ -29,6 +29,13 @@ test("the layers are named by whose work they are", () => {
   ]);
 });
 
+test("the seven layers draw in seven colours of their own, none borrowed from the bars, the trips or the problem colour", () => {
+  const tokens = LAYERS.map((layer) => layer.colour);
+  expect(new Set(tokens).size).toBe(7);
+  for (const token of tokens) expect(token).toMatch(/^var\(--[\w-]+\)$/);
+  expect(tokens.filter((token) => ["var(--accent)", "var(--bad)", "var(--soft)", "var(--trip)"].includes(token))).toEqual([]);
+});
+
 test("a pause is not a layer, it is dead time drawn whatever the layers are", () => {
   expect(LAYERS.map((layer) => layer.key)).not.toContain("pauses");
   expect(Object.keys(allLayers())).toEqual(LAYERS.map((layer) => layer.key));

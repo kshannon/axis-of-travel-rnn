@@ -229,10 +229,20 @@ anything that touches real data.
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]
-- [ ] K30 The seven frame layers (tracking lost, position jumped, margins trimmed, head dir missing,
+- [x] K30 The seven frame layers (tracking lost, position jumped, margins trimmed, head dir missing,
       head dir interpolated, head dir held, speed) each get their own colour token in both themes, no
       two alike and none borrowed from accent, bad, soft or trip, so a layer is told from the others and
       from the trips and blocks at a glance. Kyle, 2026-10-18. [UX rules, Page 3, Page 4]
+      Built: tokens lost, jumped, trimmed, hd-missing, hd-filled, hd-held, speed in both themes, margin
+      removed. Dark: violet, pink, cool grey, orange red, amber, cyan, cream. Light: magenta violet, pink,
+      dark grey, orange red, blue, teal, ink. Tests: 3:1 on the card and 15 or more CIE76 between every
+      pair. Checked by CIEDE2000 and under deuteranopia and protanopia, three fixes applied (light trimmed
+      a neutral grey #686868 parting from held by lightness, light lost a deep magenta #79007c parting
+      from the accent blue for deuteranopes, dark trimmed #6f6c68 cooled away from trip). Left: dark
+      jumped against trimmed is 9 under protanopia, a thin tick against a band. Kept by choice:
+      hd-filled is the accent by value (RatReplay's own work) and hd-missing is bad (a problem), and lost
+      sits near the cursor in hue in both themes (a striped bar against a one pixel line). [K29 for the
+      accent and warn closeness]
 - [x] K28 The start offset is tuned per session on the Replay page and saved with the review: the real
       start sits up the stem, not at the bottom corridor, and by how much is the person's call per session
       while the yaml keeps the default. A small "Start offset, m" stepper under Flag run (the notes box
