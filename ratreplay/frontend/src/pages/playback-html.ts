@@ -14,7 +14,6 @@ export function playbackBody(tiles: readonly (readonly [label: string, property:
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div class="flex items-center gap-3">
           <button type="button" @click="togglePlay()" ${disabledWhy("loading", "session still loading", "Play or pause")} class="${BUTTON_PRIMARY} w-24" x-text="playing ? 'Pause' : 'Play'"></button>
-          <kbd class="${KBD}" title="press space to play or pause">space</kbd>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-muted">speed</span>
