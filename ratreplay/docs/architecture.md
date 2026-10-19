@@ -82,21 +82,21 @@ Arrows point in the direction of the call.
 ```mermaid
 flowchart TB
     subgraph Clients["Clients (who)"]
-        UI["Web app. Pages as views: Incoming, Settings, Replay, Blocks, Windows, Outgoing, Environments, About, Synthetic later"]
+        UI["Web app. Pages as views: Incoming, Settings, Replay, Blocks, Windows, Synthetic, Quiz, Outgoing, Environments, About"]
     end
     subgraph Managers["Managers (what), stateless classes, one family of use cases each"]
         RM["ReviewManager: index, load, preview edits, save blocks, exclude, rebuild all"]
-        SM["SynthesisManager: generate a set from a recipe, compare, delete a set"]
+        SM["SynthesisManager: generate a set from a recipe, compare, delete a set, the quiz over a set"]
         VM["ValidationManager: folder health, the environments with their registrations, readiness at settings, select the settings, windows of a block, replay a built block"]
     end
     subgraph Engines["Engines (how), stateless classes, one contract each, a few operations"]
         TE["TrajectoryEngine: funnel, session, apply, blocks, windows, recipe"]
-        GE["GeneratorEngine: session(recipe, environment, seed, length)"]
+        GE["GeneratorEngine: session(recipe, environments, camera, seed, length_s, session_id, date)"]
     end
     subgraph RA["ResourceAccess (how, for state), one per resource, schema and validation inside, atomic verbs"]
         TA["TransformedAccess"]
         PA["ProcessedAccess: blocks, metadata, reviews, windows.json"]
-        SA["SyntheticAccess: sets with provenance"]
+        SA["SyntheticAccess: sets with provenance and guesses"]
         EA["EnvironmentAccess"]
     end
     subgraph Resources["Resources (where)"]
@@ -107,9 +107,9 @@ flowchart TB
     end
     subgraph Utilities["Utilities bar, every layer may call, no business meaning"]
         UC["config: reads configs/local.yaml for the composition root"]
-        UT["tables: csv, parquet"]
+        UT["tables: csv, parquet. files: json, temporary names. blocks: the block format"]
         UA["arrow encoding"]
-        UK["clock, paths, ids"]
+        UK["clock, paths, spans"]
     end
 
     UI -->|Sessions, Replay, Rebuild all on Data| RM
@@ -166,6 +166,13 @@ flowchart TB
   constants two layers down, the edit fields from `access.processed` and the default settings from
   `engines.trajectory`, so the API's defaults and the stored format cannot drift apart. The layering
   test pins it to exactly those two. Unknown keys in a body are refused, never dropped.
+- The block format (the parquet and index columns) is shared by two resources, the processed folder and
+  the synthetic sets, so it lives in `utilities/blocks.py` and both accesses read it from there, the
+  json, temporary name and key check helpers beside it in `utilities/files.py`. An access still owns
+  its layout and its own files' schemas (reviews, metadata, provenance, guesses).
+- One named exception to statelessness: SynthesisManager keeps the open quiz pairs in memory under
+  opaque ids, so the page never holds a block id before the reveal. Lost on restart, which only closes
+  the unanswered pairs.
 
 ## Components
 
@@ -199,13 +206,21 @@ One contract, six operations, every rule and threshold a parameter (`rules`, `se
   trip, the rules the block was built with. `settings["rate_hz"]` is the RNN project's resampling rate,
   recorded in `windows.json`, and plays no part here, the arithmetic runs at the block's own rate. The
   verdict rules live here only.
-- `recipe(blocks)`: the statistics the generator fits and the numbers real and synthetic are compared
-  on (speed and turn rate distributions, dwell times, run durations, occupancy).
+- `recipe(blocks, environment, rules)`: the statistics the generator fits and the numbers real and
+  synthetic are compared on, per kind (speed and turn rate distributions, still fraction, heading spread
+  against the per frame step direction, pauses, and on the track run durations, dwell times, trips and
+  goal shares, in the arena the distance to the environment's boundary and the occupancy over its room),
+  the geometry of the blocks' environments given by name so real and synthetic are measured in one frame.
+  An arena pause is a still stretch over `pause_min_s`, since the labels paint no pause in the arena.
 
 ### GeneratorEngine
 
-`session(recipe, environment, seed, length)`: arrays in the transformed schema, from an explicit RNG,
-so SynthesisManager blocks them with the same `TrajectoryEngine.blocks` call as real data.
+`session(recipe, environments, camera, seed, length_s, session_id, date)`: a session in the transformed
+schema (camera pixels, two LEDs, one arena epoch then one track epoch of the lengths asked for, dated
+`date` so a set reproduces from its provenance) from an explicit RNG, so SynthesisManager blocks it with
+the same `TrajectoryEngine.blocks` call as real data. It knows the triple T and the circular arena alone
+and refuses another geometry, and a track recipe it cannot draw a trip from, as Invalid. The behaviour
+it generates is recorded in `docs/plan.md` (Synthetic slice design).
 
 ### ReviewManager
 
@@ -242,11 +257,21 @@ in `ProcessedAccess.review`).
 
 ### SynthesisManager
 
-`index()`, `generate(source sessions, generator parameters, seed, length, settings)`,
-`delete_set(set id)`. Generate reads the source blocks, fits the recipe, generates, blocks and windows
-the result with the same engine calls as real data, computes the recipe of the synthetic blocks for the
-comparison, and writes the set with its provenance (source sessions, recipe, generator parameters,
-seed, rules, settings, code version).
+`index()`, `set(set id)`, `generate(sources, seed, length_s, settings)`, `delete_set(set id)`, and the
+quiz: `pair(set id, kind)`, `pair_block(pair id, side)`, `pair_arrays(pair id, side)`, `guess(set id,
+pair id, side)`, `tally(set id)`, `guesses(set id)`. Generate reads the source blocks, fits the recipe
+over their environments, generates under the first source's camera and environments, blocks the result
+with the same engine call as real data, computes the recipe of the synthetic blocks for the comparison,
+and writes the set with its provenance (sources, environments, camera, seed, lengths, rules, settings,
+code and generator versions, both recipes, warnings, the blocks that failed and were not written). The
+settings are recorded only: readiness on `set:{id}` windows the set's blocks on demand, as it does real
+ones. A pair holds one real block of the set's sources and one synthetic block of one kind, the real one
+on a side drawn at random, the real one taken from the environment the set was generated in so both
+backdrops are one, and the two sides are served with only what the quiz player draws (`x`, `y`,
+`heading`, `speed`, the kind, environment, length and rate, the geometry): no ids, runs, trips, phases,
+fills, lights, registration or `t` (which a real block keeps from its place in the session), any of
+which would tell the sides apart. A guess closes the pair,
+is appended to the set's `guesses.json` and returns the reveal with the set's tally.
 
 ### ValidationManager
 
@@ -269,8 +294,10 @@ refused while nothing is built. Selected reads it back.
   review)`, `blocks()`, `block(block id)`, `metadata(sid)`, `write_blocks(sid, blocks, metadata)`
   (a session's blocks, index rows and metadata replaced whole, through temporary names and a rename),
   `window_settings()`, `write_window_settings(settings)`.
-- `SyntheticAccess(root)`: `health()`, `sets()`, `blocks(set id)`, `block(set id, block id)`,
-  `write_set(set id, blocks, provenance)`, `delete_set(set id)`.
+- `SyntheticAccess(root)`: `health()`, `schema()`, `sets()`, `set(set id)` (the provenance),
+  `blocks(set id)`, `block(set id, block id)`, `find_block(block id)` (the set holding it),
+  `write_set(set id, blocks, provenance)` (whole, through a temporary folder and a rename, refused when
+  the set exists), `delete_set(set id)`, `guesses(set id)`, `write_guess(set id, guess)`.
 - `EnvironmentAccess(root)`: `health()`, `environments()`, `environment(name)` from
   `configs/environments/*.yaml`. The yaml is the compact definition (type, room, params, or a base and a
   transform) and expanding it into walls, centerline, boundary and reward sites is part of reading the
@@ -282,8 +309,10 @@ Each access reports its root as a fact for the Data page, never its layout.
 ### Utilities
 
 `config` (reads `configs/local.yaml`, returns a key's value or a named error, knows nothing about the
-keys), `tables` (csv and parquet in and out), `arrow` (numpy dict to an Arrow IPC stream), `clock`,
-`paths`, `ids`. Nothing else until a second system needs it.
+keys), `tables` (csv and parquet in and out), `files` (json in and out, temporary names, safe stems,
+required keys), `blocks` (the block format both block folders share), `arrow` (numpy dict to an Arrow
+IPC stream), `spans` (stretches of equal values as indices), `clock`, `paths`, `version`, `errors`.
+Nothing else until a second system needs it.
 
 ## The core use cases as call chains
 
@@ -334,19 +363,25 @@ sequenceDiagram
     participant TE as TrajectoryEngine
     participant GE as GeneratorEngine
     participant SA as SyntheticAccess
-    P->>SM: generate(source sessions, generator params, seed, length, settings)
-    SM->>PA: blocks(source sessions)
-    SM->>TE: recipe(real blocks)
-    SM->>EA: environment(name)
-    SM->>GE: session(recipe, environment, seed, length): arrays in the transformed schema
+    P->>SM: generate(sources, seed, length_s, settings)
+    SM->>PA: blocks(), block(id) for the sources, metadata(first source) for the camera
+    SM->>EA: environment(name) for the blocks' environments
+    SM->>TE: recipe(real blocks, environments, rules)
+    SM->>GE: session(recipe, environments, camera, seed, length_s, set id, date): arrays in the transformed schema
     SM->>TE: blocks(arrays, no review, environment, rules): same call as real data
-    SM->>TE: windows(block, settings, rules) for each block
-    SM->>TE: recipe(synthetic blocks): the same statistics, for the comparison
-    SM->>SA: write_set(set id, blocks, provenance with both recipes)
-    SM-->>P: result: set id, n blocks, the comparison table
+    SM->>TE: recipe(synthetic blocks, environments, rules): the same statistics, for the comparison
+    SM->>SA: write_set(set id, kept blocks, provenance with both recipes and the failed blocks)
+    SM-->>P: result: set id, built, failed, warnings, kinds
+    P->>SM: set(set id): the provenance, both recipes side by side, the block rows
     P->>SM: delete_set(set id)
     SM->>SA: delete_set(set id)
 ```
+
+The quiz over a set: `pair(set id, kind)` draws one real block of the sources (`PA.blocks()`) and one
+synthetic block of the set (`SA.blocks(set id)`) and keeps them in memory under an opaque pair id, the
+page reads each side (`pair_block`, `pair_arrays`, from `PA.block` or `SA.block`) with nothing that tells
+them apart, and `guess(set id, pair id, side)` writes the guess (`SA.write_guess`), closes the pair and
+reveals it with the tally (`SA.guesses`).
 
 ### 3. Judge readiness at window settings and select them
 
@@ -427,7 +462,8 @@ file in tests). Edit the file and press Reload on the Data page to change a fold
                    metadata/{sid}.json          rules, settings, review stamp, code version, built at, and per
                                                 block the window count and verdict at those settings (informative)
                    windows.json                 the selected window settings, readiness totals, when, by whom
-    synthetic/     sets/{set_id}/blocks/{block_id}.parquet, blocks.csv, provenance.json
+    synthetic/     sets/{set_id}/blocks/{block_id}.parquet, blocks.csv, provenance.json   one generated session, blocked, written whole
+                   sets/{set_id}/guesses.json   the quiz guesses against the set, appended one at a time, absent before the first
     configs/environments/{name}.yaml            the compact definition of each environment
 
 A session's processed files are staged under temporary names and renamed into place in one short pass,
@@ -453,9 +489,9 @@ FastAPI on 127.0.0.1, one process, no database.
     engines/generator.py      GeneratorEngine
     access/transformed.py     TransformedAccess, with the transformed schema
     access/processed.py       ProcessedAccess, with the review, block, metadata and windows.json schemas
-    access/synthetic.py       SyntheticAccess, with the set and provenance schemas
+    access/synthetic.py       SyntheticAccess, with the set, provenance and guess schemas
     access/environment.py     EnvironmentAccess, with environment_builders.py as its private helper
-    utilities/                config, tables, arrow, clock, paths, ids, errors (the error shape)
+    utilities/                config, tables, files, blocks (the shared block format), arrow, spans, clock, paths, version, errors (the error shape)
 
 The old `src/process_lab_data` and `src/axis_of_travel_rnn.windows` are not imported: their science is
 moved into `engines/trajectory/` and they are removed once a real dataset has been built with this tool.
@@ -486,8 +522,14 @@ query parameters on GET and in the body otherwise.
     GET  /api/blocks/{bid}                   header: row with rate_hz, environment geometry, runs, trips, phases, heading spans (and /arrays as Arrow)
     GET  /api/blocks/{bid}/windows           window rows with their checks at settings
     GET  /api/windows   PUT /api/windows     the selection {"selected": windows.json or null}, and select (returns replaced and file)
-    GET  /api/sets   POST /api/sets          synthetic sets, and generate one (body: sources, params, seed, length, settings)
+    GET  /api/sets   POST /api/sets          synthetic sets, and generate one (body: sources, seed, length_s per kind, settings)
+    GET  /api/sets/{id}                      the provenance with both recipes and the block rows
     DELETE /api/sets/{id}
+    POST /api/sets/{id}/pairs                open a quiz pair (body: kind or null), returns pair_id, kind, sides
+    GET  /api/pairs/{pair_id}/{side}         one side of a pair: row (kind, environment, n_frames, duration_s, rate_hz), rate_hz, geometry
+                                             (and /arrays as Arrow: x, y, heading, speed), nothing that tells the sides apart
+    POST /api/sets/{id}/guesses              body pair_id and side, records the guess, closes the pair, returns the reveal and the tally
+    GET  /api/sets/{id}/guesses              the tally and every guess
     GET  /api/openapi.json                   FastAPI's schema, About renders it under the hood, the Data page renders /api/format
 
 ## Frontend, `ratreplay/frontend/`
@@ -544,7 +586,10 @@ run on real data).
 8. About: what the tool is and the rules it follows, the process and how to use it, what each action
    writes, and "Under the hood", the internal routes the browser uses as a cheat sheet (not a public API).
 
-A Synthetic page arrives with the synthetic slice, between Windows and Outgoing.
+The synthetic slice adds two pages between Windows and Outgoing: Synthetic (the sets, generate one from
+built sessions with a seed and lengths, the two recipes side by side, delete) and Quiz (a real and a
+synthetic block of one kind side by side, trail, playback and speed trace, the guess, the reveal and
+the set's tally).
 
 ## Testing
 

@@ -345,3 +345,33 @@ The science choices, Kyle's to overturn, each recorded in the set's provenance:
 
 Not in this pass: tracking loss and jumps in synthetic sessions, a learned model of behavior, more than
 one session per set, generator parameters beyond seed and length, pauses on the track outside dwells.
+
+Decided in the review of the first backend pass (2026-10-19), Kyle's to overturn:
+
+- The direction of motion is each frame's step to the next, in the recipe and in the generator alike, and
+  a frame with a zero step (or one under the running floor) has no direction, so pixel quantised tracking
+  adds no spurious residual. The generator's track heading is that step direction plus the noise, its
+  arena heading is the walk's angle with the noise on the step, so heading spread round trips in both.
+- An arena pause is a still stretch (speed under the running floor for over `pause_min_s`, the rule the
+  session's stops use), since the labels paint no pause in the arena. The arena's `phase_share.pause`
+  stays, reading 0, as the labels say. The track's pauses stay the painted phase.
+- The arena's boundary distance and occupancy grid are measured against the environment's boundary and
+  room, so real and synthetic share one frame.
+- Dwells are still (a 2 mm jitter with a 3 s time constant) and the heading turns from the way in to the
+  way out over 1 s. The lateral wander bends rather than jitters, so the track heading is not jagged.
+- The speed and turn rate of the arena walk take the recipe's quantiles through a Gaussian copula, so the
+  marginal matches. The recipe's pauses are drawn on top, which double counts stillness (measured pauses
+  per minute and still fraction run high). Known residual mismatches on the hand made test recipe: the
+  track turn rate IQR comes out about 1.4 against 1.0 (the heading noise time constant, 2 s, is not fitted
+  to the turn rate), the arena's about 2.5 against 1.6 (the steering away from the boundary in a 0.6 m
+  arena). Whether to fit the noise time constant to the turn rate is open.
+- The quiz serves only `x`, `y`, `heading`, `speed` and the kind, environment, length, rate and geometry
+  per side (`t` was dropped in the review of the frontend pass, a real block keeps its offset in the
+  session and a synthetic one starts near zero). The real block is drawn from the environment the set was
+  generated in, since a source in another environment would show through the backdrop. Two tells are
+  left, both Kyle's to decide on: a real block's lost heading (NaN), visible in playback, and the block
+  length, since a real block runs as long as its epoch allowed and a synthetic one as long as was asked
+  for, so the two timelines end at different times. The options are to show only the first N seconds of
+  both sides or to trim both to the shorter one.
+- The block format moved to `utilities/blocks.py`, shared by the processed folder and the synthetic sets,
+  so no access imports another.
