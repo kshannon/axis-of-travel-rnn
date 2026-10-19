@@ -291,3 +291,57 @@ Logged as they come, fixed as tasks K1 to Kn before the synthetic slice.
   outline (check it on the Replay map). The column measures the data and the track scale does not use the
   anchor, so it keeps reading the same value after the rebuild, it does not go to 0, and the x and y scale
   warning is not expected to clear from this change alone: it comes from the two scale estimates.
+
+## Synthetic slice design, 2026-10-19
+
+Branch `agents/synthetic` off `ratreplay`. Kyle asked for the `SYNTHETIC_DATA` folder, a first pass of the
+generator with a page to sample synthetic blocks from the built real blocks, and a page that shows a
+real and a synthetic block side by side and lets the person guess which is real. The architecture's
+A4, E5, E6, M3 and F4 cover the first three, F6 is the quiz page.
+
+The science choices, Kyle's to overturn, each recorded in the set's provenance:
+
+- The recipe (E5) is per block kind. Speed and turn rate as quantiles (5, 25, 50, 75, 95) and mean,
+  the still fraction under the running floor, the heading spread as the circular standard deviation of
+  heading minus direction of motion while running, pause durations and pauses per minute. Track adds
+  run durations per path id, dwell durations at the start and at a goal, trips per minute, the share
+  of outbound runs per goal (path 1 to 4), and the share of time per phase. Arena adds the distance to
+  the boundary as quantiles and the occupancy over a 10 by 10 grid of the room. Counts: blocks, frames,
+  seconds. The same function runs on the synthetic blocks, so the comparison is the two recipes side by
+  side.
+- The generator (E6) writes a session in the transformed schema, camera pixels and two LEDs, so the
+  synthetic session goes through the same registration, cuts, fills, labels and windows as a real one.
+  It is given a camera (scale, rotation, flip, offset, LED separation) taken from the source session's
+  registration, a rate of 60 Hz, a max_gap of 30, one arena epoch then one track epoch, each of the length
+  asked for. No tracking loss, no jumps, every light on: the first pass generates clean behavior, the
+  cuts then find nothing to cut.
+- Track behavior is a sequence of trips over the centreline graph. A goal is drawn by the recipe's
+  share per path, outbound is the shortest path along the centreline from the start to the goal,
+  return is the shortest path from the goal back to the start over the perimeter (the graph without the
+  stem, the crossbars and the approaches), so it runs out through the connector and the top and down a
+  side. Path ids by goal, an assumption to check against the lab's numbering: 1 g_ww, 2 g_we, 3 g_ew,
+  4 g_ee, return 9 down the west side, 10 down the east side. A run's duration is drawn from the
+  recipe's run durations for that path, the speed along it is a smooth bell (accelerate, cruise, brake)
+  scaled to cover the path in that time, with low noise. Dwells at the goal and at the start are drawn
+  from the recipe. A slow lateral wander inside the corridor keeps the rat off the centreline. Heading is
+  the direction of motion plus von Mises noise with the recipe's spread, and wanders slowly while still.
+  Every run is clean, the runs table carries them with their path ids so the labels and the start site
+  registration work as on real data.
+- Arena behavior is a correlated random walk: speed follows an AR(1) process matched to the recipe's
+  quantiles, turn rate is drawn from the recipe's distribution, the walk turns away from the boundary
+  within a margin, pauses occur at the recipe's rate and last its durations.
+- The quiz (F6) draws one real block and one synthetic block of the same kind, shows both as a trail on
+  the map with playback and the speed trace, no ids, no runs and no path ids, in a random order. The
+  person says which is real, the server reveals and records the guess in the set's `guesses.json`
+  (when, who, the two blocks, the guess, correct), and the page shows the tally for the set. The
+  SynthesisManager keeps the open pairs in memory, keyed by an opaque id, so the page never holds the
+  block ids before the reveal. That is the one piece of state a manager holds, lost on restart, which
+  only closes unanswered pairs.
+- A synthetic set is one generated session blocked with the same `TrajectoryEngine.blocks` call, kept
+  under `synthetic/sets/{set_id}/` with `blocks.csv`, `blocks/{block_id}.parquet`, `provenance.json`
+  and `guesses.json`, the block files in the processed schema. Block ids start with the set id, so
+  ValidationManager finds a block in the sets when the processed folder lacks it, and readiness on
+  `set:{id}` reads that set. Set ids are `syn_{YYYYMMDD}_{HHMMSS}_{seed}`.
+
+Not in this pass: tracking loss and jumps in synthetic sessions, a learned model of behavior, more than
+one session per set, generator parameters beyond seed and length, pauses on the track outside dwells.

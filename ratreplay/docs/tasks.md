@@ -19,8 +19,10 @@ anything that touches real data.
       files, a second session is untouched, an interrupted write leaves the previous build. [Resources on disk]
 - [x] A3 `access/environment.py`, EnvironmentAccess over `configs/environments/*.yaml`. Test: each kind
       loads with its geometry. [Accesses]
-- [ ] A4 `access/synthetic.py`, SyntheticAccess: sets, blocks, block, write_set, delete_set, provenance
-      schema. Test: write then list then delete, provenance round trips. [Accesses]
+- [ ] A4 `access/synthetic.py`, SyntheticAccess over `sets/{set_id}/` (blocks.csv and blocks parquet in
+      the processed schemas, provenance.json, guesses.json): health, sets, set, blocks, block, write_set,
+      delete_set, guesses, write_guess. Test: write then list then delete, provenance round trips, a
+      guess appends. [Accesses, plan: Synthetic slice design]
 
 ## Engines
 
@@ -38,11 +40,15 @@ anything that touches real data.
       on the synthetic sessions, same call on generated arrays gives blocks in the same schema. [TrajectoryEngine]
 - [x] E4 `windows`: rows and verdicts from `src/axis_of_travel_rnn/windows.py`. Test: the existing window
       tests, a block with no window fitting, with low heading share, with no complete trip. [TrajectoryEngine]
-- [ ] E5 `recipe`: the statistics (speed, turn rate, dwell, run duration, occupancy). Test: the recipe of a
-      block equals hand computed numbers on a fixture. [TrajectoryEngine]
-- [ ] E6 `engines/generator.py`, GeneratorEngine.session from a recipe, an environment, a seed, a length,
-      explicit RNG. Test: same seed same arrays, arrays pass TransformedAccess's schema, the walk stays
-      inside the environment. [GeneratorEngine]
+- [ ] E5 `recipe(blocks, rules)` in `engines/trajectory/recipe.py`: per kind the statistics the plan lists
+      (speed, turn rate, still fraction, heading spread, pauses, track runs, dwells, trips, goal shares,
+      phase shares, arena boundary distance and occupancy grid, counts). Test: the recipe of a fixture
+      block equals hand computed numbers, an empty kind gives counts of zero. [TrajectoryEngine, plan]
+- [ ] E6 `engines/generator.py`, GeneratorEngine.session(recipe, environments, camera, seed, length_s)
+      in the transformed schema as the plan says (trips over the centreline graph, the arena walk, two
+      LEDs in camera pixels, the runs table). Test: same seed same arrays, the result passes
+      TrajectoryEngine.blocks and labels every run, the walk stays inside the corridors and the circle,
+      the run durations and speeds sit within the recipe's quantiles. [GeneratorEngine, plan]
 
 ## Managers and routers
 
@@ -52,9 +58,11 @@ anything that touches real data.
 - [x] M2 `managers/validation.py`, ValidationManager (health, format, readiness, block, windows,
       select_settings) and `routers/validation.py`. Integration test: health names the problem, readiness
       on real and on a set, select writes windows.json whole. [ValidationManager, API]
-- [ ] M3 `managers/synthesis.py`, SynthesisManager (index, generate, delete_set) and
-      `routers/synthesis.py`. Integration test: generate from two source sessions writes a set with its
-      provenance and both recipes, delete removes it. [SynthesisManager, API]
+- [ ] M3 `managers/synthesis.py`, SynthesisManager (index, generate, delete_set, pair, guess, tally) and
+      `routers/synthesis.py`, `SYNTHETIC_DATA` wired in app.py and health, ValidationManager reading a
+      set's blocks for readiness `set:{id}`, block and arrays. Integration test: generate from two source
+      sessions writes a set with its provenance and both recipes, a pair then a guess records it and the
+      tally counts it, delete removes the set. System test: the routes. [SynthesisManager, API, plan]
 - [x] L `app.py` composition root wiring the real classes, `tests/unit/test_layering.py` asserting the
       import graph of the chart, the old routers, managers, stores and engines deleted. Check:
       `pixi run ratreplay-api` serves. [Rules, Backend]
@@ -67,7 +75,15 @@ anything that touches real data.
       result toast, `session/windows.ts` deleted. [Page 3]
 - [x] F3 Blocks and Windows pages on ValidationManager: real or set, settings being tried, built settings
       shown, Select these settings. [Pages 4, 5]
-- [ ] F4 Synthetic page: sets with provenance and comparison, generate, delete. [Page 6]
+- [ ] F4 Synthetic page between Windows and Outgoing: the sets with their provenance, Generate (source
+      sessions from the built ones, seed, minutes per kind), Delete with confirmation, the real and
+      synthetic recipes side by side per kind for the chosen set, the synthetic folder on Incoming's
+      read from and on Outgoing. The Blocks page's dataset choice lists the sets. [Page 6, plan]
+- [ ] F6 Real or synthetic page after Synthetic: choose a set, New pair, two block views side by side
+      (map trail with playback, speed trace, no ids, runs or paths), Left is real or Right is real, the
+      reveal, the set's tally. [Page 7, plan]
+- [ ] S3 `serve_synthetic.py` gains the synthetic folder and a Playwright flow: generate a set from the
+      built sessions, see its comparison, answer one pair, delete the set. [Testing]
 - [x] F5 move `src/**/*.test.ts` to `frontend/tests/`, keep the pure modules only (timeline geometry,
       editor, keys, format), cut the rest. Check: `vitest run` green with the smaller count. [Testing]
 
