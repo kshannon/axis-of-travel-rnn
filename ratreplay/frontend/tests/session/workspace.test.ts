@@ -56,7 +56,8 @@ test("an edit the server refuses gives back the server's reason and changes noth
 test("an edit refused earlier does not refuse a new one, an edit that changes nothing is refused", async () => {
   vi.mocked(client.previewEdits).mockImplementation(async () => preview(["auto", "auto", "auto"], ["old reason"]));
   const ws = workspace(preview(["auto", "auto", "auto"], ["old reason"]));
-  expect(await ws.edit(() => ({ op: "accept" }))).toBe("That changes nothing.");
+  expect(await ws.edit(() => ({ op: "accept" }))).toBe("Nothing changed.");
+  expect(await ws.edit(() => ({ op: "accept" }), () => "the reason")).toBe("the reason");
   expect(ws.editor.edits).toEqual([]);
 });
 

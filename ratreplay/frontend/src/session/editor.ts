@@ -3,6 +3,9 @@ import type { Edit, ReviewBlock, Run } from "../api/types";
 export type Action = "accept-all" | "accept" | "reject" | "new-block" | "start-to-cursor" | "end-to-cursor" | "split" | "flag";
 
 const BURIED = "Every frame of this removed block lies under another block, so no edit can reach it.";
+const KEPT_AS_IT_STANDS = "an edited block is kept as it stands";
+const RESTORE_FIRST = "restore the block first, Reject again";
+export const NOTHING_CHANGED = "Nothing changed.";
 
 /** What an action reads of the screen: the cursor as a lab frame, the block it targets among the blocks in time order, the marked range and the run under the cursor. */
 export interface Target {
@@ -38,6 +41,17 @@ export function editFor(action: Action, target: Target): Edit | string {
   if (action === "start-to-cursor") return { op: "move", frame: cursor, edge: "start", at };
   if (action === "end-to-cursor") return { op: "move", frame: cursor, edge: "end", at };
   return cursor > block.frame_start && cursor <= block.frame_end ? { op: "split", frame: cursor } : "Move the cursor inside the block, after its first frame, to split it there.";
+}
+
+/** Why a block with this status cannot be accepted, none when it can: the engine toggles only an auto and a confirmed block, an edited one is kept already and a removed one comes back with Reject. */
+export function acceptWhy(status: ReviewBlock["status"]): string {
+  if (status === "edited") return KEPT_AS_IT_STANDS;
+  return status === "dropped" ? RESTORE_FIRST : "";
+}
+
+/** What the toast says when an action changed nothing: the reason when the status of the block it acted on gives one, else the plain fact. */
+export function unchangedText(action: Action, status: ReviewBlock["status"] | undefined): string {
+  return (action === "accept" && status && acceptWhy(status)) || NOTHING_CHANGED;
 }
 
 /** An edit in words, for the toasts. */

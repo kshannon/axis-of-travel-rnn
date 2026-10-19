@@ -226,6 +226,21 @@ anything that touches real data.
       the page colour on a bar the cream cannot be read on. Left open: accent and warn sit close, so the
       flag outline on an amber run is faint, and the Replay help text still names the light theme's blues.
       [K29 below]
+- [ ] K31 Proposed, awaiting Kyle: a block failed its build with "position not finite on 12 frames"
+      (NS14_rec5_20141201_001_track_02). The gap rule cuts only a loss of both lights longer than the
+      session's max_gap (30 frames, the lab's own interpolation limit), a shorter loss stays inside the
+      block with NaN positions, the processor's check refuses it and the build drops it. The timeline
+      does not show such a loss either, the tracking lost layer draws only the gaps the rule cut. Options:
+      (a) fill position linearly over a loss of max_gap frames or less, as the lab meant to, with a
+      position_filled column and a layer on the timeline, (b) cut at any loss of both lights, more and
+      shorter blocks, (c) keep dropping and draw short losses so the person cuts them by hand. In every
+      case the short losses get drawn. [TrajectoryEngine.session, build, Page 3]
+- [x] K32 An edited block is already kept, and the page must say so instead of "That changes nothing":
+      the card's Accept on an edited or removed block looks enabled though it is not (the chips have no
+      disabled look), the timeline's Accept on an edited block sends a confirm the engine ignores and the
+      toast says nothing useful. The card shows "kept as edited" in place of Accept, the timeline's Accept
+      is disabled with the reason, a refused or empty edit names its reason, and a block problem says its
+      consequence: "not built until this is cut out or the block rejected". Kyle, 2026-10-18. [Page 3]
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

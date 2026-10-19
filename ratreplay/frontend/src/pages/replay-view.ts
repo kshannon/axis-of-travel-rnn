@@ -4,7 +4,7 @@ import { ALL_EPOCHS, FOLLOW_CURSOR } from "../draw/occupancy";
 import { blockName } from "../draw/session-scene";
 import { runAt } from "../session/at";
 import { cutsOf } from "../session/cuts";
-import { label as editLabel } from "../session/editor";
+import { acceptWhy, label as editLabel } from "../session/editor";
 import { percent } from "../ui/format";
 import { CHIP_ACCENT, CHIP_MUTED, CHIP_OK, CHIP_WARN } from "../ui/style";
 import { counted } from "../ui/text";
@@ -49,6 +49,9 @@ export interface BlockCard {
   accepted: boolean;
   removed: boolean;
   acceptable: boolean;
+  /** The words that stand in place of the Accept chip when the block cannot be accepted, with their hover. Empty when it can. */
+  keptText: string;
+  keptTitle: string;
 }
 
 const framesOf = (block: Pick<ReviewBlock, "frame_start" | "frame_end">) => block.frame_end - block.frame_start + 1;
@@ -77,7 +80,12 @@ export function headingText(block: Pick<ReviewBlock, "frame_start" | "frame_end"
   return parts.length ? `head dir: ${parts.join(", ")}` : "";
 }
 
-/** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first. */
+const KEPT_WORDS: Partial<Record<ReviewBlock["status"], string>> = { edited: "kept as edited", dropped: "removed" };
+
+/** The hover of the words in place of Accept: an edited block says why it needs no Accept, a removed one how it comes back. */
+const keptTitle = (status: ReviewBlock["status"]) => (status === "edited" ? `${acceptWhy(status)}, Reject removes it` : status === "dropped" ? "Reject restores the block" : "");
+
+/** One card per block in time order. Accepting needs an auto or accepted block, an edited block is kept already and a removed one is restored first, and the card says so in place of the Accept chip. */
 export function blockCards(blocks: MadeBlock[], header: SessionHeader, selected: MadeBlock | null): BlockCard[] {
   return blocks.map((block, position) => ({
     position, name: blockName(position), epoch: block.epoch,
@@ -88,6 +96,7 @@ export function blockCards(blocks: MadeBlock[], header: SessionHeader, selected:
     selected: block === selected,
     accepted: block.status === "confirmed" || block.status === "edited", removed: block.status === "dropped",
     acceptable: block.status === "auto" || block.status === "confirmed",
+    keptText: KEPT_WORDS[block.status] ?? "", keptTitle: keptTitle(block.status),
   }));
 }
 

@@ -85,6 +85,9 @@ const summaryBody = `
   </div>
   <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
 
+// What a block problem costs, said after it: the frames of the block are not built until they are cut out or the block is rejected.
+const PROBLEM_CONSEQUENCE = ", not built until the frames are cut out or the block rejected";
+
 const blockCard = `
   <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
     :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed ? 'opacity-60' : '']">
@@ -96,10 +99,11 @@ const blockCard = `
     <p class="text-muted" x-text="block.windowsText"></p>
     <p x-show="block.heading" class="text-muted" x-text="block.heading"></p>
     <p x-show="block.verdict" data-testid="verdict" :class="block.ok ? 'text-ok' : 'text-warn'" x-text="block.verdict"></p>
-    <template x-for="problem in block.problems"><p class="text-bad" x-text="problem"></p></template>
-    <div class="mt-1.5 flex gap-1.5">
-      <button type="button" @click.stop="act('accept', block.position)" ${disabledWhy("!block.acceptable", "an edited or removed block cannot be accepted", "Accept this block")} :aria-pressed="block.accepted"
+    <template x-for="problem in block.problems"><p class="text-bad" x-text="problem + '${PROBLEM_CONSEQUENCE}'"></p></template>
+    <div class="mt-1.5 flex items-center gap-1.5">
+      <button type="button" x-show="block.acceptable" @click.stop="act('accept', block.position)" title="Accept this block" :aria-pressed="block.accepted"
         :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
+      <span x-show="!block.acceptable" data-testid="kept" class="text-xs text-muted" :title="block.keptTitle" x-text="block.keptText"></span>
       <button type="button" @click.stop="act('reject', block.position)" :aria-pressed="block.removed"
         :aria-label="'Reject ' + block.name" ${toggle("block.removed", CHIP_ON, CHIP_OFF)}>Reject</button>
     </div>
@@ -212,7 +216,7 @@ const editRow = `
       <button type="button" @click="act('start-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the start of the selected block to the cursor")} class="${SEGMENT}">Start here</button>
       <button type="button" @click="act('end-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the end of the selected block to the cursor")} class="${SEGMENT}">End here</button>`)}
     ${group("status", `
-      <button type="button" @click="act('accept')" ${disabledWhy("!hasSelection", "select a block first", "Accept the selected block, again to take it back")} class="${SEGMENT_PRIMARY}">Accept</button>
+      <button type="button" @click="act('accept')" :disabled="!!acceptOff" :title="acceptOff || 'Accept the selected block, again to take it back'" class="${SEGMENT_PRIMARY}">Accept</button>
       <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject</button>
       <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}" title="press z to undo">z</kbd></button>
       <button type="button" @click="reset()" ${disabledWhy("!editCount", "no edits to clear", "Clear every edit so the blocks are automatic again. A saved review stays on disk until you save.")} class="${SEGMENT}">Reset</button>`)}

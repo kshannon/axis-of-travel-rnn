@@ -69,6 +69,18 @@ test("read the folders, review a session, refuse a split, split the track block,
     await page.getByRole("button", { name: "Split here" }).click();
     await expect(toast(page, "Added split at frame 2701")).toBeVisible();
     await expect(cards).toHaveCount(3);
+    // the piece selected is edited, which is kept already: its card says so in place of Accept, the timeline's Accept is off with the reason and Enter names it
+    await expect(cards.nth(1)).toContainText("kept as edited");
+    await expect(cards.nth(1).getByRole("button", { name: "Accept block 2" })).toBeHidden();
+    await expect(cards.first().getByRole("button", { name: "Accept block 1" })).toBeVisible();
+    const accept = page.getByRole("button", { name: "Accept", exact: true });
+    await expect(accept).toBeDisabled();
+    await expect(accept).toHaveAttribute("title", "an edited block is kept as it stands");
+    await page.keyboard.press("Enter");
+    const kept = toast(page, "an edited block is kept as it stands");
+    await expect(kept).toBeVisible();
+    await kept.getByRole("button", { name: "Close" }).click();
+    await expect(kept).toBeHidden();
     await page.getByRole("button", { name: "Accept all" }).click();
     await expect(cards.first()).toContainText("confirmed");
     await expect(cards.nth(1)).toContainText("edited");

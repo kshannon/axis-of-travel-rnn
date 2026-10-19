@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ReviewBlock } from "../../src/api/types";
-import { Editor, editFor, reselected } from "../../src/session/editor";
+import { acceptWhy, Editor, editFor, reselected, unchangedText } from "../../src/session/editor";
 import type { Target } from "../../src/session/editor";
 
 function block(frame_start: number, frame_end: number, status: ReviewBlock["status"] = "auto"): ReviewBlock {
@@ -87,4 +87,13 @@ test("a removed block around the selected one does not take the selection, and n
   const moved = block(449, 1299, "edited");
   expect(reselected(made, [block(301, 1500, "dropped"), moved], { op: "move", frame: 449, edge: "start", at: 399 })).toBe(moved);
   expect(reselected(made, [], { op: "accept" })).toBeNull();
+});
+
+test("an accept that changes nothing names why when the block is edited or removed, any other empty edit says nothing changed", () => {
+  expect(unchangedText("accept", "edited")).toBe("an edited block is kept as it stands");
+  expect(unchangedText("accept", "dropped")).toBe("restore the block first, Reject again");
+  for (const status of ["auto", "confirmed"] as const) expect(acceptWhy(status)).toBe("");
+  expect(unchangedText("accept", "confirmed")).toBe("Nothing changed.");
+  expect(unchangedText("accept", undefined)).toBe("Nothing changed.");
+  expect(unchangedText("reject", "edited")).toBe("Nothing changed.");
 });

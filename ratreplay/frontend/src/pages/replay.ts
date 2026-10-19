@@ -13,7 +13,7 @@ import type { LaneClick } from "../draw/timeline";
 import { Visit } from "../router";
 import { epochAt, runAt } from "../session/at";
 import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
-import { editFor, label, reselected } from "../session/editor";
+import { acceptWhy, editFor, label, reselected, unchangedText } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { START_OFFSET_LIMIT, Workspace } from "../session/workspace";
@@ -115,6 +115,8 @@ function registerReplay(): void {
       offsetUnsaved: false,
       editCount: 0,
       hasSelection: false,
+      // Why the timeline's Accept is off: nothing is selected, or the selected block is edited or removed. Empty when it can be pressed.
+      acceptOff: "select a block first",
       hasRange: false,
       hasMarks: false,
       selectedName: "",
@@ -280,6 +282,7 @@ function registerReplay(): void {
         this.hasRange = editor.range !== null;
         this.hasMarks = editor.markIn !== null || editor.markOut !== null;
         this.hasSelection = selected !== null;
+        this.acceptOff = selected ? acceptWhy(selected.status) : "select a block first";
         this.selectedName = this.blocks.find((b) => b.selected)?.name ?? "";
         this.selectionLine = selectionText(header, picked, selected, selected ? preview.blocks.indexOf(selected) : -1);
         const outline = laneSelection(header, picked, selected);
@@ -446,7 +449,7 @@ function registerReplay(): void {
       /** Make an action's edit, which the server applies or refuses with its reason. */
       async act(action: Action, position?: number) {
         try {
-          const result = await ws.edit(() => editFor(action, targetOf(position)));
+          const result = await ws.edit(() => editFor(action, targetOf(position)), () => unchangedText(action, targetOf(position).block?.status));
           if (typeof result === "string") {
             toast.warning(result);
             return;

@@ -1,10 +1,8 @@
 import { getSession, getSessionArrays, previewEdits, saveBlocks, setExclusion } from "../api/client";
 import type { Edit, ExclusionSaved, Preview, Review, SavedBlocks, SessionArrays, SessionHeader, WindowSettings } from "../api/types";
 import { Clock } from "./clock";
-import { Editor } from "./editor";
+import { Editor, NOTHING_CHANGED } from "./editor";
 import { speedTop } from "./speed";
-
-const NO_CHANGE = "That changes nothing.";
 
 /** The start offset the field takes in metres, either way from none, and the step of its arrows. */
 export const START_OFFSET_LIMIT = 0.5;
@@ -136,14 +134,14 @@ export class Workspace {
     });
   }
 
-  /** Add the edit made when the server applies it and it changes something. Gives back the edit added, or the reason it was not. */
-  edit(make: () => Edit | string): Promise<Edit | string> {
+  /** Add the edit made when the server applies it and it changes something. Gives back the edit added, or the reason it was not: the server's, or the words `unchanged` gives when the edit changes nothing. */
+  edit(make: () => Edit | string, unchanged: () => string = () => NOTHING_CHANGED): Promise<Edit | string> {
     return this.serially(async () => {
       const edit = make();
       if (typeof edit === "string") return edit;
       const next = await this.previewOf([...this.editor.edits, edit]);
       if (next.refusals.length > this.preview.refusals.length) return next.refusals[next.refusals.length - 1].reason;
-      if (sameResult(this.preview, next)) return NO_CHANGE;
+      if (sameResult(this.preview, next)) return unchanged();
       this.editor.push(edit);
       this.preview = next;
       return edit;
