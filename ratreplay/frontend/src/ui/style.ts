@@ -15,10 +15,10 @@ export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabl
 // of a group is a SEGMENT_PRIMARY, which takes the accent only while it is enabled. A disabled segment is muted and says
 // why in its title. GROUP_LABEL names a group beside its block, small muted capitals with room between the letters so it
 // reads as a label and not as a button.
-export const SEGMENTS = "inline-flex shrink-0 divide-x divide-line overflow-hidden rounded-md border border-line";
-const SEGMENT_BASE = "bg-page px-2.5 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:text-ink/40";
-export const SEGMENT = `${SEGMENT_BASE} enabled:hover:bg-accent enabled:hover:text-white`;
-// Every segment is grey until hovered, Kyle's call after using it: the accent on hover alone.
+export const SEGMENTS = "inline-flex shrink-0 divide-x divide-ink/30 overflow-hidden rounded-md border border-ink/30";
+const SEGMENT_BASE = "bg-ink/5 px-2.5 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:text-ink/40";
+// Every segment looks and hovers like a plain BUTTON, Kyle's call after using it: no accent in a group.
+export const SEGMENT = `${SEGMENT_BASE} enabled:hover:bg-ink/15`;
 export const SEGMENT_PRIMARY = SEGMENT;
 export const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted";
 
