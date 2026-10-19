@@ -36,7 +36,7 @@ export function writeConfig(text: string): void {
 
 /** Review and build a session through the API alone, accepting every block the rules cut, as Accept all and Save blocks do on the Replay page. */
 export async function saveThroughApi(request: APIRequestContext, sessionId: string): Promise<void> {
-  const response = await request.put(`/api/sessions/${sessionId}/blocks`, { data: { edits: [{ op: "accept" }] } });
+  const response = await request.put(`/api/sessions/${sessionId}/blocks`, { data: { edits: [{ op: "accept" }], start_offset_m: null } });
   expect(response.ok()).toBe(true);
 }
 

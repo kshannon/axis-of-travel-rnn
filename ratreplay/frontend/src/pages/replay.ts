@@ -16,7 +16,7 @@ import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { editFor, label, reselected } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
-import { Workspace } from "../session/workspace";
+import { START_OFFSET_LIMIT, Workspace } from "../session/workspace";
 import { healthStore, warnStale } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { card } from "../ui/card";
@@ -36,11 +36,24 @@ import { blockCards, factsLine, liveTiles, mapTitle, marksLine, saveToast, sessi
 import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Incoming page.";
+const START_OFFSET_DIGITS = 2;
 const PROBLEM = "$store.health.problem('transformed', 'processed', 'environments')";
 
 // The layers of the timeline and of the map keep their state when the person visits another page and comes back.
 const layers = allLayers();
 const mapLayers = { ...defaultMapChoice(), trail: true };
+
+/** The question before leaving a session whose start offset is not saved, asked when its edits are saved (leaveQuestion asks when they are not). */
+const offsetQuestion = (sessionId: string) => `${sessionId} has a start offset not saved. Leave it and lose it?`;
+
+/** The text of a start offset in the field, in metres. */
+const offsetText = (metres: number) => metres.toFixed(START_OFFSET_DIGITS);
+
+/** The number in the field, none while it is empty, not a number or further from zero than the field allows. */
+function typedOffset(text: string): number | null {
+  const metres = text.trim() === "" ? NaN : Number(text);
+  return Number.isFinite(metres) && Math.abs(metres) <= START_OFFSET_LIMIT ? metres : null;
+}
 
 function registerReplay(): void {
   Alpine.data("replayPage", () => {
@@ -94,6 +107,12 @@ function registerReplay(): void {
       runNow: null as number | null,
       runFlagged: false,
       notes: "",
+      // The start offset field: its text, the yaml's offset and the measured one, whether the session is on the default and whether the offset is not saved.
+      offsetField: "",
+      offsetDefault: 0,
+      offsetMeasured: null as number | null,
+      offsetIsDefault: true,
+      offsetUnsaved: false,
       editCount: 0,
       hasSelection: false,
       hasRange: false,
@@ -120,6 +139,17 @@ function registerReplay(): void {
       /** The sessions the list shows and the arrows walk: those matching the filter, which is empty while the list is closed. */
       get listed() {
         return filterRows(this.index, this.filter);
+      },
+      /** The numbers the two buttons of the field set, the yaml's offset and the measured one, which is blank when the session has none. */
+      get defaultText() {
+        return offsetText(this.offsetDefault);
+      },
+      get measuredText() {
+        return this.offsetMeasured === null ? "" : offsetText(this.offsetMeasured);
+      },
+      /** The measured offset when the field can take it. */
+      get measuredUsable() {
+        return this.offsetMeasured !== null && Math.abs(Number(offsetText(this.offsetMeasured))) <= START_OFFSET_LIMIT;
       },
       get listedText() {
         if (this.indexError) return `The sessions could not be listed: ${this.indexError}`;
@@ -164,23 +194,19 @@ function registerReplay(): void {
           ws = await Workspace.open(sessionId, { ...(await settingsStore().load()) });
           if (!visit.shown) return false;
           if (!ws.header.rules) throw new StaleApiError();
-          const { header, arrays } = ws;
+          const { header } = ws;
           selected = null;
           picked = null;
           timeline.load(this.scene());
           if (!scopeOptions(header.selected_epochs).some((option) => option.value === mapLayers.scope)) this.mapLayers.scope = FOLLOW_CURSOR; // the epoch kept from the last session is not in this one
-          occupancy = new OccupancyBackdrop(header);
-          occupancy.choice = mapLayers;
-          map.trail = mapLayers.trail;
-          map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
+          this.drawRegistered();
           this.sessionId = header.session_id;
-          this.facts = factsLine(header);
           this.inDataset = header.in_dataset;
           this.excluded = ws.excluded;
           this.reason = header.reason ?? "";
           this.notes = ws.saved?.notes ?? "";
           this.epochKinds = header.selected_epochs;
-          this.meanings = layerMeanings(header, ws.speedTop);
+          this.showOffset();
           this.speedIndex = (SPEEDS as readonly number[]).indexOf(ws.clock.speed);
           this.loading = false; // before the counts are read again, which wait for it
           this.sync();
@@ -198,6 +224,17 @@ function registerReplay(): void {
         } finally {
           this.loading = false;
         }
+      },
+
+      /** The map, its backdrop and what the header says of the registration, from the workspace's header and arrays, which a start offset replaces. */
+      drawRegistered() {
+        const { header, arrays } = ws;
+        occupancy = new OccupancyBackdrop(header);
+        occupancy.choice = mapLayers;
+        map.trail = mapLayers.trail;
+        map.load({ ...arrays, rateHz: header.rate_hz }, occupancy, ws.speedTop);
+        this.facts = factsLine(header);
+        this.meanings = layerMeanings(header, ws.speedTop);
       },
 
       /** The timeline's bars and layers for the blocks as they stand, the flagged runs and the layers that are on. */
@@ -350,6 +387,62 @@ function registerReplay(): void {
         }
       },
 
+      /** The start offset field and its hints from the workspace. */
+      showOffset() {
+        const measured = ws.header.frame.track?.start_offset_measured_m;
+        this.offsetDefault = ws.header.start_offset_default_m;
+        this.offsetMeasured = typeof measured === "number" && Number.isFinite(measured) ? measured : null;
+        this.offsetField = offsetText(ws.startOffset ?? this.offsetDefault);
+        this.offsetFlags();
+      },
+      offsetFlags() {
+        this.offsetIsDefault = ws.startOffset === null;
+        this.offsetUnsaved = ws.offsetDirty;
+      },
+      /** The field was typed in or stepped and the person paused: move the session to the number in it, nothing while it is not a number in range. */
+      offsetTyped() {
+        const metres = typedOffset(this.offsetField);
+        if (metres !== null) void this.moveOffset(metres);
+      },
+      /** The field was left or enter was pressed: move the session at once, or put back the offset it has when the field holds no usable number. */
+      async settleOffset() {
+        const metres = typedOffset(this.offsetField);
+        if (metres === null) this.showOffset();
+        else await this.moveOffset(metres);
+      },
+      async useMeasured() {
+        if (!this.measuredUsable) return;
+        const metres = Number(offsetText(this.offsetMeasured as number)); // as many digits as the field and the button show
+        this.offsetField = offsetText(metres);
+        await this.moveOffset(metres);
+      },
+      async useDefaultOffset() {
+        this.offsetField = offsetText(this.offsetDefault);
+        await this.moveOffset(null);
+      },
+      /**
+       * Register the session with this start offset, none for the yaml's: the track, the occupancy, the geometry and the trail move while the edits, the selection and the cursor stay.
+       * A result that comes after the person left the page, or opened another session, says nothing.
+       */
+      async moveOffset(offset: number | null) {
+        const target = ws;
+        if (!visit.shown || this.loading || !target) return;
+        this.offsetIsDefault = offset === null;
+        try {
+          const moved = await target.useStartOffset(offset);
+          if (!moved || !visit.shown || ws !== target) return;
+          selected = reselected(selected, ws.preview.blocks, { op: "accept" });
+          this.drawRegistered();
+          this.sync();
+          this.show();
+          this.offsetFlags();
+        } catch (error) {
+          if (!visit.shown || ws !== target) return;
+          toast.error(`Could not move the start offset: ${errorText(error)}`);
+          this.showOffset(); // the field goes back to the offset the session has
+        }
+      },
+
       /** Make an action's edit, which the server applies or refuses with its reason. */
       async act(action: Action, position?: number) {
         try {
@@ -418,10 +511,12 @@ function registerReplay(): void {
       async save() {
         this.busy = true;
         try {
+          await this.settleOffset(); // an offset typed a moment ago is moved to first, so the review holds what the field shows
           const done = saveToast(await ws.save(this.notes));
           if (done.kind === "warning") toast.warning(done.text, done.path);
           else toast.success(done.text, done.path);
           this.sync();
+          this.offsetFlags();
           await this.openNext();
         } catch (error) {
           toast.error(errorText(error));
@@ -501,7 +596,7 @@ function registerReplay(): void {
         this.closePicker();
         if (this.loading || this.busy || sessionId === this.sessionId) return;
         const unsaved = Workspace.unsavedWhenOpening(sessionId);
-        if (unsaved && !confirm(leaveQuestion(unsaved.header.session_id, unsaved.editor.edits.length))) return;
+        if (unsaved && !confirm(unsaved.editor.dirty ? leaveQuestion(unsaved.header.session_id, unsaved.editor.edits.length) : offsetQuestion(unsaved.header.session_id))) return;
         healthStore().openSession(sessionId);
         if (await this.load(sessionId)) toast.success(`Opened ${sessionId}`);
       },

@@ -11,6 +11,7 @@ from .environment_builders import BUILDERS, rotated
 # A definition is a yaml file named for its environment. A file with a base is merged over the base and turned by its transform.
 YAML = ".yaml"
 BASE_KEY = "base"
+START_OFFSET = "start_offset"
 
 
 def read_config(path):
@@ -32,6 +33,15 @@ def merged(config, base):
     """
     own = {key: value for key, value in config.items() if key != BASE_KEY}
     return {**base, **own, "params": {**base.get("params", {}), **config.get("params", {})}}
+
+
+def with_start_offset(config, start_offset):
+    """
+    The config with the person's start offset in its params in place of the yaml's, unchanged when none is given or the type has no start site up a stem.
+    """
+    if start_offset is None or config.get("type") != "triple_t":
+        return config
+    return {**config, "params": {**config.get("params", {}), START_OFFSET: start_offset}}
 
 
 def build(name, config):
@@ -72,13 +82,13 @@ class EnvironmentAccess:
         """
         return sorted(path.stem for path in self.root.glob(f"*{YAML}"))
 
-    def environment(self, name):
+    def environment(self, name, start_offset=None):
         """
-        One environment's geometry as json data, a base and transform resolved, NotFound for an unknown name, Invalid for a file that cannot be built.
+        One environment's geometry as json data, a base and transform resolved, built with this start offset in metres in place of the yaml's when one is given, NotFound for an unknown name, Invalid for a file that cannot be built.
         """
         if name not in self.environments():
             raise NotFound(f"no environment {name}")
-        return self._geometry(name)
+        return self._geometry(name, start_offset)
 
     def health(self):
         """
@@ -91,16 +101,16 @@ class EnvironmentAccess:
             return health
         return {**health, "counts": {"environments": len(self.environments())}, "manifest": {"modified": paths.newest_mtime(self.root)}}
 
-    def _geometry(self, name):
+    def _geometry(self, name, start_offset=None):
         """
-        The geometry of the named file with the circle the browser draws, its base file read first when it names one.
+        The geometry of the named file with the circle the browser draws, its base file read first when it names one, the start offset laid over the merged params.
         """
         config = read_config(self.root / f"{name}{YAML}")
         if BASE_KEY in config:
             if config[BASE_KEY] not in self.environments():
                 raise Invalid(f"{name}{YAML} names missing base {config[BASE_KEY]}")
             config = merged(config, read_config(self.root / f"{config[BASE_KEY]}{YAML}"))
-        geometry = build(name, config)
+        geometry = build(name, with_start_offset(config, start_offset))
         return {**geometry, "circle": circle_of(geometry)}
 
     def _problems(self):

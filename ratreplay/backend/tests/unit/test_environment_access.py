@@ -3,6 +3,7 @@ EnvironmentAccess over a copy of the repository's four environment yaml files: e
 """
 
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -58,6 +59,22 @@ def test_a_start_offset_lifts_the_start_up_the_stem_in_both_builders_and_leaves_
     assert lifted["reward_sites"]["start"][1] - bottom(lifted) == pytest.approx(START_OFFSET, abs=TOLERANCE)
     assert outline(lifted) == pytest.approx(outline(plain), abs=TOLERANCE)
     assert outline(lifted) == pytest.approx(lifted["params"]["envelope"], abs=TOLERANCE)
+
+
+def test_a_start_offset_given_lifts_the_start_up_the_stem_of_the_track_and_its_rotation_and_none_leaves_the_yaml_as_it_was(folder):
+    before = (folder / "triple_t.yaml").read_text()
+    access = EnvironmentAccess(folder)
+
+    def start_to_foot(geometry):
+        foot = next(s for s in geometry["centerline"] if s["name"] == "bottom_w")["p1"]
+        return math.dist(geometry["reward_sites"]["start"], foot)
+
+    for name in ("triple_t", "triple_t_rot90"):
+        plain, lifted = access.environment(name), access.environment(name, START_OFFSET)
+        assert access.environment(name, None) == plain and start_to_foot(plain) == pytest.approx(0.0, abs=TOLERANCE)
+        assert start_to_foot(lifted) == pytest.approx(START_OFFSET, abs=TOLERANCE) and lifted["params"]["start_offset"] == START_OFFSET
+    assert access.environment("open_arena", START_OFFSET) == access.environment("open_arena")
+    assert (folder / "triple_t.yaml").read_text() == before
 
 
 def test_the_circle_is_given_for_the_open_arena_only(folder):

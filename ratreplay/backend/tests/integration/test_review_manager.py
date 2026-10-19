@@ -32,10 +32,14 @@ SHORT = {**SETTINGS, "window_s": 5.0}
 SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "drop", "frame": 2701}]
 SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited"), (f"{S1}_track_02", "dropped")]
 ACCEPT = [{"op": "accept"}]
+
+# The start offset in metres: the person's tuned value, a second one, the yaml's, and one more than the track's stem leaves room for.
+OFFSET, OTHER, YAML_OFFSET, TOO_FAR = 0.1, 0.2, 0.05, 0.4
+TRACK_BLOCK = f"{S1}_track_01"
 HEADER_KEYS = {"session_id", "subject_id", "group", "protocol", "rate_hz", "max_gap", "date", "n_frames", "in_dataset", "reason", "annotated_exclude", "excluded",
                "epochs", "runs",
                "selected_epochs", "n_initial_blocks", "environments", "rules", "frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops",
-               "warnings", "review", "blocks", "refusals", "cuts", "flagged_runs"}
+               "warnings", "review", "blocks", "refusals", "cuts", "flagged_runs", "start_offset_m", "start_offset_default_m"}
 ARRAY_KEYS = ["t", "x", "y", "x_smooth", "y_smooth", "heading", "speed", "turn_rate", "motion", "n_lights"]
 
 
@@ -321,3 +325,78 @@ def test_only_a_file_or_validation_failure_of_the_build_comes_back_as_build_erro
     monkeypatch.setattr(TrajectoryEngine, "blocks", bug)
     with pytest.raises(ValueError, match="bug"):
         manager.rebuild_all(SHORT)
+
+
+def start_y(header):
+    """
+    The height of the start site in the geometry of the track environment the header carries.
+    """
+    return header["environments"]["triple_t"]["reward_sites"]["start"][1]
+
+
+def test_the_start_offset_applied_is_the_requests_over_the_reviews_over_the_yamls(folders, manager):
+    header = manager.load(S1, SHORT)
+    base = start_y(header)
+    assert (header["start_offset_m"], header["start_offset_default_m"]) == (None, 0.0) and isinstance(header["frame"]["track"]["start_offset_measured_m"], float)
+    asked = manager.load(S1, SHORT, OFFSET)
+    assert (asked["start_offset_m"], asked["start_offset_default_m"]) == (OFFSET, 0.0) and start_y(asked) == pytest.approx(base + OFFSET)
+    manager.save_blocks(S1, SAVED, "", SHORT, OTHER)
+    reviewed = manager.load(S1, SHORT)
+    assert reviewed["start_offset_m"] == OTHER and start_y(reviewed) == pytest.approx(base + OTHER)
+    assert start_y(manager.load(S1, SHORT, OFFSET)) == pytest.approx(base + OFFSET)
+    zero = manager.load(S1, SHORT, 0.0)
+    assert zero["start_offset_m"] == 0.0 and start_y(zero) == pytest.approx(base)
+    yaml = folders[2] / "triple_t.yaml"
+    yaml.write_text(yaml.read_text() + f"  start_offset: {YAML_OFFSET}\n")
+    default = manager.load(S6, SHORT)
+    assert (default["start_offset_m"], default["start_offset_default_m"]) == (None, YAML_OFFSET) and start_y(default) == pytest.approx(base + YAML_OFFSET)
+    assert start_y(manager.load(S6, SHORT, OFFSET)) == pytest.approx(base + OFFSET)
+
+
+def test_a_start_offset_the_track_cannot_close_around_is_refused_by_every_verb_and_a_save_writes_nothing(folders, manager):
+    for call in (lambda: manager.load(S1, SHORT, TOO_FAR), lambda: manager.arrays(S1, TOO_FAR),
+                 lambda: manager.preview(S1, ACCEPT, SHORT, TOO_FAR), lambda: manager.save_blocks(S1, ACCEPT, "", SHORT, TOO_FAR)):
+        with pytest.raises(Invalid, match="does not close"):
+            call()
+    assert not folders[1].exists()
+
+
+def test_a_save_writes_the_start_offset_in_the_review_and_the_metadata_and_a_rebuild_registers_with_it(folders, manager, monkeypatch):
+    monkeypatch.setattr(review_module.clock, "iso_now", lambda: FROZEN)
+    access = ProcessedAccess(folders[1])
+    plain = manager.save_blocks(S1, SAVED, "", SHORT)
+    assert plain["review"]["start_offset_m"] is None and access.metadata(S1)["start_offset_m"] is None
+    y_plain = access.block(TRACK_BLOCK)["arrays"]["y"]
+    moved = manager.save_blocks(S1, SAVED, "", SHORT, OFFSET)
+    assert moved["review"]["start_offset_m"] == OFFSET and access.review(S1)["start_offset_m"] == OFFSET and access.metadata(S1)["start_offset_m"] == OFFSET
+    assert np.allclose(access.block(TRACK_BLOCK)["arrays"]["y"] - y_plain, OFFSET)
+    before = snapshot(folders[1])
+    assert manager.rebuild_all(SHORT)["totals"]["built"] == 2 and snapshot(folders[1]) == before
+    cleared = manager.save_blocks(S1, SAVED, "", SHORT)
+    assert cleared["review"]["start_offset_m"] is None and access.metadata(S1)["start_offset_m"] is None
+    assert np.allclose(access.block(TRACK_BLOCK)["arrays"]["y"], y_plain)
+
+
+def test_a_preview_and_a_save_use_the_start_offset_they_are_given_and_not_the_reviews(folders, manager):
+    access = ProcessedAccess(folders[1])
+    manager.save_blocks(S1, SAVED, "", SHORT)
+    access.write_review(S1, {**access.review(S1), "start_offset_m": TOO_FAR})
+    with pytest.raises(Invalid, match="does not close"):
+        manager.load(S1, SHORT)
+    assert manager.preview(S1, ACCEPT, SHORT)["refusals"] == []
+    assert manager.save_blocks(S1, SAVED, "", SHORT)["review"]["start_offset_m"] is None
+
+
+def test_an_exclusion_writes_no_start_offset_into_a_new_review_and_keeps_a_reviewed_ones(folders, manager):
+    assert manager.exclude(S6, True, "", SHORT)["review"]["start_offset_m"] is None
+    manager.save_blocks(S1, SAVED, "", SHORT, OFFSET)
+    assert manager.exclude(S1, True, "", SHORT)["review"]["start_offset_m"] == OFFSET
+    assert ProcessedAccess(folders[1]).metadata(S1)["start_offset_m"] == OFFSET
+
+
+def test_a_review_file_without_the_start_offset_reads_as_the_yamls_and_builds(folders, manager):
+    manager.save_blocks(S1, SAVED, "", SHORT, OFFSET)
+    path = folders[1] / "review" / f"{S1}.json"
+    path.write_text(json.dumps({key: value for key, value in json.loads(path.read_text()).items() if key != "start_offset_m"}))
+    assert manager.load(S1, SHORT)["start_offset_m"] is None and manager.rebuild_all(SHORT)["totals"]["built"] == 2
+    assert ProcessedAccess(folders[1]).metadata(S1)["start_offset_m"] is None

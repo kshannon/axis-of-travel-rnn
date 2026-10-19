@@ -142,7 +142,8 @@ export interface SessionFrame {
   start_px: [number, number];
   goals_px: [number, number];
   arena?: Registration;
-  track: Registration;
+  /** The track's registration, with the start offset measured from the session's own occupancy (a number or none, missing from a build made before it was recorded). Absent for a session with no track epoch. */
+  track?: Registration & { start_offset_measured_m?: number | null };
 }
 
 export interface Registration {
@@ -253,6 +254,10 @@ export interface SessionHeader {
   /** The geometry in metres of each environment of the session's epochs, by name. */
   environments: Record<string, Geometry>;
   frame: SessionFrame;
+  /** The start offset in metres the session is registered with, none when the yaml's applies. */
+  start_offset_m: number | null;
+  /** The start offset the environment's yaml sets, in metres. */
+  start_offset_default_m: number;
   heading_spans: { lost: HeadingSpan[]; filled: HeadingSpan[]; held: HeadingSpan[] };
   cut_points: CutPoint[];
   margins: Span[];
@@ -295,10 +300,11 @@ export interface BlockArrays {
   trip: Int32Array;
 }
 
-/** The body of a preview: the whole edit list and the settings the window counts are at. */
+/** The body of a preview: the whole edit list, the settings the window counts are at and the start offset the session is registered with, none for the yaml's. */
 export interface PreviewBody {
   edits: Edit[];
   settings: WindowSettings;
+  start_offset_m: number | null;
 }
 
 /** The body of a save: the whole edit list, the free text note and the settings the build's window counts are at. */

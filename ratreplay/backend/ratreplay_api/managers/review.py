@@ -21,6 +21,10 @@ CONFIRMED, AUTO, DROPPED = "confirmed", "auto", "dropped"
 KEPT = (CONFIRMED, "edited")
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 
+# The epoch kind whose environment has a start site, and the review's key for the start offset the person tuned (none means the yaml's).
+TRACK = "track"
+START_OFFSET = "start_offset_m"
+
 # What the manager says: a save refused (the edit as a person counts it, from 1, or because the person excluded the session), a session the
 # funnel leaves out (no frames, no epoch of the rules), a build that failed, the warnings of a review made under other rules or whose
 # blocks today's rules do not give, and the version of a build.
@@ -78,6 +82,13 @@ def shaped(blocks):
     return [{**picked(b, BLOCK_KEYS), "note": b["note"] or None} for b in blocks]
 
 
+def offset_applied(review, requested):
+    """
+    The start offset a session is loaded or played with: the one requested when it is not none, else the one the saved review holds, else none for the yaml's. A query cannot carry null, so absent means the review's.
+    """
+    return requested if requested is not None else (review or {}).get(START_OFFSET)
+
+
 def warnings_of(found, review):
     """
     The session's warnings, with one more when its review was saved under rules other than today's (the saved rules went through json, so today's do too).
@@ -115,12 +126,13 @@ class ReviewManager:
                          **review_facts(self.processed.review(sid), RULES["epochs"], session["rate_hz"])})
         return sorted(rows, key=lambda s: (not s["in_dataset"], s["reviewed"], s["reviewed_at"] or ""))
 
-    def load(self, sid, settings):
+    def load(self, sid, settings, start_offset_m=None):
         """
-        A session for the replay as a header: its facts, epochs, runs, whether the rules keep it, the geometry of its environments by name, what the engine draws, its review and its blocks with their window counts.
+        A session for the replay as a header: its facts, epochs, runs, whether the rules keep it, the geometry of its environments by name built with the start offset that applies (the request's, else the review's, else the yaml's, which the header gives as start_offset_default_m), what the engine draws, its review and its blocks with their window counts.
         """
-        arrays, environments, found = self._session(sid)
         review = self.processed.review(sid)
+        offset = offset_applied(review, start_offset_m)
+        arrays, environments, found = self._session(sid, offset)
         made = self._made(arrays, environments, found, [] if review is None else review["edits"], settings)
         warnings = warnings_of(found, review)
         if review is not None and shaped(made["blocks"]) != shaped(review["blocks"]):
@@ -131,30 +143,31 @@ class ReviewManager:
                 "epochs": [picked(e, EPOCH_KEYS) for e in arrays["epochs"]],
                 "runs": [picked(r, RUN_KEYS) for r in arrays["runs"]], "selected_epochs": [e["epoch"] for e in found["epochs"]],
                 "n_initial_blocks": len(found["initial_blocks"]), "environments": environments, "rules": found["rules"], **picked(found, DRAWN_KEYS), "warnings": warnings,
-                "review": review, **made}
+                "start_offset_m": offset, "start_offset_default_m": self._yaml_offset(arrays), "review": review, **made}
 
-    def arrays(self, sid):
+    def arrays(self, sid, start_offset_m=None):
         """
-        A session's arrays over every frame in metres, what the page plays, without the blocks and their windows.
+        A session's arrays over every frame in metres, registered with the start offset that applies, what the page plays, without the blocks and their windows.
         """
-        return picked(self._session(sid)[2]["kinematics"], ARRAY_KEYS)
+        offset = offset_applied(self.processed.review(sid), start_offset_m)
+        return picked(self._session(sid, offset)[2]["kinematics"], ARRAY_KEYS)
 
-    def preview(self, sid, edits, settings):
+    def preview(self, sid, edits, settings, start_offset_m=None):
         """
-        The blocks the whole edit list makes of the initial blocks with their window counts, the edits refused, the cuts and the flagged runs, nothing written.
+        The blocks the whole edit list makes of the initial blocks with their window counts, the edits refused, the cuts and the flagged runs, registered with this start offset as given, none being the yaml's and not the review's, nothing written.
         """
-        arrays, environments, found = self._session(sid)
+        arrays, environments, found = self._session(sid, start_offset_m)
         return self._made(arrays, environments, found, edits, settings)
 
-    def save_blocks(self, sid, edits, notes, settings):
+    def save_blocks(self, sid, edits, notes, settings, start_offset_m=None):
         """
-        Apply the edits and write the review whole, refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
+        Apply the edits and write the review whole with this start offset exactly as given (none is the yaml's and clears a saved one), refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
         """
         self._require_in_dataset(sid)
         previous = self.processed.review(sid) or {}
         if previous.get("excluded"):
             raise Invalid(EXCLUDED.format(sid=sid))
-        arrays, _, found = self._session(sid)
+        arrays, _, found = self._session(sid, start_offset_m)
         applied = self.trajectory.apply(found["initial_blocks"], edits, found)
         if applied["refusals"]:
             first = applied["refusals"][0]
@@ -163,7 +176,8 @@ class ReviewManager:
             raise Invalid(STILL_AUTO)
         review = {"session_id": sid, "reviewed_by": getpass.getuser(), "reviewed_at": clock.iso_now(), "converter_manifest_timestamp": arrays["stamp"],
                   "rules": found["rules"], "blocks": applied["blocks"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"],
-                  "notes": notes, "edits": edits, "excluded": False, "excluded_by": previous.get("excluded_by"), "excluded_at": previous.get("excluded_at")}
+                  "notes": notes, "edits": edits, "excluded": False, "excluded_by": previous.get("excluded_by"), "excluded_at": previous.get("excluded_at"),
+                  START_OFFSET: start_offset_m}
         written = self.processed.write_review(sid, review)
         return {"review": review, "replaced": written["replaced"], "file": written["file"], **self._built(sid, settings)}
 
@@ -217,7 +231,7 @@ class ReviewManager:
             found = self.trajectory.session(arrays, environments, RULES)
             blocks, rules = self.trajectory.apply(found["initial_blocks"], [], found)["blocks"], found["rules"]
         return {"session_id": sid, "reviewed_by": None, "reviewed_at": None, "converter_manifest_timestamp": arrays["stamp"], "rules": rules, "blocks": blocks,
-                "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None}
+                "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None, START_OFFSET: None}
 
     def _unbuilt(self, sid):
         """
@@ -237,19 +251,26 @@ class ReviewManager:
         if not funnel["in_dataset"]:
             raise Invalid(NOT_IN_DATASET.format(sid=sid, reason=funnel["reason"]))
 
-    def _frames(self, sid):
+    def _frames(self, sid, start_offset_m=None):
         """
-        The session as TransformedAccess gives it and the geometry by name of the environments of its epochs of the rules' kinds, so a session the rules leave out can be viewed too.
+        The session as TransformedAccess gives it and the geometry by name of the environments of its epochs of the rules' kinds, built with this start offset when one is given, so a session the rules leave out can be viewed too.
         """
         arrays = self.transformed.session(sid)
-        return arrays, {e["environment"]: self.environment.environment(e["environment"]) for e in arrays["epochs"] if e["epoch"] in RULES["epochs"]}
+        return arrays, {e["environment"]: self.environment.environment(e["environment"], start_offset_m) for e in arrays["epochs"] if e["epoch"] in RULES["epochs"]}
 
-    def _session(self, sid):
+    def _session(self, sid, start_offset_m=None):
         """
-        The session, its environments and the engine's session over them.
+        The session, its environments built with this start offset and the engine's session over them.
         """
-        arrays, environments = self._frames(sid)
+        arrays, environments = self._frames(sid, start_offset_m)
         return arrays, environments, self.trajectory.session(arrays, environments, RULES)
+
+    def _yaml_offset(self, arrays):
+        """
+        The start offset the yaml of the session's track environment sets, 0.0 when it sets none or the session has no track epoch.
+        """
+        names = [e["environment"] for e in arrays["epochs"] if e["epoch"] == TRACK]
+        return self.environment.environment(names[0])["params"].get("start_offset", 0.0) if names else 0.0
 
     def _windows(self, block, settings):
         """
@@ -285,11 +306,12 @@ class ReviewManager:
         Write the session's blocks and metadata from the review on disk, the one build step of a save and a rebuild. An excluded session is written with no blocks and metadata saying so.
         """
         review = self.processed.review(sid)
+        offset = review.get(START_OFFSET)
         if review["excluded"]:
             made = {"blocks": [], "frame": None, "warnings": []}
         else:
             self._require_in_dataset(sid)
-            arrays, environments = self._frames(sid)
+            arrays, environments = self._frames(sid, offset)
             made = self.trajectory.blocks(arrays, review, environments, RULES)
         kept, failed, windows = [], [], {}
         for block in made["blocks"]:
@@ -301,7 +323,7 @@ class ReviewManager:
             kept.append({"row": block["row"], "arrays": block["arrays"]})
             windows[block_id] = self._windows(block, settings)
         stamp = {key: review[key] for key in ("reviewed_at", "converter_manifest_timestamp")}
-        metadata = {"rules": RULES, "settings": settings, "review_stamp": stamp, "code_version": CODE_VERSION.format(VERSION, self.code_version),
+        metadata = {"rules": RULES, START_OFFSET: offset, "settings": settings, "review_stamp": stamp, "code_version": CODE_VERSION.format(VERSION, self.code_version),
                     "built_at": clock.iso_now(), "windows": windows, "frame": made["frame"], "excluded": review["excluded"],
                     "warnings": warnings_of(made, review), "failed": failed}
         self.processed.write_blocks(sid, kept, metadata)

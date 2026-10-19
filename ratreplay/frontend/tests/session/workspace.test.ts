@@ -29,7 +29,7 @@ function serverDropping(nBlocks = 3) {
 }
 
 function workspace(first = preview(["auto", "auto", "auto"])) {
-  const header = { session_id: "S", n_frames: 6000, rate_hz: 60 } as SessionHeader;
+  const header = { session_id: "S", n_frames: 6000, rate_hz: 60, start_offset_m: null, start_offset_default_m: 0.05 } as SessionHeader;
   const arrays = { speed: new Float64Array([1, 2, NaN, 3]) } as SessionArrays;
   return new Workspace({ header, arrays, settings: SETTINGS, saved: null, preview: first });
 }
@@ -43,7 +43,7 @@ test("an edit the server applies joins the list and the blocks are the server's 
   expect(await ws.edit(() => drop)).toBe(drop);
   expect(ws.editor.edits).toEqual([drop]);
   expect(ws.preview.blocks.map((b) => b.status)).toEqual(["dropped", "auto", "auto"]);
-  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [drop], settings: SETTINGS });
+  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [drop], settings: SETTINGS, start_offset_m: null });
 });
 
 test("an edit the server refuses gives back the server's reason and changes nothing", async () => {
@@ -97,7 +97,7 @@ test("a save sends the edits, the note and the settings, marks the edits saved a
   ws.editor.push({ op: "accept" });
   expect(ws.editor.dirty).toBe(true);
   expect(await ws.save("a note")).toBe(result);
-  expect(client.saveBlocks).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], notes: "a note", settings: SETTINGS });
+  expect(client.saveBlocks).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], notes: "a note", settings: SETTINGS, start_offset_m: null });
   expect([ws.editor.dirty, ws.saved]).toEqual([false, review]);
 });
 
@@ -109,6 +109,55 @@ test("a save the server refuses leaves the edits unsaved", async () => {
   expect([ws.editor.dirty, ws.saved]).toEqual([true, null]);
 });
 
+// The server stands in for the registration: the header and the arrays give back the offset they were asked for.
+function serverRegistering() {
+  vi.mocked(client.getSession).mockImplementation(async (_id, _settings, offset) => ({ session_id: "S", n_frames: 6000, rate_hz: 60, start_offset_m: offset, start_offset_default_m: 0.05 }) as SessionHeader);
+  vi.mocked(client.getSessionArrays).mockImplementation(async () => ({ speed: new Float64Array([1, 2, 3]) }) as SessionArrays);
+  vi.mocked(client.previewEdits).mockImplementation(serverDropping());
+}
+
+test("a start offset registers the session again with the edits kept, none asks for the yaml's own number, and the review is unsaved until it is saved", async () => {
+  serverRegistering();
+  const ws = workspace();
+  const drop: Edit = { op: "drop", frame: 1 };
+  await ws.edit(() => drop);
+  ws.editor.markSaved();
+  expect(await ws.useStartOffset(0.12)).toBe(true);
+  expect(client.getSession).toHaveBeenLastCalledWith("S", SETTINGS, 0.12);
+  expect(client.getSessionArrays).toHaveBeenLastCalledWith("S", 0.12);
+  expect(client.previewEdits).toHaveBeenLastCalledWith("S", { edits: [drop], settings: SETTINGS, start_offset_m: 0.12 });
+  expect([ws.startOffset, ws.header.start_offset_m, ws.editor.edits, ws.editor.dirty, ws.dirty]).toEqual([0.12, 0.12, [drop], false, true]);
+  expect(await ws.useStartOffset(0.12)).toBe(false);
+  expect(client.getSession).toHaveBeenCalledTimes(1);
+  expect(await ws.useStartOffset(null)).toBe(true);
+  expect(client.getSession).toHaveBeenLastCalledWith("S", SETTINGS, 0.05);
+  expect(client.previewEdits).toHaveBeenLastCalledWith("S", { edits: [drop], settings: SETTINGS, start_offset_m: null });
+  expect([ws.startOffset, ws.dirty]).toEqual([null, false]);
+});
+
+test("a save sends the start offset and takes it as the saved one, and a session opened with an offset on disk starts with it saved", async () => {
+  serverRegistering();
+  vi.mocked(client.saveBlocks).mockResolvedValue({ review: { edits: [] }, replaced: false, file: "review/S.json", built: 1, failed: [], build_error: null } as never);
+  const ws = workspace();
+  await ws.useStartOffset(0.12);
+  await ws.save("");
+  expect(client.saveBlocks).toHaveBeenCalledWith("S", { edits: [], notes: "", settings: SETTINGS, start_offset_m: 0.12 });
+  expect([ws.dirty, ws.header.start_offset_m]).toEqual([false, 0.12]);
+  await ws.useStartOffset(null);
+  expect(ws.dirty).toBe(true);
+  const opened = new Workspace({ header: { ...ws.header, start_offset_m: 0.3 }, arrays: ws.arrays, settings: SETTINGS, saved: null, preview: preview(["auto"]) });
+  expect([opened.startOffset, opened.dirty]).toEqual([0.3, false]);
+});
+
+test("a start offset the server refuses leaves the header, the arrays, the blocks and the offset as they were", async () => {
+  serverRegistering();
+  vi.mocked(client.getSession).mockRejectedValue(new Error("the maze does not close"));
+  const ws = workspace();
+  const before = [ws.header, ws.arrays, ws.preview];
+  await expect(ws.useStartOffset(0.4)).rejects.toThrow("does not close");
+  expect([ws.header, ws.arrays, ws.preview, ws.startOffset]).toEqual([...before, null]);
+});
+
 test("opening the session already open keeps its edits and previews them again at other settings, at the same settings it asks nothing", async () => {
   vi.mocked(client.previewEdits).mockResolvedValue(preview(["confirmed", "auto", "auto"]));
   const ws = workspace();
@@ -117,7 +166,7 @@ test("opening the session already open keeps its edits and previews them again a
   expect(await Workspace.open("S", { ...SETTINGS })).toBe(ws);
   expect(client.previewEdits).not.toHaveBeenCalled();
   expect(await Workspace.open("S", SHORTER)).toBe(ws);
-  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], settings: SHORTER });
+  expect(client.previewEdits).toHaveBeenCalledWith("S", { edits: [{ op: "accept" }], settings: SHORTER, start_offset_m: null });
   expect([ws.settings, ws.editor.edits.length, ws.preview.blocks[0].status]).toEqual([SHORTER, 1, "confirmed"]);
   Workspace.current = null;
 });

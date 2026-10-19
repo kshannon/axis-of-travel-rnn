@@ -4,6 +4,7 @@ The flows of the HTTP surface over the synthetic folders and an empty processed 
 
 import io
 
+import numpy as np
 import pyarrow as pa
 import pytest
 from fixtures import S1, S2, S6
@@ -29,6 +30,9 @@ BLOCK_HEADER_KEYS = {"row", "rate_hz", "geometry", "runs", "trips", "phases", "h
 WINDOWS_KEYS = {"rows", "verdict", "count"}
 TRACK = f"{S1}_track_01"
 
+# The start offset in metres a request gives, and one more than the track's stem leaves room for.
+OFFSET, TOO_FAR = 0.1, 0.4
+
 
 def table_of(response):
     """
@@ -41,7 +45,7 @@ def save(client, sid, edits, settings=SHORT):
     """
     Save the session's blocks through the API and return the response.
     """
-    return client.put(f"/api/sessions/{sid}/blocks", json={"edits": edits, "notes": "", "settings": settings})
+    return client.put(f"/api/sessions/{sid}/blocks", json={"edits": edits, "notes": "", "settings": settings, "start_offset_m": None})
 
 
 @pytest.fixture
@@ -72,7 +76,7 @@ def test_a_session_is_listed_loaded_at_the_query_settings_and_streamed_as_arrow(
 
 
 def test_a_preview_returns_the_refusal_of_an_illegal_edit_and_writes_nothing(client, processed):
-    body = {"edits": [*ACCEPT, {"op": "split", "frame": 100}], "settings": SHORT}
+    body = {"edits": [*ACCEPT, {"op": "split", "frame": 100}], "settings": SHORT, "start_offset_m": None}
     response = client.post(f"/api/sessions/{S1}/preview", json=body)
     assert response.status_code == 200 and response.json().keys() == {"blocks", "refusals", "cuts", "flagged_runs"}
     refusal = response.json()["refusals"]
@@ -84,7 +88,7 @@ def test_a_preview_returns_the_refusal_of_an_illegal_edit_and_writes_nothing(cli
 def test_save_blocks_names_the_review_file_and_the_blocks_built_and_health_then_counts_them(client, processed):
     before = client.get("/api/health").json()["processed"]
     assert before["problems"] == [] and before["counts"] == {"reviews": 0, "blocks": 0, "sessions": 0}
-    saved = client.put(f"/api/sessions/{S1}/blocks", json={"edits": SAVED, "notes": "shaky", "settings": SHORT})
+    saved = client.put(f"/api/sessions/{S1}/blocks", json={"edits": SAVED, "notes": "shaky", "settings": SHORT, "start_offset_m": None})
     assert saved.status_code == 200 and saved.json().keys() == SAVE_KEYS
     result = saved.json()
     assert (result["file"], result["replaced"], result["built"], result["failed"], result["build_error"]) == (f"review/{S1}.json", False, 2, [], None)
@@ -188,3 +192,24 @@ def test_environments_are_listed_with_their_geometry_and_the_sessions_registered
     assert {name: [r["session_id"] for r in e["sessions"]] for name, e in by_name.items()} == {
         "open_arena": [S1], "plus_maze": [], "triple_t": [S1, S6], "triple_t_rot90": []}
     assert "scale_px_per_m" in by_name["triple_t"]["sessions"][0]
+
+
+def test_the_start_offset_travels_in_the_query_of_a_header_and_of_arrays_and_in_the_body_of_a_preview_and_a_save(client):
+    def start_y(header):
+        return header["environments"]["triple_t"]["reward_sites"]["start"][1]
+
+    def heights(params):
+        return table_of(client.get(f"/api/sessions/{S1}/arrays", params=params)).column("y").to_numpy(zero_copy_only=False)
+
+    plain = client.get(f"/api/sessions/{S1}", params=SHORT).json()
+    asked = client.get(f"/api/sessions/{S1}", params={**SHORT, "start_offset_m": OFFSET}).json()
+    assert (plain["start_offset_m"], asked["start_offset_m"]) == (None, OFFSET) and start_y(asked) - start_y(plain) == pytest.approx(OFFSET)
+    assert np.nanmax(heights({"start_offset_m": OFFSET}) - heights({})) == pytest.approx(OFFSET)
+    for refused in (client.post(f"/api/sessions/{S1}/preview", json={"edits": ACCEPT, "start_offset_m": TOO_FAR}),
+                    client.put(f"/api/sessions/{S1}/blocks", json={"edits": ACCEPT, "start_offset_m": TOO_FAR})):
+        assert refused.status_code == 400 and "does not close" in refused.json()["error"]
+    saved = client.put(f"/api/sessions/{S1}/blocks", json={"edits": SAVED, "notes": "", "settings": SHORT, "start_offset_m": OFFSET})
+    assert saved.status_code == 200 and saved.json()["review"]["start_offset_m"] == OFFSET
+    assert client.get(f"/api/sessions/{S1}", params=SHORT).json()["start_offset_m"] == OFFSET
+    assert save(client, S1, SAVED).json()["review"]["start_offset_m"] is None
+    assert client.get(f"/api/sessions/{S1}", params=SHORT).json()["start_offset_m"] is None

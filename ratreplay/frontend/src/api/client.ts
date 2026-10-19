@@ -14,7 +14,7 @@ const UNREACHABLE = "Cannot reach the API, is it running?";
 
 // The version of the format contract this page is built for, and the keys of `/api/format` its pages cannot do without. An API
 // that answers another version, or without a key, is not the one this page was built with.
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 const NEEDED_KEYS = ["settings", "rules"] as const;
 export const STALE_API = "The API is older than this page, restart it (pixi run ratreplay-api)";
 
@@ -66,7 +66,7 @@ async function columns<T>(url: string): Promise<T> {
 }
 
 /** The url with the settings as query parameters, which is where a GET carries them. */
-function withSettings(url: string, settings: Partial<WindowSettings> & { which?: string }): string {
+function withSettings(url: string, settings: Partial<WindowSettings> & { which?: string; start_offset_m?: number }): string {
   const query = new URLSearchParams(Object.entries(settings).map(([name, value]) => [name, String(value)]));
   return query.size ? `${url}?${query}` : url;
 }
@@ -77,9 +77,11 @@ export const rebuildAll = (settings: WindowSettings) => json<Rebuilt>("POST", RE
 
 // The Incoming (sessions) and Replay pages.
 export const listSessions = () => json<SessionRow[]>("GET", SESSIONS);
-export const getSession = (sessionId: string, settings: Partial<WindowSettings> = {}) =>
-  json<SessionHeader>("GET", withSettings(`${SESSIONS}/${sessionId}`, settings));
-export const getSessionArrays = (sessionId: string) => columns<SessionArrays>(`${SESSIONS}/${sessionId}/arrays`);
+// The start offset is a query parameter when it is a number. Left out, the API registers the session with the offset of its saved review, else the yaml's.
+export const getSession = (sessionId: string, settings: Partial<WindowSettings> = {}, startOffset: number | null = null) =>
+  json<SessionHeader>("GET", withSettings(`${SESSIONS}/${sessionId}`, startOffset === null ? settings : { ...settings, start_offset_m: startOffset }));
+export const getSessionArrays = (sessionId: string, startOffset: number | null = null) =>
+  columns<SessionArrays>(withSettings(`${SESSIONS}/${sessionId}/arrays`, startOffset === null ? {} : { start_offset_m: startOffset }));
 export const previewEdits = (sessionId: string, body: PreviewBody) => json<Preview>("POST", `${SESSIONS}/${sessionId}/preview`, body);
 export const saveBlocks = (sessionId: string, body: SaveBody) => json<SavedBlocks>("PUT", `${SESSIONS}/${sessionId}/blocks`, body);
 export const setExclusion = (sessionId: string, excluded: boolean, note: string, settings: WindowSettings) =>

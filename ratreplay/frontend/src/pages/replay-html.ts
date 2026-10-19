@@ -1,6 +1,7 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, BUTTON_WARN, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { START_OFFSET_LIMIT, START_OFFSET_STEP } from "../session/workspace";
+import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, BUTTON_WARN, CHIP_ON, CHIP_OFF, disabledWhy, FIELD, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
@@ -139,10 +140,31 @@ const mapBody = `
     <div x-ref="map" data-testid="map" class="relative min-h-0 flex-1"></div>
   </div>`;
 
-// Under the playback: the run the flag acts on and the notes of the session.
+// Under the playback: the run the flag acts on, then the start offset field and the notes of the session side by side.
 const FLAG_OFF = "select or hover a run";
 const FLAG_TITLE = "Mark the lab\\'s run label as wrong, its frames get no run or trip label when the blocks are built";
 const UNFLAG_TITLE = "Take the flag back, the frames of the run get their run and trip label again";
+
+// A BUTTON and an INPUT made small, so the offset field takes two short lines.
+const SMALL = "px-2! py-0.5! text-xs!";
+
+// The start offset in metres, how far up the stem the start site lies over the bottom corridor. The number moves the session when the person pauses for a moment, the buttons at once.
+// The buttons carry the numbers they set, the yaml's and the engine's measure, which is a hint kept inside the narrow field.
+const startOffsetField = `
+  <div data-testid="start-offset" class="${FIELD} w-60 shrink-0">
+    <div class="flex items-center justify-between gap-2">
+      <label for="start-offset" class="whitespace-nowrap" title="How far up the stem the start site lies over the bottom corridor. Changing it moves the track, the occupancy and the trail of this session, and Save writes it into the review">Start offset, m</label>
+      <span x-show="offsetUnsaved" class="whitespace-nowrap text-warn" title="Save blocks writes the start offset into the review">not saved</span>
+      <div class="w-20 shrink-0">
+        <input id="start-offset" type="number" step="${START_OFFSET_STEP}" min="${-START_OFFSET_LIMIT}" max="${START_OFFSET_LIMIT}" x-model="offsetField" @input.debounce.300ms="offsetTyped()" @change="settleOffset()"
+          :disabled="loading" class="${INPUT} py-0.5! tabular-nums" />
+      </div>
+    </div>
+    <div class="flex items-center gap-1">
+      <button type="button" @click="useDefaultOffset()" ${disabledWhy("loading || offsetIsDefault", "already on the default start offset", "Go back to the default start offset of the environment file, and Save then writes no offset of its own")} class="whitespace-nowrap ${BUTTON} ${SMALL}">Default <span class="tabular-nums" x-text="defaultText"></span></button>
+      <button type="button" x-show="offsetMeasured !== null" @click="useMeasured()" ${disabledWhy("loading || !measuredUsable", "the measured start offset is further from zero than the field allows", "Set the start offset to the one measured from the occupancy of this session")} class="whitespace-nowrap ${BUTTON} ${SMALL}">Use measured <span class="tabular-nums" x-text="measuredText"></span></button>
+    </div>
+  </div>`;
 
 const flagAndNotes = `
   <div class="flex items-center gap-2">
@@ -150,7 +172,10 @@ const flagAndNotes = `
       x-text="runFlagged ? 'Unflag run' : 'Flag run'"></button>
     <span class="min-w-0 text-xs text-muted" :title="runLine" x-text="runLine"></span>
   </div>
-  <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} min-h-10 flex-1 resize-none"></textarea>`;
+  <div class="flex min-h-0 flex-1 gap-2">
+    ${startOffsetField}
+    <textarea x-model="notes" rows="2" placeholder="Notes on the session" aria-label="Notes on the session" class="${INPUT} min-h-10 min-w-0 flex-1 resize-none"></textarea>
+  </div>`;
 
 const playbackCard = playbackBody([["time", "time"], ["lab frame", "frame"], ["speed", "speed"], ["lights", "lights"]], flagAndNotes, "grid-cols-4");
 

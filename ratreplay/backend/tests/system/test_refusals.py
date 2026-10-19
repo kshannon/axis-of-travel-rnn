@@ -11,6 +11,7 @@ from ratreplay_api.managers.validation import NOTHING_BUILT
 UNPROCESSABLE, INVALID, NOT_FOUND = 422, 400, 404
 SHORT = {"window_s": 5}
 ACCEPT = [{"op": "accept"}]
+NO_OFFSET = {"start_offset_m": None}  # the body of a preview and a save always gives the start offset, none being the yaml's
 
 # Each malformed edit with the field the 422 names. The edit is the first of the list, so its path starts at edits.0.
 MALFORMED_EDITS = {
@@ -31,6 +32,8 @@ BAD_SETTINGS = {
     "an unknown key in the body of a save": ("put", f"/api/sessions/{S1}/blocks", "json", {"edits": ACCEPT, "settings": {"bogus": 1}}, "settings.bogus"),
     "an unknown key in the body of a rebuild": ("post", "/api/rebuild", "json", {"settings": {"bogus": 1}}, "settings.bogus"),
     "no settings in the body of a rebuild": ("post", "/api/rebuild", "json", {}, "settings"),
+    "no start offset in the body of a preview": ("post", f"/api/sessions/{S1}/preview", "json", {"edits": []}, "start_offset_m"),
+    "no start offset in the body of a save": ("put", f"/api/sessions/{S1}/blocks", "json", {"edits": ACCEPT}, "start_offset_m"),
     "a flag that is not true or false in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"excluded": "yes"}, "excluded"),
     "no flag in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"note": "x"}, "excluded"),
     "an unknown key in the body of an exclusion": ("put", f"/api/sessions/{S1}/exclusion", "json", {"excluded": True, "bogus": 1}, "bogus"),
@@ -40,8 +43,8 @@ BAD_SETTINGS = {
 UNKNOWN = [
     ("get", "/api/sessions/nope", None),
     ("get", "/api/sessions/nope/arrays", None),
-    ("post", "/api/sessions/nope/preview", {"edits": []}),
-    ("put", "/api/sessions/nope/blocks", {"edits": ACCEPT}),
+    ("post", "/api/sessions/nope/preview", {"edits": [], **NO_OFFSET}),
+    ("put", "/api/sessions/nope/blocks", {"edits": ACCEPT, **NO_OFFSET}),
     ("put", "/api/sessions/nope/exclusion", {"excluded": True}),
     ("put", f"/api/sessions/{S2}/exclusion", {"excluded": True}),
     ("get", f"/api/sessions/{S2}", None),
@@ -75,11 +78,11 @@ def test_an_unknown_session_or_block_is_a_404_with_an_error_body(client):
 
 
 def test_a_save_the_rules_refuse_and_a_selection_with_nothing_built_are_400s_with_the_reason_and_write_nothing(client, processed):
-    illegal = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [*ACCEPT, {"op": "split", "frame": 100}]})
+    illegal = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [*ACCEPT, {"op": "split", "frame": 100}], **NO_OFFSET})
     assert illegal.status_code == INVALID and illegal.json()["error"].startswith("edit 2 (split at frame 100): ")
-    auto = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [{"op": "confirm", "frame": 1000}]})
+    auto = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [{"op": "confirm", "frame": 1000}], **NO_OFFSET})
     assert auto.status_code == INVALID and auto.json() == {"error": STILL_AUTO}
-    left_out = client.put(f"/api/sessions/{S2}/blocks", json={"edits": ACCEPT})
+    left_out = client.put(f"/api/sessions/{S2}/blocks", json={"edits": ACCEPT, **NO_OFFSET})
     assert left_out.status_code == INVALID and left_out.json()["error"].startswith(f"session {S2} is not in the dataset: ")
     selection = client.put("/api/windows", json={"settings": SHORT})
     assert selection.status_code == INVALID and selection.json() == {"error": NOTHING_BUILT}
@@ -93,12 +96,13 @@ def test_a_missing_transformed_folder_is_a_404_on_every_session_route_and_reload
     health = client.get("/api/health").json()
     assert health["transformed"]["problems"] == [problem] and health["processed"]["exists"] is False and health["processed"]["problems"] == []
     session_routes = (client.get("/api/sessions"), client.get(f"/api/sessions/{S1}"), client.get(f"/api/sessions/{S1}/arrays"),
-                      client.post(f"/api/sessions/{S1}/preview", json={"edits": []}), client.put(f"/api/sessions/{S1}/blocks", json={"edits": ACCEPT}))
+                      client.post(f"/api/sessions/{S1}/preview", json={"edits": [], **NO_OFFSET}),
+                      client.put(f"/api/sessions/{S1}/blocks", json={"edits": ACCEPT, **NO_OFFSET}))
     assert [r.status_code for r in session_routes] == [NOT_FOUND] * 5 and all(r.json() == {"error": problem} for r in session_routes)
     (tmp_path / "local.yaml").write_text(yaml.safe_dump({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(later)}))
     assert client.get("/api/sessions").status_code == NOT_FOUND
     reloaded = client.get("/api/health", params={"reload": "true"}).json()
     assert reloaded["transformed"]["problems"] == [] and reloaded["transformed"]["root"] == str(transformed.resolve())
     assert client.get("/api/sessions").status_code == 200 and not later.exists()
-    assert client.put(f"/api/sessions/{S1}/blocks", json={"edits": ACCEPT, "settings": SHORT}).json()["built"] == 2
+    assert client.put(f"/api/sessions/{S1}/blocks", json={"edits": ACCEPT, "settings": SHORT, **NO_OFFSET}).json()["built"] == 2
     assert client.get("/api/health").json()["processed"]["exists"] is True and later.is_dir()

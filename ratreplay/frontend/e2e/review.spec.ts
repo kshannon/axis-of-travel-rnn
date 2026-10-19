@@ -91,6 +91,23 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(selection).toHaveText("nothing selected");
   });
 
+  await test.step("a start offset the maze cannot close around is refused and not kept, 0.12 registers the session again and waits for the save", async () => {
+    const offset = page.getByLabel("Start offset, m");
+    await expect(offset).toHaveValue("0.00"); // the yaml's default
+    await offset.fill("0.4");
+    const refused = toast(page, "Could not move the start offset");
+    await expect(refused).toBeVisible();
+    await refused.getByRole("button", { name: "Close" }).click();
+    await expect(offset).toHaveValue("0.00");
+    const registered = page.waitForResponse((response) => response.url().includes("/arrays?start_offset_m=0.12"));
+    await offset.fill("0.12");
+    await registered;
+    await expect(page.getByTestId("start-offset").getByText("not saved")).toBeVisible();
+    await expect(state).toHaveText("2 edits not saved"); // the edits and the status header are as they were
+    await expect(cards).toHaveCount(3);
+    await expect(page.getByTestId("map").locator("canvas")).toBeVisible();
+  });
+
   await test.step("Save blocks names the review file and the blocks built, then opens the next session", async () => {
     await page.getByLabel("Notes on the session").fill("the whole story");
     await page.getByRole("button", { name: "Save blocks" }).click();
@@ -147,6 +164,8 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(page.getByTestId("session-id")).toHaveText(S1);
     await expect(state).toHaveText(/^saved by \S+ on \d{4}-\d{2}-\d{2}, 2 edits$/);
     await expect(page.getByLabel("Notes on the session")).toHaveValue("the whole story");
+    await expect(page.getByLabel("Start offset, m")).toHaveValue("0.12"); // the saved review's offset, which the session is registered with
+    await expect(page.getByTestId("start-offset").getByText("not saved")).toBeHidden();
     await expect(cards).toHaveCount(3);
     await expect(cards.first()).toContainText("confirmed");
     await expect(cards.nth(1)).toContainText("edited");

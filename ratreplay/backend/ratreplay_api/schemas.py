@@ -26,6 +26,18 @@ class WindowSettings(BaseModel):
     min_complete_trips: int = Field(SETTINGS["min_complete_trips"], ge=0)
 
 
+# The start offset in metres the person tuned for a session, none for the yaml's. In a query, absent means the review's applies.
+StartOffset = Annotated[float | None, Field(allow_inf_nan=False)]
+
+
+class SessionQuery(WindowSettings):
+    """
+    The query of a session's header: the window settings and the start offset. A query model must be the only query parameter, so the offset is a field of it.
+    """
+
+    start_offset_m: StartOffset = None
+
+
 class ReadinessQuery(WindowSettings):
     """
     The query of readiness: the window settings and the dataset they are tried on, real or a synthetic set. A query model must be the only query parameter, so which is a field of it.
@@ -71,11 +83,12 @@ Edit = Annotated[Union[tuple(edit_model(op, fields) for op, fields in EDIT_FIELD
 
 class EditsBody(BaseModel):
     """
-    The edits of a review, in the order they were made, and the window settings the blocks they make are counted at.
+    The edits of a review, in the order they were made, the window settings the blocks they make are counted at and the start offset the session is registered with, always given: null is the yaml's and saving it clears a saved value.
     """
 
     edits: list[Edit]
     settings: WindowSettings = Field(default_factory=WindowSettings)
+    start_offset_m: StartOffset
 
 
 class ReviewBody(EditsBody):

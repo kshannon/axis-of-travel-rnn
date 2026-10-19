@@ -6,6 +6,10 @@ import { speedTop } from "./speed";
 
 const NO_CHANGE = "That changes nothing.";
 
+/** The start offset the field takes in metres, either way from none, and the step of its arrows. */
+export const START_OFFSET_LIMIT = 0.5;
+export const START_OFFSET_STEP = 0.01;
+
 const sameResult = (a: Preview, b: Preview) =>
   JSON.stringify([a.blocks, a.flagged_runs, a.cuts]) === JSON.stringify([b.blocks, b.flagged_runs, b.cuts]);
 
@@ -25,13 +29,17 @@ export class Workspace {
   /** Kept while the person visits other pages, so edits not yet saved are still there on return. */
   static current: Workspace | null = null;
 
-  readonly header: SessionHeader;
-  readonly arrays: SessionArrays;
+  header: SessionHeader;
+  arrays: SessionArrays;
   settings: WindowSettings;
   readonly clock: Clock;
   readonly editor: Editor;
-  readonly speedTop: number;
+  speedTop: number;
   saved: Review | null;
+  /** The start offset in metres the session is registered with, none for the yaml's. The header and the arrays are those of this offset. */
+  startOffset: number | null;
+  /** The start offset the review on disk holds. */
+  private savedOffset: number | null;
   /** The person excluded the session. */
   excluded: boolean;
   preview: Preview;
@@ -47,6 +55,17 @@ export class Workspace {
     this.clock = new Clock(loaded.header.n_frames, loaded.header.rate_hz);
     this.editor = new Editor(loaded.saved?.edits ?? []);
     this.speedTop = speedTop(loaded.arrays.speed);
+    this.startOffset = this.savedOffset = loaded.header.start_offset_m;
+  }
+
+  /** Whether anything would be lost by leaving the session: edits not saved, or a start offset other than the saved one. */
+  get dirty(): boolean {
+    return this.editor.dirty || this.offsetDirty;
+  }
+
+  /** Whether the start offset differs from the one saved. */
+  get offsetDirty(): boolean {
+    return this.startOffset !== this.savedOffset;
   }
 
   /** The session loaded with its saved review at the settings, or the one already open with its blocks counted at the settings. */
@@ -67,10 +86,10 @@ export class Workspace {
     return kept?.holds(sessionId) ? kept.setExclusion(excluded, note) : setExclusion(sessionId, excluded, note, settings);
   }
 
-  /** The open session when opening this one would throw away its unsaved edits, none when they are saved or it is the one asked for. */
+  /** The open session when opening this one would throw away its unsaved edits or start offset, none when they are saved or it is the one asked for. */
   static unsavedWhenOpening(sessionId: string): Workspace | null {
     const kept = Workspace.current;
-    return kept?.editor.dirty && !kept.holds(sessionId) ? kept : null;
+    return kept?.dirty && !kept.holds(sessionId) ? kept : null;
   }
 
   private holds(sessionId: string): boolean {
@@ -84,8 +103,8 @@ export class Workspace {
     return next;
   }
 
-  private previewOf(edits: Edit[], settings = this.settings): Promise<Preview> {
-    return previewEdits(this.header.session_id, { edits, settings });
+  private previewOf(edits: Edit[], settings = this.settings, startOffset = this.startOffset): Promise<Preview> {
+    return previewEdits(this.header.session_id, { edits, settings, start_offset_m: startOffset });
   }
 
   /** Count the blocks' windows at other settings: the whole edit list is previewed again, and the settings change only if that works. */
@@ -94,6 +113,26 @@ export class Workspace {
       if (JSON.stringify(settings) === JSON.stringify(this.settings)) return;
       this.preview = await this.previewOf(this.editor.edits, settings);
       this.settings = settings;
+    });
+  }
+
+  /**
+   * Register the session with another start offset, none for the yaml's: the header and the arrays are read again with it and the whole edit list is previewed under it.
+   * The edits and the clock stay. Nothing changes if any of the three fails. When the offset is none the yaml's own number is asked for, so the offset of a saved review cannot stand in for it.
+   * Gives back whether the session moved, which it does not when it already has that offset.
+   */
+  useStartOffset(offset: number | null): Promise<boolean> {
+    return this.serially(async () => {
+      if (offset === this.startOffset) return false;
+      const { session_id: id } = this.header;
+      const asked = offset ?? this.header.start_offset_default_m;
+      const [header, arrays, preview] = await Promise.all([getSession(id, this.settings, asked), getSessionArrays(id, asked), this.previewOf(this.editor.edits, this.settings, offset)]);
+      this.header = header;
+      this.arrays = arrays;
+      this.preview = preview;
+      this.speedTop = speedTop(arrays.speed);
+      this.startOffset = offset;
+      return true;
     });
   }
 
@@ -143,9 +182,10 @@ export class Workspace {
   /** Write the review whole, replacing the earlier one. */
   save(notes: string): Promise<SavedBlocks> {
     return this.serially(async () => {
-      const saved = await saveBlocks(this.header.session_id, { edits: this.editor.edits, notes, settings: this.settings });
+      const saved = await saveBlocks(this.header.session_id, { edits: this.editor.edits, notes, settings: this.settings, start_offset_m: this.startOffset });
       this.saved = saved.review;
       this.editor.markSaved();
+      this.savedOffset = this.header.start_offset_m = this.startOffset;
       return saved;
     });
   }

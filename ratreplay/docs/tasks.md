@@ -83,7 +83,9 @@ anything that touches real data.
 - [ ] K Kyle builds the first real dataset with the tool and reports the counts and anything wrong.
       No commit. [Core use cases]
 - [ ] R2 remove `src/process_lab_data`, the `process-lab-data` task, old `src/ratreplay`, the parity
-      tests that import them, `configs/datasets/lab_blocks.yaml`. Check: `pixi run test` green. [Migration]
+      tests that import them, `configs/datasets/lab_blocks.yaml`. Check: `pixi run test` green. Then add
+      `start_offset_m` to `REVIEW_KEYS` and `METADATA_KEYS` in processed.py so the format page lists it,
+      which the parity test blocked while the old tool was the oracle. [Migration]
 - [ ] D debrief appended to `plan.md`: estimation accuracy, design efficacy, the work, issues to avoid,
       recurring problems, commitment to quality. [plan.md]
 
@@ -227,7 +229,11 @@ anything that touches real data.
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]
-- [ ] K28 The start offset is tuned per session on the Replay page and saved with the review: the real
+- [ ] K30 The seven frame layers (tracking lost, position jumped, margins trimmed, head dir missing,
+      head dir interpolated, head dir held, speed) each get their own colour token in both themes, no
+      two alike and none borrowed from accent, bad, soft or trip, so a layer is told from the others and
+      from the trips and blocks at a glance. Kyle, 2026-10-18. [UX rules, Page 3, Page 4]
+- [x] K28 The start offset is tuned per session on the Replay page and saved with the review: the real
       start sits up the stem, not at the bottom corridor, and by how much is the person's call per session
       while the yaml keeps the default. A small "Start offset, m" stepper under Flag run (the notes box
       shorter), a change re-registers the session through preview so the map and trail move, Save writes
@@ -235,3 +241,9 @@ anything that touches real data.
       button fills in the engine's `start_offset_measured_m`. EnvironmentAccess builds the geometry with
       the override, the engine is untouched, FORMAT_VERSION goes to 3. Kyle, 2026-10-18. [EnvironmentAccess,
       ReviewManager, Page 3]
+      Built: on the GETs the query's offset applies, else the review's, else the yaml's (a query cannot
+      carry null), on preview and save the body field is required and used as given, so Default then
+      Save writes null. The field moves the session 300 ms after typing stops, "not saved" shows while it
+      differs from the saved one, Use measured hides without a track epoch and is disabled outside the
+      field's range of plus or minus 0.5 m. An offset the maze cannot close around (0.33 m or more) is
+      refused with the builder's message. The Playback card clips by 18 px at 900 px of height.

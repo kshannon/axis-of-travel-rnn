@@ -10,7 +10,8 @@ from ..utilities import clock
 from ..utilities.errors import Invalid
 
 # The version of the format the pages render, the one dataset readiness is judged on until SyntheticAccess arrives, and what the manager refuses.
-FORMAT_VERSION = 2
+# 3: a review and a build's metadata carry start_offset_m, the start offset the person tuned for the session (none is the yaml's).
+FORMAT_VERSION = 3
 REAL = "real"
 SYNTHETIC_LATER = "synthetic sets arrive with the synthetic slice"
 NOTHING_BUILT = "nothing is built yet, no settings to select"
