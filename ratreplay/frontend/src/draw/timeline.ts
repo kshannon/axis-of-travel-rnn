@@ -4,8 +4,8 @@ import { colourOf, palette } from "../ui/palette";
 import type { Palette } from "../ui/palette";
 import { lighter, sizeCanvas, watchSize, withAlpha } from "./canvas";
 import {
-  BAR_INSET_PX, barBox, barSpan, baseScale, fittingLabel, FRAMES_LANE, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform,
-  zoomLimits,
+  BAR_INSET_PX, barBox, barSpan, baseScale, fittingLabel, FRAMES_LANE, hitBar, indexAt, inPlot, keepVisible, labelColour, laneAt, laneBands, PLOT, timeLabel, timeTicks,
+  windowTransform, zoomLimits,
 } from "./lanes";
 import type { Bands, Bar, FrameLayer, Scale, Scene } from "./lanes";
 
@@ -320,12 +320,13 @@ export class Timeline {
   private drawBar(ctx: CanvasRenderingContext2D, scale: Scale, bar: Bar): void {
     const [x, y, w, h] = barBox(scale, this.bands, bar, this.rate);
     const fill = colourOf(this.colours, bar.fill);
-    ctx.fillStyle = withAlpha(bar.light ? lighter(fill) : fill, bar.alpha ?? 1);
+    const shade = bar.light ? lighter(fill) : fill;
+    ctx.fillStyle = withAlpha(shade, bar.alpha ?? 1);
     ctx.fillRect(x, y, w, h);
     if (bar.hatched && w >= MIN_HATCH_PX) this.hatch(ctx, x, y, w, h, HATCH_COLOUR, 1, HATCH_PX);
     const name = fittingLabel([bar.text, bar.short], w, (text) => ctx.measureText(text).width);
     if (name) {
-      ctx.fillStyle = this.colours.ink;
+      ctx.fillStyle = labelColour(shade, bar.alpha ?? 1, this.colours.card, this.colours.ink, this.colours.page);
       ctx.textAlign = "center";
       ctx.fillText(name, x + w / 2, y + h / 2);
     }

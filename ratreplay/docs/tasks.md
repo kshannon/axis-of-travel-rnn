@@ -205,9 +205,12 @@ anything that touches real data.
 - [x] K25 Map controls as two groups: layer checkboxes (occupancy, geometry, trail) and one radio for the
       epoch scope (follow the cursor, arena, track, both), the map title naming what is shown. Kyle,
       2026-10-18. [Page 3]
-- [ ] K26 A page loads its data when it is shown, not at boot: the Replay page's remembered session was
+- [x] K26 A page loads its data when it is shown, not at boot: the Replay page's remembered session was
       loading while Incoming was on screen and its error surfaced there. Kyle, 2026-10-18. [Frontend]
-- [ ] K27 Dark theme restyled toward Monokai: warm dark greys for the page, card and lines (not near
+      Found: the shell already mounts one page at a time, the leak was a load still in flight when the
+      person left, which toasted on whatever page came next. Each page now holds a Visit and says nothing
+      after it is hidden, Replay keeps its session for the next visit to retry.
+- [x] K27 Dark theme restyled toward Monokai: warm dark greys for the page, card and lines (not near
       black), silver text, amber and an 80s sci fi yellow as the accent and the attention colour, the ok
       green and the problem orange tuned to that family, the timeline and map colours checked against the
       new ground. Reference: the Alien Romulus poster duotone, amber yellow #F2A900 to #FFC233 as the accent,
@@ -215,3 +218,20 @@ anything that touches real data.
       panel surfaces for cards and strips, amber indicator lights for the status marks, CRT phosphor green
       for ok and for data on a dark panel, red only where something is wrong. The speed colouring of the trail and its legend use the magma
       scale (or its yellow end) instead of viridis, which also fits the light theme. The light theme stays. Kyle, 2026-10-18. [UX rules]
+      Built: page #1c1814, card #26201a, ink cream #f1e6cf, accent #f2a900, warn #ffc233, ok #7ed957, bad
+      #e65c33 (the poster's #D9442B reads under 4.5:1 on the card), track bronze, return runs sand, cursor
+      violet kept. Magma trail in both themes (dark uses 0.35 to 1, light 0 to 0.8). Lane labels switch to
+      the page colour on a bar the cream cannot be read on. Left open: accent and warn sit close, so the
+      flag outline on an amber run is faint, and the Replay help text still names the light theme's blues.
+      [K29 below]
+- [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
+      hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
+      word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]
+- [ ] K28 The start offset is tuned per session on the Replay page and saved with the review: the real
+      start sits up the stem, not at the bottom corridor, and by how much is the person's call per session
+      while the yaml keeps the default. A small "Start offset, m" stepper under Flag run (the notes box
+      shorter), a change re-registers the session through preview so the map and trail move, Save writes
+      `start_offset_m` into the review (null means the yaml's), the metadata records it, a "Use measured"
+      button fills in the engine's `start_offset_measured_m`. EnvironmentAccess builds the geometry with
+      the override, the engine is untouched, FORMAT_VERSION goes to 3. Kyle, 2026-10-18. [EnvironmentAccess,
+      ReviewManager, Page 3]

@@ -31,10 +31,20 @@ const contrast = (a: string, b: string): number => {
   return (light + 0.05) / (dark + 0.05);
 };
 
-test("ok is its own green, apart from the accent, and reads as text on the card in both themes", () => {
+// The text colours are read on the card, so each reaches 4.5:1 there in both themes, and ok is its own green apart from the accent.
+const TEXT_COLOURS = ["ink", "muted", "accent", "ok", "warn", "bad"] as const;
+
+test("every text colour reads on the card in both themes, and ok is its own green", () => {
   for (const theme of [LIGHT, DARK]) {
     expect(theme.ok).not.toBe(theme.accent);
-    expect(contrast(theme.ok, theme.card)).toBeGreaterThanOrEqual(4.5);
+    expect(TEXT_COLOURS.filter((name) => contrast(theme[name], theme.card) < 4.5)).toEqual([]);
+  }
+});
+
+test("the dark primary button, the page colour on the accent, reads, and the colours of the lanes show on the card in both themes", () => {
+  expect(contrast(DARK.page, DARK.accent)).toBeGreaterThanOrEqual(4.5);
+  for (const theme of [LIGHT, DARK]) {
+    expect(["margin", "neutral", "arena", "track", "soft", "trip"].filter((name) => contrast(theme[name], theme.card) < 2)).toEqual([]);
   }
 });
 

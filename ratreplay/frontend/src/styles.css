@@ -4,11 +4,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Colours are named by role so the pages never write a light and a dark pair. The two themes share one palette taken
- * from the San Diego Gulls and used sparingly: marine blue is the accent (the buttons, the links, the focus), orange is
- * only a problem or a refusal, amber a warning, silver the muted text, and black and white are the grounds. What is ok,
- * a saved review, a state that checks out, is its own calm green, which reaches 4.5:1 as text on the card in both
- * themes. The light theme has deeper shades of the blue, green, orange and amber so they read on white.
+ * Colours are named by role so the pages never write a light and a dark pair. The light theme takes the San Diego Gulls
+ * palette used sparingly: marine blue is the accent (the buttons, the links, the focus), orange is only a problem or a
+ * refusal, amber a warning, silver the muted text, white and a pale grey the grounds. The dark theme takes the Alien
+ * Romulus poster and the Nostromo cockpit: a warm brown charcoal ground with brass on the cards, cream text, amber as the
+ * accent, an 80s sci fi yellow for a warning, a burnt red orange only for a problem, and a CRT phosphor green for ok. In
+ * both themes the text colours (ink, muted, accent, ok, warn, bad) reach 4.5:1 on the card, which tests/ui/palette.test.ts
+ * asserts. The light theme has deeper shades of the blue, green, orange and amber so they read on white.
  */
 :root {
   color-scheme: light;
@@ -21,35 +23,35 @@
   --ok: #14773e;
   --warn: #9a5b00;
   --bad: #c73c00;
-  /* What the timeline lanes draw: the margins beside a cut (dark on the light theme), the grey of what is neither good nor bad, the two epochs and the paler blue. */
+  /* What the timeline lanes draw: the margins beside a cut (dark on the light theme), the grey of what is neither good nor bad, the two epochs and the paler shade of the accent (the return runs). */
   --margin: #0b0d0f;
   --neutral: #7f8e99;
   --arena: #8e9ca6;
   --track: #66757f;
   --soft: #3f9fd0;
-  /* The cursor and the trips of the timelines, violet since blue and orange already mean something. */
+  /* The cursor of the timelines and the trips and lost tracking, apart from the accent and the problem colour. */
   --cursor: #6d28d9;
   --trip: #9987c0;
 }
 
 :root.dark {
   color-scheme: dark;
-  --page: #050607;
-  --card: #0e1113;
-  --line: #252a2f;
-  --ink: #f4f7f9;
-  --muted: #c0cdd5;
-  --accent: #0083bf;
-  --ok: #3ccf7a;
-  --warn: #cc7f00;
-  --bad: #ff4c00;
-  --margin: #c0cdd5;
-  --neutral: #7c8b96;
-  --arena: #7c8b96;
-  --track: #5a6874;
-  --soft: #5bb5e0;
+  --page: #1c1814;
+  --card: #26201a;
+  --line: #3d342a;
+  --ink: #f1e6cf;
+  --muted: #b3a690;
+  --accent: #f2a900;
+  --ok: #7ed957;
+  --warn: #ffc233;
+  --bad: #e65c33;
+  --margin: #cdbfa4;
+  --neutral: #8a7e6c;
+  --arena: #968a77;
+  --track: #8a6a2e;
+  --soft: #c9bb98;
   --cursor: #b49cfb;
-  --trip: #6f5f9c;
+  --trip: #9b7b3a;
 }
 
 @theme inline {

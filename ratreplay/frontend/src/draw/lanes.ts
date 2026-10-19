@@ -1,4 +1,4 @@
-import { scaleLinear, zoomIdentity } from "d3";
+import { interpolateRgb, rgb, scaleLinear, zoomIdentity } from "d3";
 import type { ScaleLinear, ZoomTransform } from "d3";
 import type { Span } from "../api/types";
 
@@ -18,8 +18,9 @@ const MIN_BAR_PX = 2;
 const HIT_SLOP_PX = 1;
 export const BAR_INSET_PX = 1;
 
-// A bar's name is written inside it with this much room left over.
+// A bar's name is written inside it with this much room left over, in the ink unless the ink reads under this contrast on the bar.
 const LABEL_PAD_PX = 6;
+const LABEL_CONTRAST = 3;
 
 // The closest zoom shows this many seconds. A cursor that leaves the window pages it so the cursor lands this fraction
 // of the window from the edge it crossed.
@@ -105,6 +106,22 @@ export function laneAt(bands: Bands, y: number): string | null {
 /** The first of a bar's names that fits in its width with a little room left over, none when even the shortest does not. `measure` gives a text's width in pixels. */
 export function fittingLabel(names: readonly (string | undefined)[], width: number, measure: (text: string) => number): string | null {
   return names.find((name): name is string => !!name && measure(name) + LABEL_PAD_PX <= width) ?? null;
+}
+
+const luminance = (colour: string): number => {
+  const { r, g, b } = rgb(colour);
+  const [lr, lg, lb] = [r, g, b].map((value) => (value / 255 <= 0.03928 ? value / 255 / 12.92 : ((value / 255 + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+const contrast = (a: string, b: string): number => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+/** The colour a bar's name is written in: the ink, or the page colour where the ink reads under 3:1 on the bar's fill drawn at `alpha` over the ground (the amber and green bars of the dark theme). */
+export function labelColour(fill: string, alpha: number, ground: string, ink: string, page: string): string {
+  const bar = interpolateRgb(ground, fill)(alpha);
+  return contrast(ink, bar) >= LABEL_CONTRAST || contrast(ink, bar) >= contrast(page, bar) ? ink : page;
 }
 
 /** Whether a point of the canvas is over the lanes, the gaps between them included. */

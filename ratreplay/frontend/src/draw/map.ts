@@ -1,7 +1,8 @@
-import { interpolateViridis, scaleLinear, scaleSequential } from "d3";
+import { interpolateMagma, scaleLinear, scaleSequential } from "d3";
 import type { ScaleLinear } from "d3";
 import { colourOf, palette } from "../ui/palette";
 import type { Palette } from "../ui/palette";
+import { currentTheme } from "../ui/theme";
 import { lighter, sizeCanvas, watchSize, withAlpha } from "./canvas";
 
 const FONT = "11px ui-sans-serif, system-ui, sans-serif";
@@ -15,8 +16,9 @@ const ARROW_FRACTION = 0.08;
 const ARROW_HEAD_PX = 7;
 const LEGEND = { width: 90, height: 8, steps: 18 };
 
-// The slowest colours of the trail are lifted off the darkest end of the scale so they stay visible on a dark card.
-const COLOUR_FLOOR = 0.15;
+// The trail's speed colours are the magma scale. Magma runs from black to pale yellow, so each theme uses the part of it that
+// shows on its card: the dark theme lifts the slowest colour off the black, the light theme stops short of the pale yellow.
+const MAGMA_RANGE = { dark: [0.35, 1], light: [0, 0.8] } as const;
 
 export interface Extent {
   x: [number, number];
@@ -89,6 +91,12 @@ export function fitScales(extent: Extent, width: number, height: number, yUp: bo
   };
 }
 
+/** The magma colours of the theme from 0 to the fastest speed, a speed over it taking the last colour. */
+function speedScale(speedTop: number) {
+  const [from, to] = MAGMA_RANGE[currentTheme()];
+  return scaleSequential((t: number) => interpolateMagma(from + (to - from) * t)).domain([0, speedTop]).clamp(true);
+}
+
 /** A map of a recording: what lies behind it, stretches of its path, the last seconds as a trail coloured by speed, the current point and its heading. */
 export class MapView {
   private readonly canvas = document.createElement("canvas");
@@ -98,7 +106,8 @@ export class MapView {
   private height = 0;
   private colours: Palette = palette();
   private project: Projection = { x: scaleLinear(), y: scaleLinear() };
-  private speedColour = scaleSequential((t: number) => interpolateViridis(COLOUR_FLOOR + (1 - COLOUR_FLOOR) * t)).clamp(true);
+  private speedTop = 1;
+  private speedColour = speedScale(this.speedTop);
 
   private track: Track | null = null;
   private backdrop: Backdrop | null = null;
@@ -119,7 +128,8 @@ export class MapView {
     this.track = track;
     this.backdrop = backdrop;
     this.withCursor = withCursor;
-    this.speedColour.domain([0, speedTop]);
+    this.speedTop = speedTop;
+    this.speedColour = speedScale(speedTop);
     this.index = 0;
     this.fitScales();
     this.draw(0);
@@ -137,6 +147,7 @@ export class MapView {
 
   refresh(): void {
     this.colours = palette();
+    this.speedColour = speedScale(this.speedTop);
     this.backdrop?.refresh?.();
     this.redraw();
   }

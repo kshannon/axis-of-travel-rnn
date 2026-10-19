@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { barBox, barSpan, baseScale, fittingLabel, hitBar, indexAt, inPlot, keepVisible, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
+import { barBox, barSpan, baseScale, fittingLabel, hitBar, indexAt, inPlot, keepVisible, labelColour, laneAt, laneBands, PLOT, timeLabel, timeTicks, windowTransform, zoomLimits } from "../../src/draw/lanes";
 import type { Bar, LaneSpec } from "../../src/draw/lanes";
 import { SESSION_LANES } from "../../src/draw/session-scene";
 
@@ -122,4 +122,10 @@ test("a height falls in the lane it is in, and in none over the gap between lane
   expect(laneAt(bands, middle("frames"))).toBe("frames");
   expect(laneAt(bands, (bands.runs.bottom + bands.frames.top) / 2)).toBeNull();
   expect(laneAt(bands, HEIGHT - 2)).toBeNull();
+});
+
+test("a bar's name is written in the ink, and in the page colour where the ink would not read on the bar", () => {
+  expect(labelColour("#f2a900", 1, "#26201a", "#f1e6cf", "#1c1814")).toBe("#1c1814"); // cream on amber
+  expect(labelColour("#f2a900", 0.45, "#26201a", "#f1e6cf", "#1c1814")).toBe("#f1e6cf"); // the faint amber of an automatic block
+  expect(labelColour("#0077ae", 1, "#ffffff", "#0b0d0f", "#f1f4f6")).toBe("#0b0d0f"); // black on the light theme's blue
 });
