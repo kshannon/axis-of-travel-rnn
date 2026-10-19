@@ -159,6 +159,9 @@ flowchart TB
   metadata when blocks are built and in `windows.json` when selected for export, never held globally.
 - The science lives in the two engines and nowhere else. Nothing is reimplemented in TypeScript except
   drawing and interaction.
+- The API and the page carry one `FORMAT_VERSION` each, compared on load. Any change to a payload shape
+  (a key added, removed or reshaped in a route's answer) bumps both in the same commit, so a page served
+  against an older process says "restart the API" instead of failing on the missing key.
 - One named exception to the arrows: `schemas.py`, the request bodies the routers validate, reads two
   constants two layers down, the edit fields from `access.processed` and the default settings from
   `engines.trajectory`, so the API's defaults and the stored format cannot drift apart. The layering

@@ -14,7 +14,7 @@ const UNREACHABLE = "Cannot reach the API, is it running?";
 
 // The version of the format contract this page is built for, and the keys of `/api/format` its pages cannot do without. An API
 // that answers another version, or without a key, is not the one this page was built with.
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 const NEEDED_KEYS = ["settings", "rules"] as const;
 export const STALE_API = "The API is older than this page, restart it (pixi run ratreplay-api)";
 
