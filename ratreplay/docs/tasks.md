@@ -186,3 +186,14 @@ anything that touches real data.
       is refused with the real reason, "this epoch is variant under condition rot45, the rules cut blocks
       only from arena and track under baseline", not the between two cuts message, and the session lane
       marks such an epoch as not cut. Kyle, 2026-10-18. [TrajectoryEngine.apply, Page 3]
+- [ ] K21 Proposed, awaiting Kyle: head direction is not interpolated across frames whose position is
+      missing (a tracking loss inside a heading gap), it stays missing there, so an interpolated span
+      splits around the loss as the timeline suggests it should. Changes the heading column of blocks on
+      frames the window checks already reject for position. [TrajectoryEngine.session heading fill]
+- [x] K22 Playback: the speed slider becomes a labelled stepper ("speed 1x", minus and plus over the
+      steps), and the keyboard hints (space, z, enter) become key caps with a title saying what the key
+      does, so neither reads as a button or a progress bar. Kyle, 2026-10-18. [Page 3]
+- [ ] K23 Timeline span tips explain the rule: hovering a heading span shows its length and why it is
+      what it is ("4.1 s missing, over the 3 s fill limit", "touches a pause", "2.0 s interpolated",
+      "0.8 s held, the rat was still"), the engine returning the reason per span so the client states
+      nothing of its own. Kyle, 2026-10-18. [TrajectoryEngine.session heading spans, Page 3]

@@ -21,13 +21,13 @@ const windowBody = `
       <span :class="line.ok ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="line.verdict"></span>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" @click="step(-1)" :disabled="!count || index === 0" class="${BUTTON}">Previous <kbd class="${KBD}">left</kbd></button>
+      <button type="button" @click="step(-1)" :disabled="!count || index === 0" class="${BUTTON}">Previous <kbd class="${KBD}" title="press left to go to the previous window">left</kbd></button>
       <label x-show="count" class="flex items-center gap-2 text-sm">window
         <input type="number" min="1" :max="count" x-model.number="jump" @change="goTo(jump)" aria-label="Window number" class="${INPUT} w-20" />
         of <span data-testid="window-count" x-text="count"></span>
       </label>
       <span x-show="!count" data-testid="no-window" class="${CHIP_BAD}" x-text="noWindow"></span>
-      <button type="button" @click="step(1)" :disabled="!count || index === count - 1" class="${BUTTON}">Next <kbd class="${KBD}">right</kbd></button>
+      <button type="button" @click="step(1)" :disabled="!count || index === count - 1" class="${BUTTON}">Next <kbd class="${KBD}" title="press right to go to the next window">right</kbd></button>
       <span x-show="count" data-testid="window-verdict" :class="windowOk ? '${CHIP_OK}' : '${CHIP_BAD}'" x-text="verdict"></span>
     </div>
     <p x-show="count" data-testid="window-span" class="text-xs text-muted" x-text="span"></p>

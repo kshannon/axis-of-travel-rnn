@@ -38,7 +38,8 @@ export const FIELD = "flex flex-col gap-1 text-xs text-muted";
 export const TABLE = "w-full border-collapse text-left text-sm";
 export const TH = "px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted";
 export const TD = "px-2 py-1.5";
-export const KBD = "rounded border border-line bg-page px-1.5 py-0.5 font-mono text-xs";
+// A key cap, not a button: a small raised key with a line under it, monospace, with a title saying what pressing the key does.
+export const KBD = "cursor-default select-none rounded border border-ink/30 bg-page px-1.5 py-0.5 font-mono text-xs text-ink shadow-[0_1px_0_color-mix(in_oklab,var(--ink)_40%,transparent)]";
 export const CHIP_WARN = `${CHIP} border-warn/60 text-warn`;
 export const CHIP_ON = `${CHIP} border-accent bg-accent/15 text-accent`;
 export const CHIP_OFF = `${CHIP} border-line text-muted hover:text-ink`;

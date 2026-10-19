@@ -10,7 +10,7 @@ import { sessionScene } from "../draw/session-scene";
 import { Timeline } from "../draw/timeline";
 import type { LaneClick } from "../draw/timeline";
 import { epochAt, runAt } from "../session/at";
-import { REAL_TIME, SPEEDS } from "../session/clock";
+import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { editFor, label, reselected } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
@@ -257,7 +257,8 @@ function registerReplay(): void {
         ws.clock.toggle(performance.now());
         this.playing = ws.clock.playing;
       },
-      setSpeed() {
+      changeSpeed(direction: -1 | 1) {
+        this.speedIndex = stepSpeed(this.speedIndex, direction);
         ws.clock.setSpeed(SPEEDS[this.speedIndex], performance.now());
       },
       seek(index: number) {

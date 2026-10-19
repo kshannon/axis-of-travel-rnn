@@ -50,7 +50,7 @@ const flowLine = `
 
 const keys = `
   <dl class="mt-1 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">${KEYS.map(({ keys: pressed, action }) => `
-    <dt><kbd class="${KBD}">${pressed}</kbd></dt><dd>${action}</dd>`).join("")}
+    <dt><kbd class="${KBD}" title="press ${pressed}: ${action}">${pressed}</kbd></dt><dd>${action}</dd>`).join("")}
   </dl>
   <p class="mt-1 text-xs text-muted">On the Windows page left and right step a window. Everything else is a button or a chip.</p>`;
 

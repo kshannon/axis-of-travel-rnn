@@ -1,6 +1,11 @@
 export const SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 export const REAL_TIME = SPEEDS.indexOf(1);
 
+/** The index of the speed one step slower (-1) or faster (1), held at the slowest and the fastest. */
+export function stepSpeed(index: number, direction: -1 | 1): number {
+  return Math.min(Math.max(index + direction, 0), SPEEDS.length - 1);
+}
+
 const MS_PER_S = 1000;
 
 /** The playback position of a session. The frame index is the single truth, advanced from the wall clock so 1x is real time. */

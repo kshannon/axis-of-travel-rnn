@@ -177,7 +177,7 @@ const editRow = `
     ${group("status", `
       <button type="button" @click="act('accept')" ${disabledWhy("!hasSelection", "select a block first", "Accept the selected block, again to take it back")} class="${SEGMENT_PRIMARY}">Accept</button>
       <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject</button>
-      <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}">z</kbd></button>
+      <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}" title="press z to undo">z</kbd></button>
       <button type="button" @click="reset()" ${disabledWhy("!editCount", "no edits to clear", "Clear every edit so the blocks are automatic again. A saved review stays on disk until you save.")} class="${SEGMENT}">Reset</button>`)}
     <span x-show="hasMarks" data-testid="marks" :title="marksLine" class="min-w-0 truncate text-xs text-muted" x-text="marksLine"></span>
   </div>`;

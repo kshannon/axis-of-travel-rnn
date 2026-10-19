@@ -7,7 +7,7 @@ import { timeLabel } from "../draw/lanes";
 import { MapView, THIN_PATH } from "../draw/map";
 import { Timeline } from "../draw/timeline";
 import { BlockPlayer } from "../session/block";
-import { REAL_TIME, SPEEDS } from "../session/clock";
+import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { startPlayback } from "../session/playback";
 import { settingsStore } from "../state/settings";
 import type { Fact } from "../ui/facts";
@@ -217,7 +217,8 @@ function registerBlocks(): void {
         player!.clock.toggle(performance.now());
         this.playing = player!.clock.playing;
       },
-      setSpeed() {
+      changeSpeed(direction: -1 | 1) {
+        this.speedIndex = stepSpeed(this.speedIndex, direction);
         player!.clock.setSpeed(SPEEDS[this.speedIndex], performance.now());
       },
       seek(index: number) {

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { Clock } from "../../src/session/clock";
+import { Clock, REAL_TIME, SPEEDS, stepSpeed } from "../../src/session/clock";
 
 const RATE_HZ = 60;
 
@@ -42,4 +42,11 @@ test("the clock stops on the last frame and plays again from the start", () => {
   expect([clock.index, clock.playing]).toEqual([99, false]);
   clock.toggle(10_000);
   expect([clock.index, clock.playing]).toEqual([0, true]);
+});
+
+test("the speed steps one up or down the list and stays on the slowest and the fastest", () => {
+  expect(SPEEDS[stepSpeed(REAL_TIME, 1)]).toBeGreaterThan(1);
+  expect(SPEEDS[stepSpeed(REAL_TIME, -1)]).toBeLessThan(1);
+  expect(stepSpeed(0, -1)).toBe(0);
+  expect(stepSpeed(SPEEDS.length - 1, 1)).toBe(SPEEDS.length - 1);
 });
