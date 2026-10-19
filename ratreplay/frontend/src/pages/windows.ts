@@ -5,6 +5,7 @@ import { EnvironmentBackdrop, extentOf } from "../draw/environment";
 import { timeLabel } from "../draw/lanes";
 import { MapView } from "../draw/map";
 import { Timeline } from "../draw/timeline";
+import { Visit } from "../router";
 import { BlockPlayer } from "../session/block";
 import { settingsStore } from "../state/settings";
 import { folderPage } from "../ui/gate";
@@ -24,7 +25,7 @@ function registerWindows(): void {
     let timeline!: Timeline;
     let map!: MapView;
     let stopKeys = () => {};
-    let alive = true;
+    const visit = new Visit();
 
     return {
       ready: player !== null,
@@ -46,10 +47,10 @@ function registerWindows(): void {
         try {
           await player.useSettings({ ...(await settingsStore().load()) }); // changed on the Replay page since the block was opened
         } catch (error) {
-          toast.error(errorText(error));
+          visit.say(() => toast.error(errorText(error)));
         }
         await this.$nextTick();
-        if (!alive) return;
+        if (!visit.shown) return;
         const { header, arrays } = player;
         timeline = new Timeline(this.$refs.timeline, {
           select: (index) => this.goTo(index + 1),
@@ -75,7 +76,7 @@ function registerWindows(): void {
       },
 
       destroy() {
-        alive = false;
+        visit.hide();
         stopKeys();
         timeline?.destroy();
         map?.destroy();

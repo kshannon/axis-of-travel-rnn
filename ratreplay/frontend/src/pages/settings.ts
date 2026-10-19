@@ -1,6 +1,7 @@
 import Alpine from "alpinejs";
 import { errorText, getFormat, getSelected, listBlocks, selectSettings, staleApi } from "../api/client";
 import type { WindowSettings } from "../api/types";
+import { Visit } from "../router";
 import { healthStore, warnStale } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { toast } from "../ui/toast";
@@ -15,6 +16,7 @@ function registerSettings(): void {
   Alpine.data("settingsPage", () => {
     // Each change is numbered so that only the latest answer counts.
     let latest = 0;
+    const visit = new Visit();
 
     return {
       loading: true,
@@ -48,9 +50,13 @@ function registerSettings(): void {
           this.triedLine = testedLine(current);
           this.selectedLine = selectedLine(selected.selected);
         } catch (error) {
-          toast.error(errorText(error));
+          visit.say(() => toast.error(errorText(error)));
         }
         this.loading = false;
+      },
+
+      destroy() {
+        visit.hide();
       },
 
       /** The API checks the settings in the fields, and they become the settings in use, the other pages' too, once it accepts them. Gives back the settings it accepted, none when a newer change took over. */

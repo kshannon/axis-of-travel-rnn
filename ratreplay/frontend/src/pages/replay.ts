@@ -10,6 +10,7 @@ import { pathsOf, runText } from "../draw/runs";
 import { sessionScene } from "../draw/session-scene";
 import { Timeline } from "../draw/timeline";
 import type { LaneClick } from "../draw/timeline";
+import { Visit } from "../router";
 import { epochAt, runAt } from "../session/at";
 import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { editFor, label, reselected } from "../session/editor";
@@ -51,7 +52,7 @@ function registerReplay(): void {
     // What is selected: a block, or an epoch, a run or a frame, never both.
     let selected: MadeBlock | null = null;
     let picked: Picked | null = null;
-    let alive = true;
+    const visit = new Visit();
     let stopPlayback = () => {};
     // The run a flag acts on: the run selected, else the run under the cursor.
     const runInReach = () => pickedRun(ws.header, picked) ?? runAt(ws.header.runs, ws.clock.index + 1);
@@ -127,7 +128,7 @@ function registerReplay(): void {
 
       async init() {
         await this.$nextTick();
-        if (!alive) return;
+        if (!visit.shown) return;
         const handlers = {
           seek: (index: number) => this.seek(index),
           click: (hit: LaneClick) => this.laneClick(hit),
@@ -146,7 +147,7 @@ function registerReplay(): void {
       },
 
       destroy() {
-        alive = false;
+        visit.hide();
         stopPlayback();
         timeline?.destroy();
         map?.destroy();
@@ -161,7 +162,7 @@ function registerReplay(): void {
         this.sessionId = sessionId;
         try {
           ws = await Workspace.open(sessionId, { ...(await settingsStore().load()) });
-          if (!alive) return false;
+          if (!visit.shown) return false;
           if (!ws.header.rules) throw new StaleApiError();
           const { header, arrays } = ws;
           selected = null;
@@ -187,6 +188,7 @@ function registerReplay(): void {
           await this.settingsChanged(); // a change made while the session was loading
           return true;
         } catch (error) {
+          if (!visit.shown) return false; // the person left while it loaded, so say nothing here, the next visit tries again
           console.error(`Could not open ${sessionId}`, error);
           if (error instanceof StaleApiError) warnStale();
           else toast.error(`Could not open ${sessionId}: ${errorText(error)}`);
@@ -344,7 +346,7 @@ function registerReplay(): void {
           selected = reselected(selected, ws.preview.blocks, { op: "accept" });
           this.sync();
         } catch (error) {
-          toast.error(errorText(error));
+          visit.say(() => toast.error(errorText(error)));
         }
       },
 

@@ -3,6 +3,7 @@ import { errorText, getFormat, getSession, listSessions } from "../api/client";
 import { formatGroups } from "../api/describe";
 import type { FormatGroup } from "../api/describe";
 import type { SessionHeader, SessionRow } from "../api/types";
+import { Visit } from "../router";
 import { Workspace } from "../session/workspace";
 import { healthStore } from "../state/health";
 import { settingsStore } from "../state/settings";
@@ -19,50 +20,57 @@ const REPLAY_HASH = "#/replay";
 
 function registerIncoming(): void {
   // The strip of read paths and the format. `reloaded` counts the times the config was read again, which the sessions list follows.
-  Alpine.data("incomingPage", () => ({
-    groups: [] as FormatGroup[],
-    version: 0,
-    busy: false,
-    reloaded: 0,
+  Alpine.data("incomingPage", () => {
+    const visit = new Visit();
 
-    get lines() {
-      const { found } = healthStore();
-      return found ? stripLines(found) : [];
-    },
-    get problems() {
-      return stripProblems(this.lines);
-    },
-    get status() {
-      return stripStatus(this.lines);
-    },
-    /** Why the sessions cannot be listed yet, none when the three folders are usable. */
-    get blocked() {
-      return healthStore().problem("transformed", "processed", "environments");
-    },
+    return {
+      groups: [] as FormatGroup[],
+      version: 0,
+      busy: false,
+      reloaded: 0,
 
-    async init() {
-      void this.loadFormat();
-      await healthStore().load();
-    },
-    /** Read the formats of the files once, they do not change while the tool runs. */
-    async loadFormat() {
-      try {
-        const contract = await getFormat();
-        this.groups = incomingGroups(formatGroups(contract));
-        this.version = contract.version;
-      } catch (error) {
-        toast.error(errorText(error));
-      }
-    },
-    async reload() {
-      this.busy = true;
-      if (await healthStore().load(true)) {
-        this.reloaded++;
-        toast.success("Read the config file again and checked the folders");
-      }
-      this.busy = false;
-    },
-  }));
+      get lines() {
+        const { found } = healthStore();
+        return found ? stripLines(found) : [];
+      },
+      get problems() {
+        return stripProblems(this.lines);
+      },
+      get status() {
+        return stripStatus(this.lines);
+      },
+      /** Why the sessions cannot be listed yet, none when the three folders are usable. */
+      get blocked() {
+        return healthStore().problem("transformed", "processed", "environments");
+      },
+
+      async init() {
+        void this.loadFormat();
+        await healthStore().load();
+      },
+      destroy() {
+        visit.hide();
+      },
+      /** Read the formats of the files once, they do not change while the tool runs. */
+      async loadFormat() {
+        try {
+          const contract = await getFormat();
+          this.groups = incomingGroups(formatGroups(contract));
+          this.version = contract.version;
+        } catch (error) {
+          visit.say(() => toast.error(errorText(error)));
+        }
+      },
+      async reload() {
+        this.busy = true;
+        if (await healthStore().load(true)) {
+          this.reloaded++;
+          toast.success("Read the config file again and checked the folders");
+        }
+        this.busy = false;
+      },
+    };
+  });
 
   Alpine.data("incomingSessions", () => ({
     rows: [] as SessionRow[],

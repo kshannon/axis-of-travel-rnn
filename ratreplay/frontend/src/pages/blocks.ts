@@ -6,6 +6,7 @@ import { EnvironmentBackdrop, extentOf } from "../draw/environment";
 import { timeLabel } from "../draw/lanes";
 import { MapView, THIN_PATH } from "../draw/map";
 import { Timeline } from "../draw/timeline";
+import { Visit } from "../router";
 import { BlockPlayer } from "../session/block";
 import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
 import { startPlayback } from "../session/playback";
@@ -31,7 +32,7 @@ function registerBlocks(): void {
     let timeline!: Timeline;
     let map!: MapView;
     let drawn = "";
-    let alive = true;
+    const visit = new Visit();
     let latest = 0;
     let stopPlayback = () => {};
 
@@ -72,7 +73,7 @@ function registerBlocks(): void {
 
       async init() {
         await this.$nextTick();
-        if (!alive) return;
+        if (!visit.shown) return;
         timeline = new Timeline(this.$refs.timeline, {
           seek: (index) => this.seek(index),
           view: (from, to) => (this.viewing = `${timeLabel(from)} to ${timeLabel(to)}`),
@@ -88,7 +89,7 @@ function registerBlocks(): void {
       },
 
       destroy() {
-        alive = false;
+        visit.hide();
         stopPlayback();
         timeline?.destroy();
         map?.destroy();
@@ -129,7 +130,7 @@ function registerBlocks(): void {
         try {
           await this.judge();
         } catch (error) {
-          toast.error(errorText(error));
+          visit.say(() => toast.error(errorText(error)));
         } finally {
           this.busy = false;
         }

@@ -2,6 +2,7 @@ import Alpine from "alpinejs";
 import { errorText, getFormat, getSelected, listBlocks, listSessions, rebuildAll } from "../api/client";
 import { formatGroups } from "../api/describe";
 import type { FormatGroup } from "../api/describe";
+import { Visit } from "../router";
 import { healthStore } from "../state/health";
 import { settingsStore } from "../state/settings";
 import { clickHeader, sortArrow, sortRows } from "../ui/table";
@@ -19,6 +20,7 @@ function registerOutgoing(): void {
   Alpine.data("outgoingPage", () => {
     // Each read of what is built is numbered so that only the latest answer counts.
     let latest = 0;
+    const visit = new Visit();
 
     return {
       groups: [] as FormatGroup[],
@@ -63,13 +65,16 @@ function registerOutgoing(): void {
         this.$watch("$store.health.found", () => void this.refresh());
         await healthStore().load();
       },
+      destroy() {
+        visit.hide();
+      },
       async loadFormat() {
         try {
           const contract = await getFormat();
           this.groups = outgoingGroups(formatGroups(contract));
           this.version = contract.version;
         } catch (error) {
-          toast.error(errorText(error));
+          visit.say(() => toast.error(errorText(error)));
         }
       },
       /** The table of what is built, at the settings in use, and the settings selected for export. */
