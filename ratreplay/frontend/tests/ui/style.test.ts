@@ -9,13 +9,13 @@ test("a disabled button says why and an enabled one keeps its title, both as Alp
   expect(disabledWhy("busy", "it's \"busy\"")).toBe(`:disabled="busy" :title="busy ? 'it\\'s &quot;busy&quot;' : ''"`);
 });
 
-test("the primary segment takes the accent only while enabled, a disabled one is muted like the others, and a layer toggle is a plain box in the line colour", () => {
+test("every segment looks like a plain button, a disabled one is muted, and a layer toggle is a plain box in the line colour", () => {
   const bare = (classes: string) => classes.split(" ").filter((name) => !name.includes(":"));
   expect(bare(SEGMENT_PRIMARY)).not.toContain("bg-accent");
   expect(SEGMENT).toContain("enabled:hover:bg-ink/15");
   for (const classes of [SEGMENT, SEGMENT_PRIMARY]) expect(classes).toContain("disabled:text-ink/40");
-  expect(SEGMENTS).toContain("border-line");
-  expect(SEGMENTS).toContain("divide-line");
+  expect(SEGMENTS).toContain("border-ink/30");
+  expect(SEGMENTS).toContain("divide-ink/30");
   expect(LAYER_TOGGLE).toContain("border-line");
   expect(LAYER_TOGGLE).not.toMatch(/rounded-full|accent|has-/);
 });
