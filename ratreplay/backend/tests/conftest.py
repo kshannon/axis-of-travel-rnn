@@ -34,6 +34,16 @@ def processed(tmp_path):
 
 
 @pytest.fixture
+def synthetic(tmp_path):
+    """
+    An empty synthetic folder, what the tool finds before the first set is generated.
+    """
+    root = tmp_path / "synthetic"
+    root.mkdir()
+    return root
+
+
+@pytest.fixture
 def environments(tmp_path, monkeypatch):
     """
     A copy of the repository's environment yaml files, which the app reads in place of the originals.
@@ -56,8 +66,8 @@ def client_on(tmp_path, environments):
 
 
 @pytest.fixture
-def client(client_on, transformed, processed):
+def client(client_on, transformed, processed, synthetic):
     """
-    A test client on an app whose config names the synthetic transformed folder and the empty processed one.
+    A test client on an app whose config names the synthetic transformed folder and the empty processed and synthetic ones.
     """
-    return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed)})
+    return client_on({"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(processed), "SYNTHETIC_DATA": str(synthetic)})

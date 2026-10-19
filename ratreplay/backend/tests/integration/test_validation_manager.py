@@ -13,12 +13,15 @@ from fixtures import S1, S6
 
 import ratreplay_api.managers.validation as validation_module
 from ratreplay_api.access.environment import EnvironmentAccess
-from ratreplay_api.access.processed import BLOCKS_CSV_SCHEMA, WINDOWS_KEYS, ProcessedAccess
+from ratreplay_api.access.processed import WINDOWS_KEYS, ProcessedAccess
+from ratreplay_api.access.synthetic import SyntheticAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
 from ratreplay_api.managers.review import ReviewManager
-from ratreplay_api.managers.validation import ARRAY_COLUMNS, NOTHING_BUILT, SYNTHETIC_LATER, ValidationManager, spans_of
+from ratreplay_api.managers.validation import ARRAY_COLUMNS, NOTHING_BUILT, ValidationManager
+from ratreplay_api.utilities.blocks import BLOCKS_CSV_SCHEMA
 from ratreplay_api.utilities.errors import Invalid, NotFound
+from ratreplay_api.utilities.spans import spans_of
 
 REAL = Path(__file__).resolve().parents[4] / "configs" / "environments"
 FROZEN = "2026-10-18T10:00:00+00:00"
@@ -58,7 +61,7 @@ def review_over(folders):
     """
     A ReviewManager on the folders.
     """
-    transformed, processed, environments = folders
+    transformed, processed, environments, _ = folders
     return ReviewManager(TrajectoryEngine(), TransformedAccess(transformed), ProcessedAccess(processed), EnvironmentAccess(environments), COMMIT)
 
 
@@ -74,17 +77,17 @@ def manager_over(folders, trajectory=None):
     """
     A ValidationManager on the folders.
     """
-    transformed, processed, environments = folders
-    return ValidationManager(trajectory or TrajectoryEngine(), TransformedAccess(transformed), ProcessedAccess(processed), EnvironmentAccess(environments))
+    transformed, processed, environments, synthetic = folders
+    return ValidationManager(trajectory or TrajectoryEngine(), TransformedAccess(transformed), ProcessedAccess(processed), SyntheticAccess(synthetic), EnvironmentAccess(environments))
 
 
 @pytest.fixture
-def folders(tmp_path, transformed):
+def folders(tmp_path, transformed, synthetic):
     """
-    The transformed folder, a processed folder not made yet and a copy of the environment yaml files.
+    The transformed folder, a processed folder not made yet, a copy of the environment yaml files and the empty synthetic folder.
     """
     shutil.copytree(REAL, tmp_path / "environments")
-    return transformed, tmp_path / "processed", tmp_path / "environments"
+    return transformed, tmp_path / "processed", tmp_path / "environments", synthetic
 
 
 @pytest.fixture
@@ -113,12 +116,13 @@ def snapshot(root):
     return {str(path.relative_to(root)): path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()}
 
 
-def test_health_of_the_three_folders_is_ok_with_their_counts_and_the_config_file(manager):
+def test_health_of_the_four_folders_is_ok_with_their_counts_and_the_config_file(manager):
     health = manager.health(CONFIG)
-    assert set(health) == {"transformed", "processed", "environments", "config_path"} and health["config_path"] == CONFIG
-    assert [health[name]["problems"] for name in ("transformed", "processed", "environments")] == [[], [], []]
+    assert set(health) == {"transformed", "processed", "synthetic", "environments", "config_path"} and health["config_path"] == CONFIG
+    assert [health[name]["problems"] for name in ("transformed", "processed", "synthetic", "environments")] == [[], [], [], []]
     assert health["transformed"]["counts"] == {"sessions": 6, "epochs": 13, "runs": 6, "frames": 2}
     assert health["processed"]["counts"] == {"reviews": 2, "blocks": 3, "sessions": 2}
+    assert health["synthetic"]["counts"] == {"sets": 0, "blocks": 0, "guesses": 0}
     assert health["environments"]["counts"] == {"environments": len(list(REAL.glob("*.yaml")))}
     json.dumps(health)
 
@@ -201,7 +205,7 @@ def test_a_session_built_excluded_and_a_block_that_failed_show_in_the_build_of_i
 def test_the_format_carries_the_schemas_the_default_settings_and_the_engines_rules(manager):
     found = manager.format()
     assert found["transformed"] == manager.transformed.schema() and found["processed"] == manager.processed.schema()
-    assert found["settings"] == SETTINGS and found["rules"] == RULES
+    assert found["synthetic"] == manager.synthetic.schema() and found["settings"] == SETTINGS and found["rules"] == RULES
     assert json.loads(json.dumps(found))["rules"]["return_paths"] == list(RULES["return_paths"])
 
 
@@ -264,12 +268,14 @@ def test_selecting_the_settings_writes_windows_json_whole_with_the_totals_and_a_
     assert manager.select_settings(LONGER) == {"replaced": True, "file": "windows.json"} and access.window_settings()["settings"] == LONGER
 
 
-def test_a_synthetic_set_is_refused_and_so_is_selecting_settings_before_anything_is_built(built, folders, tmp_path, manager):
+def test_a_set_that_is_not_there_is_not_found_a_dataset_that_is_neither_is_refused_and_so_is_selecting_settings_before_anything_is_built(built, folders, tmp_path, manager):
     before = snapshot(built[1])
-    with pytest.raises(Invalid, match=SYNTHETIC_LATER):
+    with pytest.raises(NotFound, match="no set abc"):
         manager.readiness("set:abc", SHORT)
+    with pytest.raises(Invalid, match="which is real or set:{id}, not abc"):
+        manager.readiness("abc", SHORT)
     assert snapshot(built[1]) == before
-    fresh = manager_over((folders[0], tmp_path / "fresh", folders[2]))
+    fresh = manager_over((folders[0], tmp_path / "fresh", folders[2], folders[3]))
     with pytest.raises(Invalid, match=NOTHING_BUILT):
         fresh.select_settings(SHORT)
     assert not (tmp_path / "fresh").exists()

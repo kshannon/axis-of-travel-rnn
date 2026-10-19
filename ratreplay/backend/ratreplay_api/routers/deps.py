@@ -1,5 +1,5 @@
 """
-What the routes share: the two managers the composition root built, kept on the app, and the config file they were built from.
+What the routes share: the three managers the composition root built, kept on the app, and the config file they were built from.
 """
 
 from fastapi import Request
@@ -10,6 +10,13 @@ def review_manager(request: Request):
     The ReviewManager the app was built with.
     """
     return request.app.state.review
+
+
+def synthesis_manager(request: Request):
+    """
+    The SynthesisManager the app was built with.
+    """
+    return request.app.state.synthesis
 
 
 def validation_manager(request: Request):

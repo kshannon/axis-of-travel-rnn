@@ -17,7 +17,7 @@ SettingsQuery = Annotated[WindowSettings, Query()]
 @router.get("/health")
 def get_health(manager=Depends(reread_validation_manager), config=Depends(config_path)):
     """
-    The three folders each with its root, problems, counts and times, and the config file they come from. reload=true reads that file again first.
+    The four folders each with its root, problems, counts and times, and the config file they come from. reload=true reads that file again first.
     """
     return manager.health(config)
 
@@ -41,7 +41,7 @@ def get_environments(manager=Depends(validation_manager)):
 @router.get("/blocks")
 def readiness(query: Annotated[ReadinessQuery, Query()], manager=Depends(validation_manager)):
     """
-    Every built block of the dataset named by which (real for now) with its window count and verdict at the settings in the query, the totals and the settings each session was built with.
+    Every built block of the dataset named by which (real, or set:{id} for a synthetic set) with its window count and verdict at the settings in the query, the totals and the settings each session or the set was built with.
     """
     return manager.readiness(query.which, query.model_dump(exclude={"which"}))
 

@@ -1,5 +1,5 @@
 """
-The composition root: the config read once, the engine, the accesses and the two managers built once from it, the routes under /api and the built frontend at /.
+The composition root: the config read once, the engines, the accesses and the three managers built once from it, the routes under /api and the built frontend at /.
 """
 
 from pathlib import Path
@@ -12,11 +12,14 @@ from starlette.exceptions import HTTPException
 
 from .access.environment import EnvironmentAccess
 from .access.processed import ProcessedAccess
+from .access.synthetic import SyntheticAccess
 from .access.transformed import TransformedAccess
+from .engines.generator import GeneratorEngine
 from .engines.trajectory import TrajectoryEngine
 from .managers.review import ReviewManager
+from .managers.synthesis import SynthesisManager
 from .managers.validation import ValidationManager
-from .routers import review, validation
+from .routers import review, synthesis, validation
 from .utilities import version
 from .utilities.config import Config
 from .utilities.errors import Invalid, NotFound
@@ -26,9 +29,9 @@ FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LOCAL_CONFIG = REPO_ROOT / "configs" / "local.yaml"
 ENVIRONMENTS = REPO_ROOT / "configs" / "environments"  # becomes a config key when the tool leaves the repository
-# The config keys that name the two data folders, known here and nowhere else.
-TRANSFORMED_KEY, PROCESSED_KEY = "TRANSFORMED_LAB_DATA", "PROCESSED_LAB_DATA"
-ROUTERS = (review.router, validation.router)
+# The config keys that name the three data folders, known here and nowhere else.
+TRANSFORMED_KEY, PROCESSED_KEY, SYNTHETIC_KEY = "TRANSFORMED_LAB_DATA", "PROCESSED_LAB_DATA", "SYNTHETIC_DATA"
+ROUTERS = (review.router, synthesis.router, validation.router)
 NOT_FOUND = 404
 INVALID = 400
 UNPROCESSABLE = 422
@@ -60,11 +63,12 @@ class UnsetAccess:
         """
         raise Invalid(self.problem)
 
-    # The verbs of TransformedAccess and ProcessedAccess that need their folder.
+    # The verbs of TransformedAccess, ProcessedAccess and SyntheticAccess that need their folder.
     sessions = session = refused
     reviews = review = write_review = delete_review = refused
     blocks = block = built = metadata = write_blocks = delete_build = refused
     window_settings = write_window_settings = refused
+    sets = set = find_block = write_set = delete_set = guesses = write_guess = refused
 
 
 def access_over(config, key, access):
@@ -88,14 +92,16 @@ def create_app(config_path=None):
 
     def build(config):
         """
-        Build the engine, the accesses and the two managers from the config and keep the managers on the app, which is how Reload takes effect.
+        Build the engines, the accesses and the three managers from the config and keep the managers on the app, which is how Reload takes effect.
         """
-        trajectory = TrajectoryEngine()
+        trajectory, generator = TrajectoryEngine(), GeneratorEngine()
         transformed = access_over(config, TRANSFORMED_KEY, TransformedAccess)
         processed = access_over(config, PROCESSED_KEY, ProcessedAccess)
+        synthetic = access_over(config, SYNTHETIC_KEY, SyntheticAccess)
         environment = EnvironmentAccess(ENVIRONMENTS)
         app.state.review = ReviewManager(trajectory, transformed, processed, environment, code_version)
-        app.state.validation = ValidationManager(trajectory, transformed, processed, environment)
+        app.state.synthesis = SynthesisManager(trajectory, generator, processed, synthetic, environment, code_version)
+        app.state.validation = ValidationManager(trajectory, transformed, processed, synthetic, environment)
 
     app.state.build = build
     build(app.state.config)

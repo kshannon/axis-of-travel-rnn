@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from ratreplay_api import app as app_module
 from ratreplay_api.access.processed import ProcessedAccess
+from ratreplay_api.access.synthetic import SyntheticAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.app import UnsetAccess, create_app
 from ratreplay_api.engines.trajectory import SETTINGS
@@ -118,7 +119,7 @@ def public(cls):
 
 
 def test_the_stand_in_for_an_unset_folder_answers_every_public_name_of_the_accesses_it_stands_for():
-    assert public(TransformedAccess) | public(ProcessedAccess) <= public(UnsetAccess)
+    assert public(TransformedAccess) | public(ProcessedAccess) | public(SyntheticAccess) <= public(UnsetAccess)
 
 
 def test_a_key_the_config_lacks_is_named_by_health_and_the_format_still_answers_while_the_folders_verbs_refuse(tmp_path):

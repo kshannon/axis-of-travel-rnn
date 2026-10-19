@@ -6,10 +6,11 @@ import type { APIRequestContext, Locator, Page, Response } from "@playwright/tes
 
 export const PORT = 8061;
 
-// serve_synthetic.py rebuilds this folder on every start: the transformed folder of six sessions, an empty processed folder and the local.yaml naming them.
+// serve_synthetic.py rebuilds this folder on every start: the transformed folder of six sessions, empty processed and synthetic folders and the local.yaml naming them.
 export const SYNTHETIC_ROOT = join(tmpdir(), "ratreplay-e2e");
 export const TRANSFORMED = join(SYNTHETIC_ROOT, "transformed");
 export const PROCESSED = join(SYNTHETIC_ROOT, "processed");
+export const SYNTHETIC = join(SYNTHETIC_ROOT, "synthetic");
 export const LOCAL_CONFIG = join(SYNTHETIC_ROOT, "local.yaml");
 // What environmentPixels counts on a map: the track's walls and centerline give 2000 and more, a map without the environment 350 at most, the letters of the site names and of the speed legend.
 export const WALL_PIXELS = 1000;
@@ -23,6 +24,11 @@ export const S6_TRACK = `${S6}_track_01`;
 /** The reviewed folder and what the tool built from it go back to the empty folder the tool finds before its first save. */
 export function resetProcessed(): void {
   for (const name of readdirSync(PROCESSED)) rmSync(join(PROCESSED, name), { recursive: true, force: true });
+}
+
+/** The synthetic folder goes back to the empty folder the tool finds before its first Generate. */
+export function resetSynthetic(): void {
+  for (const name of readdirSync(SYNTHETIC)) rmSync(join(SYNTHETIC, name), { recursive: true, force: true });
 }
 
 /** The config file as the server started with it, to put back after a test has changed it. */

@@ -109,3 +109,42 @@ class ExclusionBody(BaseModel):
     excluded: StrictBool
     note: str = ""
     settings: WindowSettings = Field(default_factory=WindowSettings)
+
+
+# The epoch kinds a synthetic set is generated for and the sides of a quiz pair.
+Kind = Literal["arena", "track"]
+Side = Literal["left", "right"]
+
+
+class GenerateBody(BaseModel):
+    """
+    What a synthetic set is generated from and how: the source sessions whose built blocks give the recipe, the seed, the seconds to generate per epoch kind and the window settings recorded in its provenance.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sources: list[str] = Field(min_length=1)
+    seed: int = Field(strict=True, ge=0)
+    length_s: dict[Kind, Annotated[float, Field(gt=0, allow_inf_nan=False)]] = Field(min_length=1)
+    settings: WindowSettings = Field(default_factory=WindowSettings)
+
+
+class PairBody(BaseModel):
+    """
+    The kind of the blocks a quiz pair shows, null for any kind the set has.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Kind | None = None
+
+
+class GuessBody(BaseModel):
+    """
+    The person's answer on a quiz pair: which side they call real.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pair_id: str
+    side: Side
