@@ -17,8 +17,9 @@ export const BUTTON_DANGER = `${BUTTON_BASE} border border-bad/60 text-bad enabl
 // reads as a label and not as a button.
 export const SEGMENTS = "inline-flex shrink-0 divide-x divide-line overflow-hidden rounded-md border border-line";
 const SEGMENT_BASE = "bg-page px-2.5 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:text-ink/40";
-export const SEGMENT = `${SEGMENT_BASE} enabled:hover:bg-ink/15`;
-export const SEGMENT_PRIMARY = `${SEGMENT_BASE} enabled:bg-accent enabled:font-medium enabled:text-white enabled:hover:brightness-110`;
+export const SEGMENT = `${SEGMENT_BASE} enabled:hover:bg-accent enabled:hover:text-white`;
+// Every segment is grey until hovered, Kyle's call after using it: the accent on hover alone.
+export const SEGMENT_PRIMARY = SEGMENT;
 export const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted";
 
 // A layer toggle of the timeline as one plain box holding its checkbox, its word and the colour dot after the word, with
