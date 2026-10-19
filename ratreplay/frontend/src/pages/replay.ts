@@ -115,7 +115,7 @@ function registerReplay(): void {
       offsetUnsaved: false,
       editCount: 0,
       hasSelection: false,
-      // Why the timeline's Accept is off: nothing is selected, or the selected block is edited or removed. Empty when it can be pressed.
+      // Why the timeline's Accept is off: nothing is selected, or the selected block is accepted already or removed. Empty when it can be pressed.
       acceptOff: "select a block first",
       hasRange: false,
       hasMarks: false,

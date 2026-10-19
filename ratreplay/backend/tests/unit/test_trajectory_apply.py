@@ -88,10 +88,15 @@ def test_a_moved_edge_snaps_to_the_nearest_run_edge_and_stays_inside_its_stretch
     assert ranges(made([{"op": "move", "frame": 6500, "edge": "end", "at": 4050}]))[2:] == [(4050, 5700, "edited"), (6301, 7700, "auto")]
 
 
-def test_confirm_toggles_an_auto_block_and_leaves_a_dropped_one():
-    edits = [{"op": "drop", "frame": 7000}, {"op": "confirm", "frame": 7000}, {"op": "confirm", "frame": 2800},
-             {"op": "confirm", "frame": 1000}, {"op": "confirm", "frame": 1000}]
-    assert [b["status"] for b in made(edits)] == ["auto", "confirmed", "auto", "dropped"]
+def test_accept_confirms_the_automatic_and_edited_blocks_and_leaves_a_dropped_one():
+    blocks = made([{"op": "split", "frame": 3301}, {"op": "drop", "frame": 7000}, {"op": "accept"}])
+    assert ranges(blocks) == [(301, 2100, "confirmed"), (2701, 3300, "confirmed"), (3301, 3999, "confirmed"), (4050, 5700, "confirmed"), (6301, 7700, "dropped")]
+
+
+def test_confirm_accepts_an_auto_or_an_edited_block_and_leaves_a_confirmed_or_a_dropped_one_as_it_is():
+    edits = [{"op": "drop", "frame": 7000}, {"op": "confirm", "frame": 7000}, {"op": "confirm", "frame": 2800}, {"op": "confirm", "frame": 2800},
+             {"op": "split", "frame": 4700}, {"op": "confirm", "frame": 4050}]
+    assert [b["status"] for b in made(edits)] == ["auto", "confirmed", "confirmed", "edited", "dropped"]
 
 
 def test_a_new_block_is_refused_over_a_cut_a_kept_block_or_under_ten_seconds_and_added_otherwise():

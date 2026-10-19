@@ -63,29 +63,50 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(cards).toHaveCount(2);
   });
 
-  await test.step("the track block splits in half at frame 2701, accept all confirms the rest", async () => {
+  await test.step("the track block splits in half at frame 2701, and the edited piece is accepted by its Accept, which then does nothing", async () => {
     for (let i = 0; i < 6; i++) await page.keyboard.press("Shift+ArrowRight");
     await expect(frame).toHaveText("2701"); // the middle of the track block, the only split that leaves two blocks of 10 s
     await page.getByRole("button", { name: "Split here" }).click();
     await expect(toast(page, "Added split at frame 2701")).toBeVisible();
     await expect(cards).toHaveCount(3);
-    // the piece selected is edited, which is kept already: its card says so in place of Accept, the timeline's Accept is off with the reason and Enter names it
-    await expect(cards.nth(1)).toContainText("kept as edited");
-    await expect(cards.nth(1).getByRole("button", { name: "Accept block 2" })).toBeHidden();
-    await expect(cards.first().getByRole("button", { name: "Accept block 1" })).toBeVisible();
+    // the piece selected is edited, which is kept but not accepted yet: its card and the timeline both offer Accept
+    const piece = cards.nth(1).getByRole("button", { name: "Accept block 2" });
     const accept = page.getByRole("button", { name: "Accept", exact: true });
-    await expect(accept).toBeDisabled();
-    await expect(accept).toHaveAttribute("title", "an edited block is kept as it stands");
-    await page.keyboard.press("Enter");
-    const kept = toast(page, "an edited block is kept as it stands");
-    await expect(kept).toBeVisible();
-    await kept.getByRole("button", { name: "Close" }).click();
-    await expect(kept).toBeHidden();
-    await page.getByRole("button", { name: "Accept all" }).click();
-    await expect(cards.first()).toContainText("confirmed");
     await expect(cards.nth(1)).toContainText("edited");
-    await expect(cards.nth(2)).toContainText("edited");
+    await expect(piece).toBeEnabled();
+    await expect(piece).toHaveAttribute("aria-pressed", "false");
+    await expect(piece).toHaveAttribute("title", "Accept this block");
+    await expect(accept).toBeEnabled();
+    await expect(accept).toHaveAttribute("title", "Accept the selected block");
+    await accept.click();
+    await expect(toast(page, "Added accept at frame")).toBeVisible();
+    await expect(cards.nth(1)).toContainText("confirmed");
+    await expect(piece).toBeDisabled(); // checked and off: a confirmed block stays accepted until Undo
+    await expect(piece).toHaveAttribute("aria-pressed", "true");
+    await expect(piece).toHaveAttribute("title", "accepted");
+    await expect(accept).toBeDisabled();
+    await expect(accept).toHaveAttribute("title", "already accepted");
+    await page.keyboard.press("Enter");
+    const again = toast(page, "already accepted");
+    await expect(again).toBeVisible();
+    await again.getByRole("button", { name: "Close" }).click();
+    await expect(again).toBeHidden();
+    await expect(cards.first().getByRole("button", { name: "Accept block 1" })).toBeEnabled();
+    await expect(state).toHaveText("2 edits not saved"); // the split and the accept, the second accept added nothing
+  });
+
+  await test.step("Save blocks is refused while a block is still automatic or edited, with the count in the toast, and Accept all then accepts the rest", async () => {
+    await page.getByRole("button", { name: "Save blocks" }).click();
+    const refused = toast(page, "every kept block must be accepted before saving, 2 still automatic or edited"); // the arena block and the second piece
+    await expect(refused).toBeVisible();
+    await expect(refused).toContainText("Error");
+    await refused.getByRole("button", { name: "Close" }).click();
+    await expect(refused).toBeHidden();
+    await expect(page.getByTestId("session-id")).toHaveText(S1);
     await expect(state).toHaveText("2 edits not saved");
+    await page.getByRole("button", { name: "Accept all" }).click();
+    for (const i of [0, 1, 2]) await expect(cards.nth(i)).toContainText("confirmed");
+    await expect(state).toHaveText("3 edits not saved");
   });
 
   await test.step("Cut marks out removes a marked range from the arena block, drops the piece left under 10 s with its toast, and Undo takes the cut back", async () => {
@@ -102,18 +123,18 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(cut).toBeEnabled();
     await expect(cut).toHaveAttribute("title", /^Remove the marked range from every block it touches/);
     await cut.click();
-    await expect(toast(page, "Added cut of frames 1141 to 1321, 3 edits not saved yet")).toBeVisible();
+    await expect(toast(page, "Added cut of frames 1141 to 1321, 4 edits not saved yet")).toBeVisible();
     await expect(page.getByTestId("marks")).toBeHidden(); // the marks clear as they do after a new block
     await expect(cards).toHaveCount(4); // the arena block is two pieces around the cut, the first 14 s and kept, the second under 10 s and dropped
     await expect(cards.nth(0)).toContainText("edited");
     await expect(cards.nth(0)).toContainText("arena, 0.23 min");
     await expect(cards.nth(1)).toContainText("dropped");
     await expect(cards.nth(1)).toContainText("arena, 0.05 min");
-    await expect(state).toHaveText("3 edits not saved");
+    await expect(state).toHaveText("4 edits not saved");
     await page.getByRole("button", { name: /^Undo/ }).click();
     await expect(cards).toHaveCount(3);
     await expect(cards.first()).toContainText("confirmed");
-    await expect(state).toHaveText("2 edits not saved");
+    await expect(state).toHaveText("3 edits not saved");
   });
 
   await test.step("a click on the frames lane selects a frame, a second click on it and escape let go of it", async () => {
@@ -143,7 +164,7 @@ test("read the folders, review a session, refuse a split, split the track block,
     await offset.fill("0.12");
     await registered;
     await expect(page.getByTestId("start-offset").getByText("not saved")).toBeVisible();
-    await expect(state).toHaveText("2 edits not saved"); // the edits and the status header are as they were
+    await expect(state).toHaveText("3 edits not saved"); // the edits and the status header are as they were
     await expect(cards).toHaveCount(3);
     await expect(page.getByTestId("map").locator("canvas")).toBeVisible();
   });
@@ -202,14 +223,12 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(page.getByTestId("session-id")).toHaveText(S1);
     await page.reload();
     await expect(page.getByTestId("session-id")).toHaveText(S1);
-    await expect(state).toHaveText(/^saved by \S+ on \d{4}-\d{2}-\d{2}, 2 edits$/);
+    await expect(state).toHaveText(/^saved by \S+ on \d{4}-\d{2}-\d{2}, 3 edits$/);
     await expect(page.getByLabel("Notes on the session")).toHaveValue("the whole story");
     await expect(page.getByLabel("Start offset, m")).toHaveValue("0.12"); // the saved review's offset, which the session is registered with
     await expect(page.getByTestId("start-offset").getByText("not saved")).toBeHidden();
     await expect(cards).toHaveCount(3);
-    await expect(cards.first()).toContainText("confirmed");
-    await expect(cards.nth(1)).toContainText("edited");
-    await expect(cards.nth(2)).toContainText("edited");
+    for (const i of [0, 1, 2]) await expect(cards.nth(i)).toContainText("confirmed");
   });
 
   await test.step("the Outgoing page counts the review and the blocks built from it", async () => {

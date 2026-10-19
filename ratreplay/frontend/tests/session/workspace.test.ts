@@ -103,10 +103,10 @@ test("a save sends the edits, the note and the settings, marks the edits saved a
 });
 
 test("a save the server refuses leaves the edits unsaved", async () => {
-  vi.mocked(client.saveBlocks).mockRejectedValue(new Error("some blocks are still auto"));
+  vi.mocked(client.saveBlocks).mockRejectedValue(new Error("every kept block must be accepted before saving, 1 still automatic or edited"));
   const ws = workspace();
   ws.editor.push({ op: "accept" });
-  await expect(ws.save("")).rejects.toThrow("still auto");
+  await expect(ws.save("")).rejects.toThrow("must be accepted");
   expect([ws.editor.dirty, ws.saved]).toEqual([true, null]);
 });
 

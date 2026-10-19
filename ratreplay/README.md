@@ -60,10 +60,10 @@ what is built.
 **Replay.** Replay plays the session over a timeline with the cuts the rules make. Each block is a card with its window
 count and verdict at the settings in use. Accept or Reject a block, move its start or end to the cursor, split it at the
 cursor, mark a range and make a block of it, flag a run, write notes, undo, or reset to the automatic blocks. The server
-applies every edit and says why it refused one, and a preview writes nothing. Save blocks is refused while a block is
-still automatic. It writes `review/<session_id>.json` and builds the session's blocks. The toast names the review file
-and whether it replaced one, and warns if the build failed or a block failed a check. Then the next session to review
-opens. A saved session loads with its review.
+applies every edit and says why it refused one, and a preview writes nothing. Save blocks is refused until every kept
+block is accepted, an automatic block as drawn and an edited block after a change. It writes `review/<session_id>.json`
+and builds the session's blocks. The toast names the review file and whether it replaced one, and warns if the build
+failed or a block failed a check. Then the next session to review opens. A saved session loads with its review.
 
 Keys: space plays, left and right step a frame (with shift a second, on the Windows page a window), `[` and `]` jump a
 run, enter confirms the selected block, escape clears the selection, z undoes. Everything else is a button or a chip.

@@ -5,7 +5,7 @@ The refusals and edges of the HTTP surface: a malformed body or query is a 422 n
 import yaml
 from fixtures import S1, S2
 
-from ratreplay_api.managers.review import STILL_AUTO
+from ratreplay_api.managers.review import NOT_ACCEPTED
 from ratreplay_api.managers.validation import NOTHING_BUILT
 
 UNPROCESSABLE, INVALID, NOT_FOUND = 422, 400, 404
@@ -81,7 +81,7 @@ def test_a_save_the_rules_refuse_and_a_selection_with_nothing_built_are_400s_wit
     illegal = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [*ACCEPT, {"op": "split", "frame": 100}], **NO_OFFSET})
     assert illegal.status_code == INVALID and illegal.json()["error"].startswith("edit 2 (split at frame 100): ")
     auto = client.put(f"/api/sessions/{S1}/blocks", json={"edits": [{"op": "confirm", "frame": 1000}], **NO_OFFSET})
-    assert auto.status_code == INVALID and auto.json() == {"error": STILL_AUTO}
+    assert auto.status_code == INVALID and auto.json() == {"error": NOT_ACCEPTED.format(n=1)}
     left_out = client.put(f"/api/sessions/{S2}/blocks", json={"edits": ACCEPT, **NO_OFFSET})
     assert left_out.status_code == INVALID and left_out.json()["error"].startswith(f"session {S2} is not in the dataset: ")
     selection = client.put("/api/windows", json={"settings": SHORT})

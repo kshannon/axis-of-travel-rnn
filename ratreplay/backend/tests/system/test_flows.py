@@ -18,9 +18,9 @@ SHORT = {"window_s": 5}
 LONGER = {"window_s": 10}
 TOO_LONG = {"window_s": 1000}
 
-# S1 has an arena and a track block, the edits confirm the arena block, split the track block in two and drop the second.
+# S1 has an arena and a track block, the edits confirm the arena block, split the track block in two, confirm the first and drop the second.
 # S6 has one track block. The save result, the readiness and the selection answer with these keys.
-SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "drop", "frame": 2701}]
+SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "confirm", "frame": 2101}, {"op": "drop", "frame": 2701}]
 ACCEPT = [{"op": "accept"}]
 SAVE_KEYS = {"review", "replaced", "file", "built", "failed", "build_error"}
 EXCLUSION_KEYS = {"review", "replaced", "file", "deleted", "built", "failed", "build_error"}
@@ -97,7 +97,7 @@ def test_save_blocks_names_the_review_file_and_the_blocks_built_and_health_then_
     after = client.get("/api/health").json()["processed"]
     assert after["problems"] == [] and after["counts"] == {"reviews": 1, "blocks": 2, "sessions": 1}
     header = client.get(f"/api/sessions/{S1}", params=SHORT).json()
-    assert header["review"] == result["review"] and [b["status"] for b in header["blocks"]] == ["confirmed", "edited", "dropped"]
+    assert header["review"] == result["review"] and [b["status"] for b in header["blocks"]] == ["confirmed", "confirmed", "dropped"]
     row = next(r for r in client.get("/api/sessions").json() if r["session_id"] == S1)
     assert (row["reviewed"], row["built"]) == (True, 2)
     assert save(client, S1, SAVED).json()["replaced"] is True

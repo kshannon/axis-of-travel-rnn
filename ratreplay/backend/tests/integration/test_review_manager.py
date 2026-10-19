@@ -17,7 +17,7 @@ from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.processed import METADATA_KEYS, ProcessedAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, VERSION, TrajectoryEngine
-from ratreplay_api.managers.review import EXCLUDED, OTHER_RULES, SAVED_DIFFER, STILL_AUTO, ReviewManager
+from ratreplay_api.managers.review import EXCLUDED, OTHER_RULES, SAVED_DIFFER, NOT_ACCEPTED, ReviewManager
 from ratreplay_api.utilities.errors import Invalid, NotFound
 
 REAL = Path(__file__).resolve().parents[4] / "configs" / "environments"
@@ -28,9 +28,9 @@ COMMIT = "abc1234"
 SHORT = {**SETTINGS, "window_s": 5.0}
 
 # S1 has an arena block over frames 301 to 1500 and a track block over 2101 to 3300. The edits confirm the arena block, split
-# the track block at 2701 into two pieces of 10 s and drop the second. S6 has one track block, accepted whole.
-SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "drop", "frame": 2701}]
-SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited"), (f"{S1}_track_02", "dropped")]
+# the track block at 2701 into two pieces of 10 s, confirm the first and drop the second. S6 has one track block, accepted whole.
+SAVED = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}, {"op": "confirm", "frame": 2101}, {"op": "drop", "frame": 2701}]
+SAVED_BLOCKS = [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "confirmed"), (f"{S1}_track_02", "dropped")]
 ACCEPT = [{"op": "accept"}]
 
 # The start offset in metres: the person's tuned value, a second one, the yaml's, and one more than the track's stem leaves room for.
@@ -162,9 +162,21 @@ def test_save_writes_the_review_and_the_blocks_and_load_gives_them_back(folders,
 def test_a_refused_edit_or_a_block_still_auto_refuses_the_whole_save_and_writes_nothing(folders, manager):
     with pytest.raises(Invalid, match=r"^edit 2 \(split at frame 100\): ."):
         manager.save_blocks(S1, [*ACCEPT, {"op": "split", "frame": 100}], "", SHORT)
-    with pytest.raises(Invalid, match=STILL_AUTO):
+    with pytest.raises(Invalid, match=re.escape(NOT_ACCEPTED.format(n=1))):
         manager.save_blocks(S1, [{"op": "confirm", "frame": 1000}], "", SHORT)
     assert not folders[1].exists()
+
+
+def test_an_edited_block_not_accepted_refuses_the_save_with_the_count_until_a_confirm_or_an_accept_follows(folders, manager):
+    # The arena block is confirmed and the track block split in two, so both pieces are edited and kept but not accepted.
+    edited = [{"op": "confirm", "frame": 1000}, {"op": "split", "frame": 2701}]
+    with pytest.raises(Invalid, match=re.escape(NOT_ACCEPTED.format(n=2))):
+        manager.save_blocks(S1, edited, "", SHORT)
+    with pytest.raises(Invalid, match=re.escape(NOT_ACCEPTED.format(n=1))):
+        manager.save_blocks(S1, [*edited, {"op": "confirm", "frame": 2101}], "", SHORT)
+    assert not folders[1].exists()
+    saved = manager.save_blocks(S1, [*edited, {"op": "accept"}], "", SHORT)
+    assert [b["status"] for b in saved["review"]["blocks"]] == ["confirmed"] * 3 and saved["built"] == 3
 
 
 def test_rebuild_all_rebuilds_every_reviewed_session_with_the_same_bytes(folders, manager, monkeypatch):

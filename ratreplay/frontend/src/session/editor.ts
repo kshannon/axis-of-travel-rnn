@@ -4,7 +4,7 @@ export type Action = "accept-all" | "accept" | "reject" | "new-block" | "cut" | 
 
 const BURIED = "Every frame of this removed block lies under another block, so no edit can reach it.";
 const MARK_FIRST = "Mark both ends of the range first.";
-const KEPT_AS_IT_STANDS = "an edited block is kept as it stands";
+const ALREADY_ACCEPTED = "already accepted";
 const RESTORE_FIRST = "restore the block first, Reject again";
 export const NOTHING_CHANGED = "Nothing changed.";
 
@@ -45,9 +45,9 @@ export function editFor(action: Action, target: Target): Edit | string {
   return cursor > block.frame_start && cursor <= block.frame_end ? { op: "split", frame: cursor } : "Move the cursor inside the block, after its first frame, to split it there.";
 }
 
-/** Why a block with this status cannot be accepted, none when it can: the engine toggles only an auto and a confirmed block, an edited one is kept already and a removed one comes back with Reject. */
+/** Why a block with this status cannot be accepted, none when it can: an auto or an edited block is accepted, a confirmed one is already and a removed one comes back with Reject. */
 export function acceptWhy(status: ReviewBlock["status"]): string {
-  if (status === "edited") return KEPT_AS_IT_STANDS;
+  if (status === "confirmed") return ALREADY_ACCEPTED;
   return status === "dropped" ? RESTORE_FIRST : "";
 }
 
@@ -60,7 +60,7 @@ export function unchangedText(action: Action, status: ReviewBlock["status"] | un
 export function label(edit: Edit): string {
   switch (edit.op) {
     case "accept": return "accept all";
-    case "confirm": return `accept toggle at frame ${edit.frame}`;
+    case "confirm": return `accept at frame ${edit.frame}`;
     case "drop": return `remove toggle at frame ${edit.frame}`;
     case "move": return `move of the ${edit.edge} to frame ${edit.frame}`;
     case "split": return `split at frame ${edit.frame}`;

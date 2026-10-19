@@ -97,11 +97,13 @@ test("a removed block around the selected one does not take the selection, and n
   expect(reselected(made, [], { op: "accept" })).toBeNull();
 });
 
-test("an accept that changes nothing names why when the block is edited or removed, any other empty edit says nothing changed", () => {
-  expect(unchangedText("accept", "edited")).toBe("an edited block is kept as it stands");
+test("an accept that changes nothing names why when the block is confirmed or removed, an auto or an edited block can be accepted, any other empty edit says nothing changed", () => {
+  for (const status of ["auto", "edited"] as const) expect(acceptWhy(status)).toBe("");
+  expect(acceptWhy("confirmed")).toBe("already accepted");
+  expect(acceptWhy("dropped")).toBe("restore the block first, Reject again");
+  expect(unchangedText("accept", "confirmed")).toBe("already accepted");
   expect(unchangedText("accept", "dropped")).toBe("restore the block first, Reject again");
-  for (const status of ["auto", "confirmed"] as const) expect(acceptWhy(status)).toBe("");
-  expect(unchangedText("accept", "confirmed")).toBe("Nothing changed.");
+  expect(unchangedText("accept", "edited")).toBe("Nothing changed.");
   expect(unchangedText("accept", undefined)).toBe("Nothing changed.");
-  expect(unchangedText("reject", "edited")).toBe("Nothing changed.");
+  expect(unchangedText("reject", "confirmed")).toBe("Nothing changed.");
 });

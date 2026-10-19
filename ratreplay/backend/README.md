@@ -42,7 +42,7 @@ What the answers hold, beyond their keys:
   frame_end}` and `flag {run}`. Frames and runs are whole numbers from 1.
 - A block of the session header or a preview is `block_id, epoch, environment, frame_start, frame_end, status, note`,
   plus `windows` (`count`, `verdict`, null for a dropped block) and `problems`. `refusals` are `{index, op, reason}`.
-- Save applies the edits first and one illegal edit refuses the whole save. It also refuses a block still auto and a
+- Save applies the edits first and one illegal edit refuses the whole save. It also refuses a kept block not yet accepted (still auto or edited) and a
   session the rules leave out (400), writing nothing. Once the review is written, a failed build comes back as
   `build_error` with the review kept, and `failed` lists the blocks with problems, which are not written.
 - A readiness block is its blocks.csv row with `count` and `verdict {ok, reasons}`, judged under the rules its session

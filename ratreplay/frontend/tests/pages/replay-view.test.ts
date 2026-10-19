@@ -34,11 +34,9 @@ test("a card per block in time order, with the runs that start inside it, what i
   expect(cards.map((c) => [c.name, c.minutes, c.runs, c.glyph, c.selected])).toEqual([
     ["block 1", "0.17", 1, "☑", false], ["block 2", "0.17", 0, "☐", true], ["block 3", "0.08", 1, "✕", false],
   ]);
-  expect(cards.map((c) => [c.accepted, c.removed, c.acceptable])).toEqual([[true, false, true], [false, false, true], [false, true, false]]);
-  expect(blockCards([block(1, 600, "edited")], header, null)[0]).toMatchObject({ accepted: true, acceptable: false });
-  // in place of Accept an edited block says it is kept and a removed one that it is removed, an acceptable block says nothing
-  expect(cards.map((c) => c.keptText)).toEqual(["", "", "removed"]);
-  expect(blockCards([block(1, 600, "edited")], header, null)[0]).toMatchObject({ keptText: "kept as edited", keptTitle: "an edited block is kept as it stands, Reject removes it" });
+  // an auto and an edited block can be accepted, a confirmed one shows it is accepted and a removed one is neither
+  expect(cards.map((c) => [c.accepted, c.removed, c.acceptable])).toEqual([[true, false, false], [false, false, true], [false, true, false]]);
+  expect(blockCards([block(1, 600, "edited")], header, null)[0]).toMatchObject({ accepted: false, removed: false, acceptable: true });
   // two blocks that start on the same frame are told apart by their place, and only the selected one is selected
   const removed = block(301, 1500, "dropped");
   const made = block(301, 1299, "edited");

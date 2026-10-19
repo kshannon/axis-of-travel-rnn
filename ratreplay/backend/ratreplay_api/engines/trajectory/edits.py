@@ -4,11 +4,12 @@ The review edits: the legality rules of the block edits and the blocks, cuts and
 
 from .cuts import INITIAL_NOTE, INITIAL_STATUS
 
-# The block keys the engine returns, the statuses (a block starts AUTO, a confirm toggles it with CONFIRMED), the edit that
-# changes no block, and the field of an edit that reaches a block by its frame. A block with nothing to say carries INITIAL_NOTE.
+# The block keys the engine returns, the statuses (a block starts AUTO, a confirm or an accept makes an AUTO or an EDITED block
+# CONFIRMED and nothing takes it back but Undo), the edit that changes no block, and the field of an edit that reaches a block
+# by its frame. A block with nothing to say carries INITIAL_NOTE.
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 AUTO, CONFIRMED, EDITED, REMOVED = INITIAL_STATUS, "confirmed", "edited", "dropped"
-TOGGLED = {AUTO: CONFIRMED, CONFIRMED: AUTO}
+ACCEPTABLE = (AUTO, EDITED)
 FLAG = "flag"
 ANCHORS = {"confirm": "frame", "move": "at", "split": "frame", "drop": "frame"}
 
@@ -72,17 +73,17 @@ def long_enough(first, last, session):
 
 def accept(blocks, edit, session):
     """
-    The automatic blocks confirmed as drawn, the edited and dropped ones kept.
+    Every automatic block confirmed as drawn and every edited block confirmed as it stands, the confirmed and dropped ones kept.
     """
-    return [{**b, "status": CONFIRMED} if b["status"] == AUTO else b for b in blocks]
+    return [{**b, "status": CONFIRMED} if b["status"] in ACCEPTABLE else b for b in blocks]
 
 
 def confirm(blocks, edit, session):
     """
-    The block holding the edit's frame confirmed as it stands when it is auto, or back to auto when it was confirmed, so the glyph toggles.
+    The block holding the edit's frame confirmed as it stands when it is auto or edited, a confirmed or dropped block kept as it is, so a confirm never takes itself back.
     """
     block = reaching(blocks, edit["frame"])
-    return [{**b, "status": TOGGLED.get(b["status"], b["status"])} if b is block else b for b in blocks]
+    return [{**b, "status": CONFIRMED} if b is block and b["status"] in ACCEPTABLE else b for b in blocks]
 
 
 def move(blocks, edit, session):
@@ -238,8 +239,8 @@ def apply_edits(blocks, edits, session):
     """
     The blocks the whole edit list makes from the initial blocks, renumbered, with the refusals (index, op, reason), the ranges cut and the runs flagged.
     """
-    # Always start from the initial blocks with the whole list: drop and confirm toggle, so applying a saved review's
-    # edits to its saved blocks would undo them.
+    # Always start from the initial blocks with the whole list: drop toggles and a split or a move acts on the blocks as
+    # they stand, so applying a saved review's edits to its saved blocks would undo or repeat them.
     refusals = []
     for i, edit in enumerate(edits):
         if edit["op"] == FLAG:

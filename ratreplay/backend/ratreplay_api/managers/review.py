@@ -25,10 +25,10 @@ BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "s
 TRACK = "track"
 START_OFFSET = "start_offset_m"
 
-# What the manager says: a save refused (the edit as a person counts it, from 1, or because the person excluded the session), a session the
-# funnel leaves out (no frames, no epoch of the rules), a build that failed, the warnings of a review made under other rules or whose
-# blocks today's rules do not give, and the version of a build.
-STILL_AUTO = "some blocks are still auto: confirm, edit or remove them before saving"
+# What the manager says: a save refused (the edit as a person counts it, from 1, a kept block not accepted yet, or because the person excluded
+# the session), a session the funnel leaves out (no frames, no epoch of the rules), a build that failed, the warnings of a review made under
+# other rules or whose blocks today's rules do not give, and the version of a build.
+NOT_ACCEPTED = "every kept block must be accepted before saving, {n} still automatic or edited"
 EXCLUDED = "session {sid} is excluded, include it first"
 REFUSED = "edit {number} ({what}): {reason}"
 AT_FRAME, AT_FRAMES = "{op} at frame {frame}", "{op} at frames {frame_start} to {frame_end}"
@@ -161,7 +161,7 @@ class ReviewManager:
 
     def save_blocks(self, sid, edits, notes, settings, start_offset_m=None):
         """
-        Apply the edits and write the review whole with this start offset exactly as given (none is the yaml's and clears a saved one), refused with its reason when an edit is illegal or a block is still auto, then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
+        Apply the edits and write the review whole with this start offset exactly as given (none is the yaml's and clears a saved one), refused with its reason when an edit is illegal or a kept block is not accepted yet (still auto or edited), then build the session's blocks from it, a failure of the build coming back as build_error, the review's file named in the result.
         """
         self._require_in_dataset(sid)
         previous = self.processed.review(sid) or {}
@@ -172,8 +172,9 @@ class ReviewManager:
         if applied["refusals"]:
             first = applied["refusals"][0]
             raise Invalid(REFUSED.format(number=first["index"] + 1, what=described(edits[first["index"]]), reason=first["reason"]))
-        if any(block["status"] == AUTO for block in applied["blocks"]):
-            raise Invalid(STILL_AUTO)
+        unaccepted = [block for block in applied["blocks"] if block["status"] not in (CONFIRMED, DROPPED)]
+        if unaccepted:
+            raise Invalid(NOT_ACCEPTED.format(n=len(unaccepted)))
         review = {"session_id": sid, "reviewed_by": getpass.getuser(), "reviewed_at": clock.iso_now(), "converter_manifest_timestamp": arrays["stamp"],
                   "rules": found["rules"], "blocks": applied["blocks"], "cuts": applied["cuts"], "flagged_runs": applied["flagged_runs"],
                   "notes": notes, "edits": edits, "excluded": False, "excluded_by": previous.get("excluded_by"), "excluded_at": previous.get("excluded_at"),

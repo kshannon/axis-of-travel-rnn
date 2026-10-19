@@ -101,9 +101,9 @@ const blockCard = `
     <p x-show="block.verdict" data-testid="verdict" :class="block.ok ? 'text-ok' : 'text-warn'" x-text="block.verdict"></p>
     <template x-for="problem in block.problems"><p class="text-bad" x-text="problem + '${PROBLEM_CONSEQUENCE}'"></p></template>
     <div class="mt-1.5 flex items-center gap-1.5">
-      <button type="button" x-show="block.acceptable" @click.stop="act('accept', block.position)" title="Accept this block" :aria-pressed="block.accepted"
-        :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
-      <span x-show="!block.acceptable" data-testid="kept" class="text-xs text-muted" :title="block.keptTitle" x-text="block.keptText"></span>
+      <button type="button" x-show="!block.removed" @click.stop="act('accept', block.position)" :disabled="!block.acceptable" :title="block.accepted ? 'accepted' : 'Accept this block'"
+        :aria-pressed="block.accepted" :aria-label="'Accept ' + block.name" ${toggle("block.accepted", CHIP_ON, CHIP_OFF)}>Accept</button>
+      <span x-show="block.removed" data-testid="removed" class="text-xs text-muted" title="Reject restores the block">removed</span>
       <button type="button" @click.stop="act('reject', block.position)" :aria-pressed="block.removed"
         :aria-label="'Reject ' + block.name" ${toggle("block.removed", CHIP_ON, CHIP_OFF)}>Reject</button>
     </div>
@@ -217,7 +217,7 @@ const editRow = `
       <button type="button" @click="act('start-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the start of the selected block to the cursor")} class="${SEGMENT}">Start here</button>
       <button type="button" @click="act('end-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the end of the selected block to the cursor")} class="${SEGMENT}">End here</button>`)}
     ${group("status", `
-      <button type="button" @click="act('accept')" :disabled="!!acceptOff" :title="acceptOff || 'Accept the selected block, again to take it back'" class="${SEGMENT_PRIMARY}">Accept</button>
+      <button type="button" @click="act('accept')" :disabled="!!acceptOff" :title="acceptOff || 'Accept the selected block'" class="${SEGMENT_PRIMARY}">Accept</button>
       <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject</button>
       <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}" title="press z to undo">z</kbd></button>
       <button type="button" @click="reset()" ${disabledWhy("!editCount", "no edits to clear", "Clear every edit so the blocks are automatic again. A saved review stays on disk until you save.")} class="${SEGMENT}">Reset</button>`)}
@@ -251,7 +251,7 @@ export const replayGrid = `
     class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,5fr)_minmax(0,6fr)] gap-4">
     ${card("Session", sessionBody, "col-span-5", sessionActions)}
     ${card("Summary", summaryBody, "col-span-7")}
-    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" ${disabledWhy("loading", "session still loading", "Accept every block")} class="${BUTTON}">Accept all</button>`)}
+    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" ${disabledWhy("loading", "session still loading", "Accept every automatic and edited block")} class="${BUTTON}">Accept all</button>`)}
     ${card(mapTitle, mapBody, "col-span-5", helpPopover("About the map", MAP_HELP))}
     ${card("Playback", playbackCard, "col-span-4")}
     ${card("Timeline", timelineBody, "col-span-12", timelineActions)}

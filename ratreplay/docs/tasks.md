@@ -247,6 +247,14 @@ anything that touches real data.
       "a kept block must last 10 s or more". The button joins the marks group, acts on the marked range,
       the refusal says to cut the range out instead, the guide says when to split and when to cut. Kyle,
       2026-10-18. [Page 3, TrajectoryEngine.apply message]
+- [x] K34 Every kept block is confirmed by the person: Accept turns an automatic or an edited block
+      confirmed (Accept all too), Accept on a confirmed block does nothing (Undo takes a mistake back),
+      and Save requires every kept block to be confirmed, so "edited" is a passing state, changed but not
+      yet approved. The edit list keeps the history. The engine version bumps, since apply answers
+      differently for the same input. Kyle, 2026-10-18, after twice reading "kept as edited" as unfinished.
+      [TrajectoryEngine.apply, ReviewManager.save_blocks, Page 3]
+      Built: engine version 2. A review saved before it that holds edited blocks shows "saved blocks
+      differ" when opened, Accept all and Save brings it up to date.
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

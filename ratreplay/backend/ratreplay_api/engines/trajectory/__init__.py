@@ -6,8 +6,8 @@ from . import build, funnel, session, windows
 from .edits import apply_edits
 
 # The engine's own version, bumped when a change alters what an operation returns for the same input. A build records it
-# beside the rules and settings it used.
-VERSION = 1
+# beside the rules and settings it used. 2: confirm and accept turn an edited block confirmed, and confirm no longer toggles.
+VERSION = 2
 
 # The default of every rule, the constants the engine moved in from the lab data processor and the project's trajectory
 # module under snake_case names. A caller passes its own dict to session and blocks. The tuples stay tuples here.
