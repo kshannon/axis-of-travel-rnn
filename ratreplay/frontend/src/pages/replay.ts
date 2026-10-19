@@ -1,6 +1,6 @@
 import Alpine from "alpinejs";
 import { errorText, listSessions, StaleApiError } from "../api/client";
-import type { MadeBlock } from "../api/types";
+import type { MadeBlock, SessionRow } from "../api/types";
 import { allLayers, LAYERS, layerMeanings } from "../draw/layers";
 import type { LayerKey } from "../draw/layers";
 import { FRAMES_LANE, timeLabel } from "../draw/lanes";
@@ -23,8 +23,11 @@ import { BUTTON_PRIMARY } from "../ui/style";
 import { counted } from "../ui/text";
 import { toast } from "../ui/toast";
 import { askAndChange } from "./exclusion";
+import { filterRows } from "./incoming-view";
 import type { Page } from "./page";
 import { replayGrid } from "./replay-html";
+import { chipsOf, leaveQuestion, neighbours, pickerOrder, stepReason } from "./replay-picker";
+import type { Step } from "./replay-picker";
 import { escapeClears, laneSelection, pickedRun, selectionText, toggled } from "./replay-selection";
 import type { Picked } from "./replay-selection";
 import { blockCards, factsLine, liveTiles, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
@@ -94,12 +97,27 @@ function registerReplay(): void {
       hasRange: false,
       hasMarks: false,
       selectedName: "",
+      // The picker: the sessions index in the order the arrows walk, read once per visit and after a save or an exclusion, and the list under the session id.
+      index: [] as SessionRow[],
+      indexError: "",
+      pickerOpen: false,
+      filter: "",
+      pickerTop: 0,
+      pickerLeft: 0,
 
       get speedLabel() {
         return `${SPEEDS[this.speedIndex]}x`;
       },
       get mapTitle() {
         return [this.sessionId, this.epochNow, this.selectedName].filter(Boolean).join(", ");
+      },
+      /** The sessions the list shows and the arrows walk: those matching the filter, which is empty while the list is closed. */
+      get listed() {
+        return filterRows(this.index, this.filter);
+      },
+      get listedText() {
+        if (this.indexError) return `The sessions could not be listed: ${this.indexError}`;
+        return this.listed.length ? `${this.listed.length} of ${counted(this.index.length, "session")}` : "No session matches";
       },
 
       async init() {
@@ -118,6 +136,7 @@ function registerReplay(): void {
           map.refresh();
         });
         this.$watch("$store.settings.current", () => void this.settingsChanged());
+        void this.refreshIndex();
         await this.load(healthStore().sessionId);
       },
 
@@ -371,6 +390,7 @@ function registerReplay(): void {
             return ws.setExclusion(!this.excluded, note);
           });
           if (!saved) return;
+          void this.refreshIndex();
           this.excluded = ws.excluded;
           if (untouched) this.notes = saved.review?.notes ?? "";
           else if (saved.review) this.notes = [this.notes, given].filter(Boolean).join("\n");
@@ -398,7 +418,11 @@ function registerReplay(): void {
         }
       },
       async openNext() {
-        const rows = await listSessions();
+        const rows = await this.refreshIndex();
+        if (!rows) {
+          toast.error(`The sessions could not be listed: ${this.indexError}`);
+          return;
+        }
         const next = rows.find((row) => !row.reviewed && row.in_dataset && row.session_id !== ws.header.session_id);
         if (!next) {
           toast.success("Every session in the dataset has a review now.");
@@ -408,6 +432,69 @@ function registerReplay(): void {
         }
         healthStore().openSession(next.session_id);
         if (await this.load(next.session_id)) toast.success(`Opened the next session to review, ${next.session_id}`);
+      },
+
+      /** Read the sessions index, in the API's order for the caller and in the arrows' order for the picker. None when it cannot be read, the reason kept for the list. */
+      async refreshIndex(): Promise<SessionRow[] | null> {
+        try {
+          const rows = await listSessions();
+          this.index = pickerOrder(rows);
+          this.indexError = "";
+          return rows;
+        } catch (error) {
+          this.indexError = errorText(error);
+          return null;
+        }
+      },
+      /** Open or close the list under the session id, with an empty filter and the cursor in it. */
+      async togglePicker() {
+        if (this.pickerOpen) {
+          this.closePicker();
+          return;
+        }
+        if (this.indexError) await this.refreshIndex();
+        const box = (this.$refs.pickerButton as HTMLElement).getBoundingClientRect();
+        this.pickerLeft = box.left;
+        this.pickerTop = box.bottom + 4;
+        this.filter = "";
+        this.pickerOpen = true;
+        await this.$nextTick();
+        (this.$refs.pickerFilter as HTMLElement).focus();
+      },
+      closePicker() {
+        this.pickerOpen = false;
+        this.filter = "";
+      },
+      /** Why an arrow cannot step now, none when it can. */
+      stepWhy(step: Step): string {
+        if (this.loading || this.busy) return this.loading ? "session still loading" : "wait, still working";
+        if (this.indexError) return "the sessions could not be listed";
+        return stepReason(this.listed, this.sessionId, step, this.filter.trim() !== "");
+      },
+      stepTitle(step: Step): string {
+        return `Open the ${step} session, ${neighbours(this.listed, this.sessionId)[step]?.session_id}`;
+      },
+      /** Open the session before or after this one in the list shown. */
+      async step(step: Step) {
+        const target = neighbours(this.listed, this.sessionId)[step];
+        if (target && !this.stepWhy(step)) await this.openFromList(target.session_id);
+      },
+      /** Enter in the filter opens the first session it leaves. */
+      async openFirst() {
+        const first = this.listed[0];
+        if (first) await this.openFromList(first.session_id);
+      },
+      /** Open a session of the list, asking first when the one open has edits that are not saved. */
+      async openFromList(sessionId: string) {
+        this.closePicker();
+        if (this.loading || this.busy || sessionId === this.sessionId) return;
+        const unsaved = Workspace.unsavedWhenOpening(sessionId);
+        if (unsaved && !confirm(leaveQuestion(unsaved.header.session_id, unsaved.editor.edits.length))) return;
+        healthStore().openSession(sessionId);
+        if (await this.load(sessionId)) toast.success(`Opened ${sessionId}`);
+      },
+      chipsOf(row: SessionRow) {
+        return chipsOf(row, this.sessionId);
       },
     };
   });

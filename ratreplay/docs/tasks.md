@@ -178,7 +178,7 @@ anything that touches real data.
       Built: the parameter in both builders and the measurement on the Environments page, open until
       Kyle sets the yaml from his sessions (steps in plan.md).
       [EnvironmentAccess, Page 7, configs/environments]
-- [ ] K19 Replay session picker in the status header: the session id becomes a searchable drop down of
+- [x] K19 Replay session picker in the status header: the session id becomes a searchable drop down of
       the index (filter by id or rat, dataset sessions first, reviewed and excluded marked) with previous
       and next arrows beside it that follow the index order, unsaved edits asked about before leaving.
       Kyle, 2026-10-18. [Page 3]

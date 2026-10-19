@@ -1,6 +1,6 @@
 import { card } from "../ui/card";
 import { helpPopover } from "../ui/help";
-import { BUTTON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
+import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, CHIP_ON, CHIP_OFF, disabledWhy, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
 
@@ -21,10 +21,44 @@ const sessionActions = `
   <button type="button" @click="changeExclusion()" :disabled="loading || busy" :title="loading ? 'session still loading' : busy ? 'wait, still working' : ''" class="${BUTTON}"
     x-text="excluded ? 'Include' : 'Exclude'"></button>`;
 
-// The status header: the session id large, the facts under it, then where the review stands as one strong chip with the warnings beside it, and what is selected.
+const stepButton = (step: "previous" | "next", glyph: string) => `
+  <button type="button" @click="step('${step}')" :disabled="!!stepWhy('${step}')" :title="stepWhy('${step}') || stepTitle('${step}')" aria-label="${step === "previous" ? "Previous" : "Next"} session" class="${BUTTON_ICON}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-4"><path d="${glyph}" /></svg>
+  </button>`;
+
+const pickerRow = `
+  <li>
+    <button type="button" @click="openFromList(row.session_id)" :aria-current="row.session_id === sessionId" :title="row.in_dataset ? row.session_id : row.session_id + ', not in the dataset: ' + row.reason"
+      class="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-ink/10" :class="[row.session_id === sessionId ? 'bg-accent/10' : '', row.in_dataset ? '' : 'text-muted']">
+      <span class="w-52 shrink-0 truncate font-mono" x-text="row.session_id"></span>
+      <span class="w-24 shrink-0 whitespace-nowrap tabular-nums text-muted" x-text="row.date"></span>
+      <span class="w-14 shrink-0 text-muted" x-text="row.subject_id"></span>
+      <span class="flex min-w-0 flex-1 flex-wrap gap-1"><template x-for="chip in chipsOf(row)" :key="chip.text"><span :class="chip.chip" :title="chip.title" class="whitespace-nowrap" x-text="chip.text"></span></template></span>
+    </button>
+  </li>`;
+
+// The session id is a button that opens the list of the sessions index under it, fixed so the card does not clip it, with the arrows to the sessions before and after beside it.
+const sessionPicker = `
+  <div class="flex items-center gap-2" @click.outside="closePicker()" @keydown.escape.stop="closePicker()">
+    ${stepButton("previous", "M15 18l-6-6 6-6")}
+    <button type="button" x-ref="pickerButton" @click="togglePicker()" :aria-expanded="pickerOpen" title="Choose another session" class="flex min-w-0 items-center gap-2 rounded-md px-2 py-0.5 hover:bg-ink/10">
+      <span data-testid="session-id" class="truncate font-mono text-xl font-semibold" x-text="sessionId"></span>
+      <span class="text-xs text-muted" aria-hidden="true">&#9662;</span>
+    </button>
+    ${stepButton("next", "M9 18l6-6-6-6")}
+    <div x-show="pickerOpen" x-cloak data-testid="picker" class="fixed z-30 w-[38rem] rounded-lg border border-line bg-card p-2 shadow-lg" :style="{ top: pickerTop + 'px', left: pickerLeft + 'px' }">
+      <input x-ref="pickerFilter" type="search" x-model="filter" @keydown.enter.prevent="openFirst()" aria-label="Find a session" placeholder="Filter by session id or rat, enter opens the first" class="${INPUT}" />
+      <p class="mt-1 px-1 text-xs" :class="indexError ? 'text-bad' : 'text-muted'" x-text="listedText"></p>
+      <ul class="mt-1 max-h-72 overflow-auto">
+        <template x-for="row in listed" :key="row.session_id">${pickerRow}</template>
+      </ul>
+    </div>
+  </div>`;
+
+// The status header: the session id large as a picker, the facts under it, then where the review stands as one strong chip with the warnings beside it, and what is selected.
 const sessionBody = `
   <div class="flex flex-col gap-2">
-    <p data-testid="session-id" class="truncate font-mono text-xl font-semibold" x-text="sessionId"></p>
+    ${sessionPicker}
     <p class="text-sm" x-text="facts"></p>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span data-testid="state" :class="status.state.chip" :title="status.state.title" x-text="status.state.text"></span>

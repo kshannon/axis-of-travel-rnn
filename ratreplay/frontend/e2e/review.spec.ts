@@ -101,6 +101,41 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(page.getByTestId("session-id")).toHaveText(S6);
   });
 
+  await test.step("the session id is a picker: filter and open a session, step back with the arrow, and unsaved edits are asked about first", async () => {
+    const picker = page.getByTestId("picker");
+    const sessionId = page.getByTestId("session-id");
+    const previous = page.getByRole("button", { name: "Previous session" });
+    const filter = page.getByLabel("Find a session");
+    await sessionId.click();
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole("button", { name: S6 })).toContainText("open"); // the session open is marked
+    await expect(picker.getByRole("button", { name: S1 })).toContainText("reviewed");
+    await expect(picker.getByRole("button", { name: /not in the dataset/ }).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(picker).toBeHidden();
+    await sessionId.click();
+    await filter.fill("ns14");
+    await page.keyboard.press("Enter"); // enter opens the first session the filter leaves, the dataset first
+    await expect(sessionId).toHaveText(S1);
+    await expect(picker).toBeHidden();
+    await sessionId.click();
+    await filter.fill("ns16");
+    await picker.getByRole("button", { name: S6 }).click();
+    await expect(sessionId).toHaveText(S6);
+    await page.getByRole("button", { name: "Accept all" }).click();
+    await expect(state).toHaveText("1 edit not saved");
+    let asked = "";
+    page.once("dialog", (dialog) => { asked = dialog.message(); void dialog.dismiss(); });
+    await previous.click();
+    await expect.poll(() => asked).toContain(`${S6} has 1 edit not saved`);
+    await expect(sessionId).toHaveText(S6); // dismissed, so it stays
+    page.once("dialog", (dialog) => void dialog.accept());
+    await previous.click(); // the index's order has S1 before S6
+    await expect(sessionId).toHaveText(S1);
+    await expect(previous).toBeDisabled();
+    await expect(previous).toHaveAttribute("title", `${S1} is the first session of the index`);
+  });
+
   await test.step("a reload shows the saved blocks", async () => {
     await goTo(page, "Incoming");
     await expect(totals).toHaveAttribute("aria-label", /of 6 sessions in the dataset, 1 reviewed, 0 excluded, 3 blocks confirmed/);
