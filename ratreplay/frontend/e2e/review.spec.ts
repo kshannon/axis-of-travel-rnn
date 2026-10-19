@@ -88,6 +88,34 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(state).toHaveText("2 edits not saved");
   });
 
+  await test.step("Cut marks out removes a marked range from the arena block, drops the piece left under 10 s with its toast, and Undo takes the cut back", async () => {
+    const cut = page.getByRole("button", { name: "Cut marks out" });
+    await expect(cut).toBeDisabled();
+    await expect(cut).toHaveAttribute("title", "no range marked");
+    for (let i = 0; i < 26; i++) await page.keyboard.press("Shift+ArrowLeft");
+    await expect(frame).toHaveText("1141"); // 14 s into the arena block, which lasts 20 s
+    await page.getByRole("button", { name: "Mark in" }).click();
+    for (let i = 0; i < 3; i++) await page.keyboard.press("Shift+ArrowRight");
+    await expect(frame).toHaveText("1321");
+    await page.getByRole("button", { name: "Mark out" }).click();
+    await expect(page.getByTestId("marks")).toHaveText("Marked frames 1141 to 1321, 3.0 s.");
+    await expect(cut).toBeEnabled();
+    await expect(cut).toHaveAttribute("title", /^Remove the marked range from every block it touches/);
+    await cut.click();
+    await expect(toast(page, "Added cut of frames 1141 to 1321, 3 edits not saved yet")).toBeVisible();
+    await expect(page.getByTestId("marks")).toBeHidden(); // the marks clear as they do after a new block
+    await expect(cards).toHaveCount(4); // the arena block is two pieces around the cut, the first 14 s and kept, the second under 10 s and dropped
+    await expect(cards.nth(0)).toContainText("edited");
+    await expect(cards.nth(0)).toContainText("arena, 0.23 min");
+    await expect(cards.nth(1)).toContainText("dropped");
+    await expect(cards.nth(1)).toContainText("arena, 0.05 min");
+    await expect(state).toHaveText("3 edits not saved");
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(cards).toHaveCount(3);
+    await expect(cards.first()).toContainText("confirmed");
+    await expect(state).toHaveText("2 edits not saved");
+  });
+
   await test.step("a click on the frames lane selects a frame, a second click on it and escape let go of it", async () => {
     const box = (await page.getByTestId("timeline").boundingBox())!;
     const unit = (box.height - 38) / 8; // the lanes weigh 1, 2, 3 and 2, the frames lane is the third

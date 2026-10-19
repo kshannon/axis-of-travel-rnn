@@ -241,6 +241,12 @@ anything that touches real data.
       toast says nothing useful. The card shows "kept as edited" in place of Accept, the timeline's Accept
       is disabled with the reason, a refused or empty edit names its reason, and a block problem says its
       consequence: "not built until this is cut out or the block rejected". Kyle, 2026-10-18. [Page 3]
+- [x] K33 A "Cut marks out" button: the engine's cut edit (a range removed from every block it touches, a
+      piece under min_block_s dropped with its note, never refused for length) has no button, so the only
+      way to remove 12 bad frames from the middle of a block was two splits, and the second is refused with
+      "a kept block must last 10 s or more". The button joins the marks group, acts on the marked range,
+      the refusal says to cut the range out instead, the guide says when to split and when to cut. Kyle,
+      2026-10-18. [Page 3, TrajectoryEngine.apply message]
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

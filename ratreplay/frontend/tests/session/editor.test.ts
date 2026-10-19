@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ReviewBlock } from "../../src/api/types";
-import { acceptWhy, Editor, editFor, reselected, unchangedText } from "../../src/session/editor";
+import { acceptWhy, Editor, editFor, label, reselected, unchangedText } from "../../src/session/editor";
 import type { Target } from "../../src/session/editor";
 
 function block(frame_start: number, frame_end: number, status: ReviewBlock["status"] = "auto"): ReviewBlock {
@@ -54,6 +54,14 @@ test("block actions need a selected block and use the cursor as the lab frame", 
   for (const action of ["accept", "reject", "start-to-cursor", "end-to-cursor", "split"] as const) {
     expect(editFor(action, NOTHING)).toBe("Select a block first.");
   }
+});
+
+test("a cut and a new block both take the marked range, and both need it", () => {
+  const range = { frame_start: 900, frame_end: 1200 };
+  expect(editFor("cut", { ...NOTHING, range })).toEqual({ op: "cut", frame_start: 900, frame_end: 1200 });
+  expect(editFor("new-block", { ...NOTHING, range })).toEqual({ op: "new", frame_start: 900, frame_end: 1200 });
+  for (const action of ["cut", "new-block"] as const) expect(editFor(action, NOTHING)).toBe("Mark both ends of the range first.");
+  expect(label({ op: "cut", frame_start: 900, frame_end: 1200 })).toBe("cut of frames 900 to 1200");
 });
 
 test("a removed block is reached on a frame no kept block holds, since the server reaches the kept blocks first", () => {

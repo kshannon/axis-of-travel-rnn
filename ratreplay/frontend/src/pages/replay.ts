@@ -455,7 +455,7 @@ function registerReplay(): void {
             return;
           }
           selected = reselected(selected, ws.preview.blocks, result);
-          if (result.op === "new") ws.editor.clearMarks();
+          if (result.op === "new" || result.op === "cut") ws.editor.clearMarks();
           toast.success(`Added ${label(result)}, ${counted(ws.editor.edits.length, "edit")} not saved yet`);
           this.sync();
         } catch (error) {

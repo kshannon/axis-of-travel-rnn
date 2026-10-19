@@ -206,7 +206,7 @@ def test_the_snap_and_the_minimum_length_are_the_rules_the_session_carries():
     assert refused([split]) == [(0, "split", TOO_SHORT)]
     assert refused([split], session={**SESSION, "rules": {**RULES, "min_block_s": 5.0}}) == []
     longer = {**SESSION, "rules": {**RULES, "min_block_s": 20.0}}
-    assert refused([{"op": "split", "frame": 7000}], session=longer) == [(0, "split", "a kept block must last 20 s or more, remove it instead")]
+    assert refused([{"op": "split", "frame": 7000}], session=longer) == [(0, "split", "a kept block must last 20 s or more, reject it or cut the range out with marks instead")]
 
 
 def test_a_session_from_the_engine_feeds_apply_and_the_input_is_left_unchanged(transformed):

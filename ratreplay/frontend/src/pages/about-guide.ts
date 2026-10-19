@@ -83,6 +83,7 @@ export const processBody = `
             "Accept keeps a block as it is, Accept all keeps every block, Reject removes one.",
             "Start here and End here move the selected block's edge to the cursor. Split here cuts it in two.",
             "Mark in and Mark out set a range, New block from marks makes a block of it.",
+            "Split here makes two blocks of one, Cut marks out removes the marked range from every block it touches, such as a jump or a short tracking loss in the middle of a block, and a piece left under 10 s is dropped and says so in its note.",
             "Flag run marks the run under the cursor as suspect, press it again to take the flag back. Notes are free text on the session.",
             "Undo takes back the last edit, Reset drops them all so the blocks are automatic again.",
           ])}`,

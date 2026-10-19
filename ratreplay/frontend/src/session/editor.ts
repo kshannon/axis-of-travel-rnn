@@ -1,8 +1,9 @@
 import type { Edit, ReviewBlock, Run } from "../api/types";
 
-export type Action = "accept-all" | "accept" | "reject" | "new-block" | "start-to-cursor" | "end-to-cursor" | "split" | "flag";
+export type Action = "accept-all" | "accept" | "reject" | "new-block" | "cut" | "start-to-cursor" | "end-to-cursor" | "split" | "flag";
 
 const BURIED = "Every frame of this removed block lies under another block, so no edit can reach it.";
+const MARK_FIRST = "Mark both ends of the range first.";
 const KEPT_AS_IT_STANDS = "an edited block is kept as it stands";
 const RESTORE_FIRST = "restore the block first, Reject again";
 export const NOTHING_CHANGED = "Nothing changed.";
@@ -31,7 +32,8 @@ function anchorOf(block: ReviewBlock, blocks: ReviewBlock[]): number | null {
 export function editFor(action: Action, target: Target): Edit | string {
   const { cursor, block, blocks, range, run } = target;
   if (action === "accept-all") return { op: "accept" };
-  if (action === "new-block") return range ? { op: "new", ...range } : "Mark both ends of the range first.";
+  if (action === "new-block") return range ? { op: "new", ...range } : MARK_FIRST;
+  if (action === "cut") return range ? { op: "cut", ...range } : MARK_FIRST;
   if (action === "flag") return run ? { op: "flag", run: run.run } : "There is no run under the cursor.";
   if (!block) return "Select a block first.";
   const at = anchorOf(block, blocks);
