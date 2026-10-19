@@ -36,7 +36,7 @@ export const whatIsBody = `
 // The data path first, with the pages it passes through in the order a person walks them. Environments and About sit beside the path.
 const FLOW: readonly (readonly [string, boolean])[] = [
   ["Lab files", false], ["Converter", false], ["Transformed folder", false],
-  ["Incoming", true], ["Settings", true], ["Replay", true], ["Blocks", true], ["Windows", true], ["Outgoing", true],
+  ["Incoming", true], ["Settings", true], ["Replay", true], ["Blocks", true], ["Windows", true], ["Synthetic", true], ["Real or synthetic", true], ["Outgoing", true],
   ["Processed folder", false], ["RNN project", false],
 ];
 const BESIDE: readonly string[] = ["Environments", "About"];
@@ -97,6 +97,9 @@ export const processBody = `
       ${step(`Step through the windows on ${link("windows", "Windows")}`,
         `${lead("Do:")} from an open block, press Step through its windows. One window shows at a time. Previous and Next (the left and right keys) or a window number move through them, and the map and the lanes mark its burn-in, the window and its horizon.`,
         `${lead("Look for:")} the verdict of each window and its checks: finite position, measured heading, trips, burn-in and horizon. A window in trouble is red and says why. Use this to understand a block that fails. The settings are changed on Settings.`)}
+      ${step(`Generate synthetic behavior on ${link("synthetic", "Synthetic")} and test it on ${link("quiz", "Real or synthetic")}`,
+        `${lead("Do:")} on Synthetic tick the built sessions to draw on, give a seed and the minutes of arena and track to make, and press Generate. The generator fits a recipe to the real blocks (speed, turn rate, pauses, runs per path, dwells, the distance to the arena's boundary) and writes one synthetic session blocked like a real one, as a set named by its time and seed. Click a set to lay its recipe beside the real one, every statistic a row. Then on Real or synthetic choose the set and a kind, press New pair, play both sides and say which one is the real rat. The reveal names the blocks, the tally is every guess made against the set.`,
+        `${lead("Look for:")} rows of the comparison that differ, which say what the generator misses, and a tally near a half, which says the synthetic blocks pass as real to the eye. A set is a model, not data: nothing of it reaches the processed folder, and Delete removes it whole. The quiz shows no ids, runs or phases before the reveal, since any of them would give the sides away.`)}
       ${step(`Check what is built and hand over the export on ${link("outgoing", "Outgoing")}`,
         `${lead("Do:")} open Outgoing. The Write path card gives where the blocks are written, its status, how many reviews, blocks and built sessions it holds and when it last changed. The Selected for export card names the settings in ${code("windows.json")}, which are chosen on Settings. The Built card lists each session with the blocks built, those that failed, whether you excluded it, the settings it was built with and when. A row opens to the blocks that failed with their problems and the settings in use beside the ones it was built with. A reviewed session with no build says why.`,
         `${lead("Look for:")} counts that match what you reviewed, no failed blocks, and Built with in the warning colour when a session was built at other settings than the ones in use. The processed folder does not exist before your first save, which is fine. A problem names its cause. The outgoing data format is folded at the bottom: every file and column the tool writes.`,
@@ -118,6 +121,11 @@ const ACTIONS: readonly (readonly [action: string, page: string, writes: string]
   ["Rebuild all", "Outgoing",
     `The same build for every session that has a review, from the review as saved. The review files are not touched. A session you excluded is written with no blocks, and a review of a session the tool cannot work with is skipped.`],
   ["Select these settings", "Settings", `${code("windows.json")} whole: the settings, the totals at them, when and by whom.`],
+  ["Generate", "Synthetic",
+    `A set folder under the synthetic folder, ${code("sets/&lt;set_id&gt;/")}, with ${code("blocks/&lt;block_id&gt;.parquet")} for each synthetic block, ${code("blocks.csv")} and ${code("provenance.json")} (the sources, seed, lengths, camera, rules, settings, both recipes and the warnings). A set is never written twice.`],
+  ["Delete", "Synthetic", "Removes the set's folder whole, its blocks, provenance and guesses with it."],
+  ["Left is real, Right is real", "Real or synthetic",
+    `The set's ${code("guesses.json")}, written whole with the new guess added: when, who, the two blocks, the one called real and whether that was right.`],
   ["Reload", "Incoming", "Nothing. It reads the config file and the folders again."],
   ["Everything else", "any page",
     "Nothing. Edits, notes, marks and the settings being tried stay in the browser until you press Save blocks or Select these settings."],

@@ -292,12 +292,12 @@ export class Timeline {
     const c = this.colours;
     ctx.textBaseline = "middle";
     ctx.textAlign = "right";
-    for (const { name } of this.scene!.lanes) {
+    for (const { name, label } of this.scene!.lanes) {
       const { top, bottom } = this.bands[name];
       ctx.fillStyle = withAlpha(c.ink, LANE_TINT);
       ctx.fillRect(PLOT.left, top, this.width - PLOT.left - PLOT.right, bottom - top);
       ctx.fillStyle = c.muted;
-      ctx.fillText(name, PLOT.left - LABEL_GAP_PX, (top + bottom) / 2);
+      ctx.fillText(label ?? name, PLOT.left - LABEL_GAP_PX, (top + bottom) / 2);
     }
     const ticks = timeTicks(scale.domain() as [number, number], (this.width - PLOT.left - PLOT.right) / TICK_SPACING_PX);
     ctx.textAlign = "center";

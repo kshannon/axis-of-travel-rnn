@@ -33,7 +33,7 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
 
   await test.step("a config without the lab data folder shows the problem on the Incoming strip and no sessions", async () => {
     await page.goto("/#/incoming");
-    await expect(strip.getByText("ok", { exact: true })).toHaveCount(3); // the lab data, the environment geometry and the config file
+    await expect(strip.getByText("ok", { exact: true })).toHaveCount(4); // the lab data, the environment geometry, the synthetic sets and the config file
     await expect(page.getByTestId("config-path")).toContainText("local.yaml");
     writeConfig(without("TRANSFORMED_LAB_DATA"));
     await reload();
@@ -54,7 +54,7 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
   await test.step("a config without the processed folder gates the sessions with a link to Outgoing, where the write path shows the problem", async () => {
     writeConfig(without("PROCESSED_LAB_DATA"));
     await reload();
-    await expect(strip.getByText("ok", { exact: true })).toHaveCount(3); // the strip names only what is read, the lab data is back
+    await expect(strip.getByText("ok", { exact: true })).toHaveCount(4); // the strip names only what is read, the lab data is back
     await expect(page.getByText("The processed lab data cannot be used: PROCESSED_LAB_DATA is not set in")).toBeVisible();
     await page.getByRole("link", { name: "Open the Outgoing page" }).click();
     await expect(page).toHaveURL(/#\/outgoing$/);
@@ -67,7 +67,7 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     await goTo(page, "Incoming");
     writeConfig(original);
     await reload();
-    await expect(strip.getByText("ok", { exact: true })).toHaveCount(3);
+    await expect(strip.getByText("ok", { exact: true })).toHaveCount(4);
     await expect(strip.getByText("problem", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("row")).toHaveCount(7); // the header and six sessions
     await page.getByText("Incoming data format").click();
@@ -105,13 +105,14 @@ test("a config missing a key shows the problem and gates the pages, the fixed co
     await expect(large.getByRole("heading")).toHaveText("plus_maze");
   });
 
-  await test.step("the About page gives the guide and its Under the hood section the routes, and the top bar has the eight pages in order", async () => {
+  await test.step("the About page gives the guide and its Under the hood section the routes, and the top bar has the ten pages in order", async () => {
     const nav = page.getByRole("navigation");
-    await expect(nav.getByRole("link")).toHaveText(["Incoming", "Settings", "Replay", "Blocks", "Windows", "Outgoing", "Environments", "About"]);
+    await expect(nav.getByRole("link")).toHaveText(["Incoming", "Settings", "Replay", "Blocks", "Windows", "Synthetic", "Real or synthetic", "Outgoing", "Environments", "About"]);
     await goTo(page, "About");
     await expect(page.getByRole("heading", { name: "Process and how to use it" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "What you can do and what it writes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Choose the window settings on Settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Generate synthetic behavior on Synthetic and test it on Real or synthetic" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Check what is built and hand over the export on Outgoing" })).toBeVisible();
     await page.getByRole("button", { name: "Under the hood" }).click();
     await expect(page.getByRole("heading", { name: "Under the hood" })).toBeVisible();

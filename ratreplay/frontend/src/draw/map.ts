@@ -135,6 +135,14 @@ export class MapView {
     this.draw(0);
   }
 
+  /** No recording: the canvas is left blank until the next load. */
+  clear(): void {
+    this.track = null;
+    this.backdrop = null;
+    this.stretches = [];
+    if (this.width) this.ctx.clearRect(0, 0, this.width, this.height);
+  }
+
   /** The stretches of the path drawn as lines. */
   setStretches(stretches: Stretch[]): void {
     this.stretches = stretches;

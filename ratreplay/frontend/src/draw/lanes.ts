@@ -2,10 +2,11 @@ import { interpolateRgb, rgb, scaleLinear, zoomIdentity } from "d3";
 import type { ScaleLinear, ZoomTransform } from "d3";
 import type { Span } from "../api/types";
 
-/** A lane of the timeline, named at its left, with its share of the plot's height. */
+/** A lane of the timeline, named at its left, with its share of the plot's height. The label is the word written at the left when it differs from the name the bars and layers go by. */
 export interface LaneSpec {
   name: string;
   weight: number;
+  label?: string;
 }
 
 // The lanes share the plot's height by their weights with a gap between them. The plot leaves room at the left for the
