@@ -86,7 +86,7 @@ const summaryBody = `
 
 const blockCard = `
   <article @click="select(block.position)" :aria-current="block.selected" class="cursor-pointer rounded-lg border p-2 text-xs"
-    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed || block.windows === 0 ? 'opacity-60' : '']">
+    :class="[block.selected ? 'border-accent bg-accent/10' : 'border-line hover:border-muted', block.removed ? 'opacity-60' : '']">
     <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-medium" x-text="block.name"></h3>
       <span :class="block.chip" x-text="block.glyph + ' ' + block.status"></span>

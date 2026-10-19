@@ -197,3 +197,8 @@ anything that touches real data.
       what it is ("4.1 s missing, over the 3 s fill limit", "touches a pause", "2.0 s interpolated",
       "0.8 s held, the rat was still"), the engine returning the reason per span so the client states
       nothing of its own. Kyle, 2026-10-18. [TrajectoryEngine.session heading spans, Page 3]
+- [ ] K24 Proposed, awaiting Kyle: the block card layout. Facts as a chip row (kind, length, runs,
+      trips), the window count large, the heading shares as a thin four colour bar (measured,
+      interpolated, held, missing, seconds on hover) from the engine's per block numbers handed through
+      the manager (the client stops summing spans), the verdict reasons one per line with a mark, the
+      same card on the Blocks page. [Pages 3 and 4, ReviewManager]
