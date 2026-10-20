@@ -1,21 +1,27 @@
 """
-Synthetic data folders for the backend tests, copied from tests/unit/process_lab_data/conftest.py (the tests there cannot be imported from here): a transformed folder of six sessions, two with frames, and the processed folder the processor builds from it.
+Synthetic data folders for the backend tests: a transformed folder of six sessions, two with frames, and the processed folder the ReviewManager builds from it.
 """
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
-import process_lab_data.__main__ as processor
+from ratreplay_api.access.environment import EnvironmentAccess
+from ratreplay_api.access.processed import ProcessedAccess
+from ratreplay_api.access.transformed import TransformedAccess
+from ratreplay_api.engines.trajectory import SETTINGS, TrajectoryEngine
+from ratreplay_api.managers.review import ReviewManager
 
-# S1 and S6 survive the processor's session funnel, the others fall to protocol, group or the annotations exclusion.
+# S1 and S6 are the sessions the funnel keeps: S2 to S4 have no frames and S5 has no baseline arena or track epoch.
 S1, S2, S3 = "NS14_rec1_20150101_001", "NS14_rec2_20150102_001", "NS15_rec3_20150103_001"
 S4, S5, S6 = "JL1_rec4_20140704_001", "NS15_rec5_20150105_001", "NS16_rec6_20150106_001"
 RATE_HZ, MAX_GAP = 60, 30
 STAMP = "2026-10-13T10:00:00+00:00"
+ENVIRONMENTS = Path(__file__).resolve().parents[3] / "configs" / "environments"
 
 SESSIONS = {
     "session_id": [S1, S2, S3, S4, S5, S6],
@@ -116,7 +122,10 @@ def write_transformed(root):
 
 def write_processed(transformed, root):
     """
-    Run the processor on the transformed folder into the processed folder.
+    Build the processed folder from the transformed one with the ReviewManager: every session the funnel keeps is saved with all its blocks accepted, which writes its review and builds its blocks.
     """
-    config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(root)}
-    assert processor.main([], config=config) == 0
+    environments = EnvironmentAccess(ENVIRONMENTS)
+    review = ReviewManager(TrajectoryEngine(), TransformedAccess(transformed), ProcessedAccess(root), environments, "fixtures")
+    for session in review.index():
+        if session["in_dataset"]:
+            assert review.save_blocks(session["session_id"], [{"op": "accept"}], "", SETTINGS)["build_error"] is None

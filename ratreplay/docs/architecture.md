@@ -42,12 +42,12 @@ one condition (arena, track, rotated track). Run: one traversal of a path in the
 1 to 4 outbound, 9 and 10 return). Trip: outbound run, dwell, return run, dwell, what a track block
 must hold at least once to be training ready. Block: a continuous stretch of one epoch with no pause, gap or jump, at least 10 s, the
 unit that is kept or removed and the unit of export. Initial blocks: the cuts the rules make before any
-person edits. Review: a person's edits and notes on one session, one json file, the only thing a person
-writes. Excluded: the person's decision that a session stays out of the dataset, a flag in its review with
+person edits. Review: a person's edits and notes on one session and the start offset they tuned for it (none
+for the environment yaml's), one json file, the only thing a person writes. Excluded: the person's decision that a session stays out of the dataset, a flag in its review with
 a note, and who set it and when (never reviewer and review time). No rule excludes a session by a tag (group, protocol) and the annotations table's
 exclude column is shown as a note, not applied. Built blocks: parquet files in metres at the lab rate (60 Hz) with trip and phase labels, written from a
 review. Metadata: per session, what the build used (rules, settings, review stamp, code version, built
-at) and per block the window count and verdict at those settings, informative, readiness recomputes them.
+at, start offset) and per block the window count and verdict at those settings, informative, readiness recomputes them.
 Window: a fixed length slice of a block at a stride with burn-in and horizon, cut by the RNN project,
 never stored here. Settings: window length, stride, burn-in, horizon, rate. Readiness: the verdicts of
 the windows of a dataset at given settings. Recipe: the statistics of real blocks the generator fits.
@@ -82,7 +82,7 @@ Arrows point in the direction of the call.
 ```mermaid
 flowchart TB
     subgraph Clients["Clients (who)"]
-        UI["Web app. Pages as views: Incoming, Settings, Replay, Blocks, Windows, Synthetic, Quiz, Outgoing, Environments, About"]
+        UI["Web app. Pages as views: Incoming, Settings, Replay, Blocks, Windows, Synthetic, Real or synthetic, Outgoing, Environments, About"]
     end
     subgraph Managers["Managers (what), stateless classes, one family of use cases each"]
         RM["ReviewManager: index, load, preview edits, save blocks, exclude, rebuild all"]
@@ -226,13 +226,17 @@ it generates is recorded in `docs/plan.md` (Synthetic slice design).
 
 ### ReviewManager
 
-`index()`, `load(sid, settings)`, `preview(sid, edits, settings)`, `save_blocks(sid, edits, notes,
-settings)`, `exclude(sid, excluded, note)`, `rebuild_all(settings)`. Save blocks applies the edits first
+`index()`, `load(sid, settings, start_offset_m)`, `preview(sid, edits, settings, start_offset_m)`,
+`save_blocks(sid, edits, notes, settings, start_offset_m)`, `exclude(sid, excluded, note)`,
+`rebuild_all(settings)`. Save blocks applies the edits first
 and one illegal edit refuses the whole save with its reason, nothing written, as does a session the
 person excluded ("include it first"). Then it writes the review, then builds from the review
 on disk (arrays, `blocks`, `windows` per block, `ProcessedAccess.write_blocks`) in one private step that
 `rebuild_all` runs for every session with a review. The one partial outcome is an I/O failure of the
-build after the review is written, returned as a result, not an error.
+build after the review is written, returned as a result, not an error. The start offset is the one the
+person tuned on the Replay page, in metres, written into the review as the save was given it
+(`start_offset_m`, none meaning the environment yaml's), the build registers the session with the
+review's and records it in the metadata.
 
 Exclude(sid, excluded, note, settings) records the person's decision in the session's review, rewritten
 whole with `excluded`, `excluded_by` and `excluded_at` (set when excluding, kept when including) and the
@@ -254,8 +258,8 @@ the funnel leaves out (no frames, no epoch of the rules) by session id with the 
 `excluded` the notes of the excluded sessions, `totals` the counts of sessions, built, failed, errors,
 skipped and excluded. A review of a session the transformed folder lacks is a per session build_error. The
 index rows and the header carry `excluded` and `annotated_exclude`, the rows also `excluded_by` and
-`excluded_at`. A review file written before these keys existed reads as not excluded (the defaults live
-in `ProcessedAccess.review`).
+`excluded_at`. A review file written before these keys existed reads as not excluded, and one written
+before `start_offset_m` reads it as none (the defaults live in `ProcessedAccess.review`).
 
 ### SynthesisManager
 
@@ -458,10 +462,10 @@ The three folders come from `configs/local.yaml`: `TRANSFORMED_LAB_DATA`, `PROCE
 file in tests). Edit the file and press Reload on the Data page to change a folder.
 
     transformed/   sessions.csv, epochs.csv, runs.csv, frames/{sid}.parquet, manifest.json   (read only)
-    processed/     review/{sid}.json            the person's edits, notes and exclusion, written whole
+    processed/     review/{sid}.json            the person's edits, notes, exclusion and start offset, written whole
                    blocks/{block_id}.parquet    one built block, metres, the lab rate, trip and phase labels
                    blocks.csv                   one row per built block, a session's rows replaced together
-                   metadata/{sid}.json          rules, settings, review stamp, code version, built at, and per
+                   metadata/{sid}.json          rules, settings, review stamp, code version, built at, start offset, and per
                                                 block the window count and verdict at those settings (informative)
                    windows.json                 the selected window settings, readiness totals, when, by whom
     synthetic/     sets/{set_id}/blocks/{block_id}.parquet, blocks.csv, provenance.json   one generated session, blocked, written whole
@@ -495,8 +499,10 @@ FastAPI on 127.0.0.1, one process, no database.
     access/environment.py     EnvironmentAccess, with environment_builders.py as its private helper
     utilities/                config, tables, files, blocks (the shared block format), arrow, spans, clock, paths, version, errors (the error shape)
 
-The old `src/process_lab_data` and `src/axis_of_travel_rnn.windows` are not imported: their science is
-moved into `engines/trajectory/` and they are removed once a real dataset has been built with this tool.
+`src/axis_of_travel_rnn.windows` is not imported: its science is moved into `engines/trajectory/`, and it
+stays as the oracle of `test_trajectory_windows`. The lab data processor (`src/process_lab_data`) and the Dash
+tool (`src/ratreplay`) are removed (task R2), what the engine has of the processor is recorded in `RULES` and
+in the frozen apply record.
 
 ### API
 
@@ -589,7 +595,7 @@ run on real data).
    writes, and "Under the hood", the internal routes the browser uses as a cheat sheet (not a public API).
 
 The synthetic slice adds two pages between Windows and Outgoing: Synthetic (the sets, generate one from
-built sessions with a seed and lengths, the two recipes side by side, delete) and Quiz (a real and a
+built sessions with a seed and lengths, the two recipes side by side, delete) and Real or synthetic (a real and a
 synthetic block of one kind side by side, trail, playback and speed trace, the guess, the reveal and
 the set's tally).
 
@@ -630,8 +636,8 @@ managers import engines and access, engines import utilities only, access import
 | `frontend/e2e/*.spec.ts` | two or three flows |
 
 Build order, by layers: utilities, then accesses, then engines, then managers and routers, then pages,
-with the system tests last. The old `src/ratreplay` and `src/process_lab_data` are removed in their own
-commit once a real dataset has been built with this tool.
+with the system tests last. The old `src/ratreplay` and `src/process_lab_data` were removed in their own
+task (R2).
 
 ## Working rules
 

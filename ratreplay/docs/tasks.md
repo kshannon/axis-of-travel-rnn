@@ -98,11 +98,13 @@ anything that touches real data.
       in `configs/local.example.yaml`. Check: links resolve, a fresh checkout runs. [Resources on disk]
 - [ ] K Kyle builds the first real dataset with the tool and reports the counts and anything wrong.
       No commit. [Core use cases]
-- [ ] R2 remove `src/process_lab_data`, the `process-lab-data` task, old `src/ratreplay`, the parity
+- [x] R2 remove `src/process_lab_data`, the `process-lab-data` task, old `src/ratreplay`, the parity
       tests that import them, `configs/datasets/lab_blocks.yaml`. Check: `pixi run test` green. Then add
-      `start_offset_m` to `REVIEW_KEYS` and `METADATA_KEYS` in processed.py so the format page lists it,
-      which the parity test blocked while the old tool was the oracle. [Migration]
-- [ ] D debrief appended to `plan.md`: estimation accuracy, design efficacy, the work, issues to avoid,
+      `start_offset_m` to `REVIEW_KEYS` and `METADATA_KEYS` in processed.py so the format page lists it.
+      [Migration]
+      Done: old tools, their tests, plotly and dash removed, fixtures build through ReviewManager, keys added.
+      `lab_blocks.yaml` stays, it is the CONFIG of `axis_of_travel_rnn.windows`.
+- [x] D debrief appended to `plan.md`: estimation accuracy, design efficacy, the work, issues to avoid,
       recurring problems, commitment to quality. [plan.md]
 
 ## K findings, fixed before the synthetic slice

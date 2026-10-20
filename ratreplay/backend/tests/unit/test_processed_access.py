@@ -21,7 +21,7 @@ INTS = {"n_lights": np.int8, "trip": np.int32, "run": np.int32, "path_id": np.in
 CELLS = {pa.string(): "text", pa.int64(): 1, pa.float64(): 0.5}
 METADATA = {"rules": {"MIN_BLOCK_S": 10}, "settings": {"window_s": 40.0}, "review_stamp": "2026-10-17T10:00:00+00:00",
             "code_version": "abc1234", "built_at": "2026-10-17T10:05:00+00:00", "windows": {"S1_track_100": {"count": 3, "verdict": "ok"}},
-            "frame": None, "warnings": [], "failed": [], "excluded": False}
+            "frame": None, "warnings": [], "failed": [], "excluded": False, "start_offset_m": None}
 WINDOWS = {"settings": {"window_s": 40.0}, "totals": {"blocks": 5}, "selected_at": "2026-10-17T11:00:00+00:00", "selected_by": "kyle"}
 
 
@@ -61,7 +61,8 @@ def review_of(sid, status="confirmed"):
     block = {"block_id": f"{sid}_track_100", "epoch": "track", "environment": "triple_t", "frame_start": 100, "frame_end": 399,
              "status": status, "note": ""}
     return {"session_id": sid, "reviewed_by": "kyle", "reviewed_at": "2026-10-17T09:00:00+00:00", "converter_manifest_timestamp": "t",
-            "rules": {}, "blocks": [block], "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None}
+            "rules": {}, "blocks": [block], "cuts": [], "flagged_runs": [], "notes": "", "edits": [], "excluded": False, "excluded_by": None, "excluded_at": None,
+            "start_offset_m": None}
 
 
 @pytest.fixture
@@ -187,7 +188,18 @@ def test_a_review_file_written_before_excluded_existed_reads_as_not_excluded(acc
     old = {key: value for key, value in json.loads(path.read_text()).items() if not key.startswith("excluded")}
     path.write_text(json.dumps(old))
     assert not [key for key in json.loads(path.read_text()) if key.startswith("excluded")] and access.review(S1) == review_of(S1)
-    assert access.schema()["files"][2]["defaults"] == {"excluded": False, "excluded_by": None, "excluded_at": None}
+    assert access.schema()["files"][2]["defaults"] == {"excluded": False, "excluded_by": None, "excluded_at": None, "start_offset_m": None}
+
+
+def test_a_review_file_written_before_the_start_offset_existed_reads_as_the_yamls_offset_and_the_format_lists_the_key(access):
+    access.write_review(S1, review_of(S1))
+    path = access.root / "review" / f"{S1}.json"
+    path.write_text(json.dumps({key: value for key, value in json.loads(path.read_text()).items() if key != "start_offset_m"}))
+    assert access.review(S1) == review_of(S1) and access.review(S1)["start_offset_m"] is None
+    reviews, builds = access.schema()["files"][2], access.schema()["files"][3]
+    assert "start_offset_m" in reviews["keys"] and "start_offset_m" in builds["keys"]
+    assert access.write_review(S1, {**review_of(S1), "start_offset_m": 0.12}) == {"replaced": True, "file": f"review/{S1}.json"}
+    assert access.review(S1)["start_offset_m"] == 0.12
 
 
 def test_deleting_a_review_removes_its_file_and_deleting_a_build_removes_one_session_whole(built):

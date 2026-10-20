@@ -16,18 +16,21 @@ WINDOWS = "windows.json"
 # The review file: its keys, the value a key takes when a file written before the key existed lacks it, the keys and statuses of each
 # of its blocks, and the fields each edit carries. A session is excluded when the person said so (excluded, a bool), and excluded_by
 # and excluded_at record who set the flag and when, none until it was set. reviewed_by and reviewed_at stay the review's own.
+# start_offset_m is the start offset in metres the person tuned for the session, none meaning the environment yaml's.
 REVIEW_KEYS = ("session_id", "reviewed_by", "reviewed_at", "converter_manifest_timestamp", "rules", "blocks", "cuts",
-               "flagged_runs", "notes", "edits", "excluded", "excluded_by", "excluded_at")
-REVIEW_DEFAULTS = {"excluded": False, "excluded_by": None, "excluded_at": None}
+               "flagged_runs", "notes", "edits", "excluded", "excluded_by", "excluded_at", "start_offset_m")
+REVIEW_DEFAULTS = {"excluded": False, "excluded_by": None, "excluded_at": None, "start_offset_m": None}
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 STATUSES = ("auto", "confirmed", "edited", "dropped")
 EDIT_FIELDS = {"accept": (), "confirm": ("frame",), "move": ("frame", "edge", "at"), "split": ("frame",), "drop": ("frame",),
                "new": ("frame_start", "frame_end"), "cut": ("frame_start", "frame_end"), "flag": ("run",)}
 
 # What a build records per session (windows is per block the count and verdict at the build's settings, informative, frame the
-# registration it was built under, warnings the session's, failed the blocks not written and excluded whether the person excluded
-# the session, which writes no blocks), and what selecting the window settings records.
-METADATA_KEYS = ("rules", "settings", "review_stamp", "code_version", "built_at", "windows", "frame", "warnings", "failed", "excluded")
+# registration it was built under, warnings the session's, failed the blocks not written, excluded whether the person excluded
+# the session, which writes no blocks, and start_offset_m the start offset in metres it was built with, none for the yaml's), and
+# what selecting the window settings records.
+METADATA_KEYS = ("rules", "settings", "review_stamp", "code_version", "built_at", "windows", "frame", "warnings", "failed", "excluded",
+                 "start_offset_m")
 WINDOWS_KEYS = ("settings", "totals", "selected_at", "selected_by")
 
 
@@ -98,7 +101,7 @@ class ProcessedAccess:
 
     def review(self, sid):
         """
-        The session's review, none when it was not reviewed, with the default of every key an older file lacks (excluded is false).
+        The session's review, none when it was not reviewed, with the default of every key an older file lacks (excluded is false, the start offset none).
         """
         review = read_json(self._path(REVIEW_DIR, sid, JSON))
         return None if review is None else {**REVIEW_DEFAULTS, **review}

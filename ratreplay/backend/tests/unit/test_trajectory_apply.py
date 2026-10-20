@@ -2,9 +2,11 @@
 TrajectoryEngine.apply on a scripted session: each op, the refusals and their reasons, the rules the session carries. Ported from the old tests of the edit rules.
 """
 
+import json
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
 from fixtures import S1, S6
 
 from ratreplay_api.access.environment import EnvironmentAccess
@@ -13,6 +15,8 @@ from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
 from ratreplay_api.engines.trajectory import edits as rules_of
 
 ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
+# The record of what apply returned for 180 random edit lists per fixture session, the only exact record of the rules since the tool it was compared with went.
+FROZEN = Path(__file__).resolve().parent / "frozen" / "apply_expected.json"
 RATE_HZ = 60
 
 # An arena block of 1800 frames, then track blocks over three stretches, a fourth stretch too short to keep and the
@@ -230,3 +234,13 @@ def test_a_session_from_the_engine_feeds_apply_and_the_input_is_left_unchanged(t
     assert [b["environment"] for b in result["blocks"]] == ["open_arena", "open_arena", "triple_t", "triple_t"]
     assert all(tuple(b) == rules_of.BLOCK_KEYS and b["note"] is None for b in result["blocks"])
     assert session["initial_blocks"] == before["initial_blocks"] and session["stretches"] == before["stretches"]
+
+
+@pytest.mark.parametrize("sid", [S1, S6])
+def test_the_frozen_edit_lists_give_the_recorded_blocks_cuts_flagged_runs_and_refusals_exactly(transformed, sid):
+    access = EnvironmentAccess(ENVIRONMENTS)
+    environments = {name: access.environment(name) for name in access.environments()}
+    session = TrajectoryEngine().session(TransformedAccess(transformed).session(sid), environments, RULES)
+    for case in json.loads(FROZEN.read_text())[sid]:
+        made = TrajectoryEngine().apply(session["initial_blocks"], case["edits"], session)
+        assert json.loads(json.dumps(made)) == {key: case[key] for key in ("blocks", "refusals", "cuts", "flagged_runs")}, case["edits"]

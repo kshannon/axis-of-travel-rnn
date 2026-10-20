@@ -1,18 +1,15 @@
 """
-TrajectoryEngine.blocks over the synthetic fixtures, in parity with the processor, which is imported here as the oracle and nowhere else, and the labels of a hand made run sequence.
+TrajectoryEngine.blocks over the synthetic fixtures: the blocks of an unreviewed and a reviewed session, the labels of a hand made run sequence, the schema of the arrays and the checks of a block.
 """
 
-import json
 from itertools import groupby
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 import pytest
 from fixtures import S1, S6, STAMP, write_processed
-from process_lab_data import output as old_output
 
 import ratreplay_api.engines.trajectory.session as session_module
 from ratreplay_api.access.environment import EnvironmentAccess
@@ -24,10 +21,6 @@ from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine, build, hea
 ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 TOLERANCE = 1e-12
 RATE_HZ = 20
-
-# The one difference from the processor's rows: it wrote "automatic" as the status of a block no review kept, the engine
-# keeps the initial block's own status, "auto". The processor's kind is the folder of its csv, the engine's a column.
-STATUS_OF_THE_PROCESSOR = {"automatic": "auto"}
 
 # S1's rat stands still for 91 frames inside its first run (frames 2200 to 2300), so the run holds a pause. The review keeps
 # S1's arena block, edits its track block to start before the first run and end after the second, drops a second track
@@ -63,39 +56,6 @@ def paused(transformed):
     return transformed
 
 
-@pytest.fixture
-def automatic(tmp_path, paused):
-    """
-    The processor's output over the paused folder with no review.
-    """
-    write_processed(paused, tmp_path / "automatic")
-    return oracle(tmp_path / "automatic")
-
-
-@pytest.fixture
-def reviewed(tmp_path, paused):
-    """
-    The processor's output over the paused folder with S1's review.
-    """
-    (tmp_path / "reviewed" / "review").mkdir(parents=True)
-    (tmp_path / "reviewed" / "review" / f"{S1}.json").write_text(json.dumps(REVIEW))
-    write_processed(paused, tmp_path / "reviewed")
-    return oracle(tmp_path / "reviewed")
-
-
-def oracle(root):
-    """
-    Every block the processor wrote under the root by id, its csv row with the kind of its folder and its rate (its frames over its seconds, which the old csv did not hold) added and its parquet columns.
-    """
-    options = pacsv.ConvertOptions(column_types=old_output.BLOCKS_CSV_SCHEMA, strings_can_be_null=True)
-    found = {}
-    for kind in ("arena", "track"):
-        for row in pacsv.read_csv(root / kind / "blocks.csv", convert_options=options).to_pylist():
-            table = pq.read_table(root / kind / "blocks" / f"{row['block_id']}.parquet")
-            found[row["block_id"]] = {"row": {**row, "kind": kind, "rate_hz": round(row["n_frames"] / row["duration_s"])}, "arrays": {name: table.column(name).to_numpy() for name in table.column_names}}
-    return found
-
-
 def loaded(transformed, sid):
     """
     The session as TransformedAccess gives it, with writable copies of its arrays, and the geometry of every environment by name.
@@ -117,46 +77,34 @@ def same_arrays(mine, theirs):
             np.testing.assert_array_equal(mine[name], theirs[name], err_msg=name)
 
 
-def same_row(mine, theirs):
-    """
-    The index rows equal field by field, floats to the tolerance, the processor's status mapped to the engine's.
-    """
-    assert set(mine) == set(theirs)
-    for name, value in theirs.items():
-        value = STATUS_OF_THE_PROCESSOR.get(value, value) if name == "status" else value
-        assert mine[name] == (pytest.approx(value, rel=0, abs=TOLERANCE) if isinstance(value, float) else value), name
-
-
-def same_blocks(made, theirs, sid):
-    """
-    The engine's blocks are exactly the processor's blocks of the session, each equal in its arrays and its row.
-    """
-    expected = {block_id: b for block_id, b in theirs.items() if b["row"]["session_id"] == sid}
-    assert expected and sorted(b["row"]["block_id"] for b in made) == sorted(expected)
-    for block in made:
-        same_arrays(block["arrays"], expected[block["row"]["block_id"]]["arrays"])
-        same_row(block["row"], expected[block["row"]["block_id"]]["row"])
-        assert block["problems"] == []
-
-
-def test_the_blocks_of_unreviewed_sessions_equal_the_processors_column_by_column_and_field_by_field(paused, automatic):
+def test_the_blocks_of_unreviewed_sessions_are_their_initial_blocks_with_every_phase_and_the_trips_of_their_runs(paused):
+    blocks = []
     for sid in (S1, S6):
         found, environment = loaded(paused, sid)
-        same_blocks(TrajectoryEngine().blocks(found, None, environment, RULES)["blocks"], automatic, sid)
-    assert len(automatic) == 3 and {p for b in automatic.values() for p in b["arrays"]["phase"]} == set(labels.PHASES)
-    assert {b["row"]["status"] for b in automatic.values()} == {"automatic"} and automatic[f"{S1}_track_01"]["row"]["n_complete_trips"] == 1
+        blocks += TrajectoryEngine().blocks(found, None, environment, RULES)["blocks"]
+    assert [b["row"]["block_id"] for b in blocks] == [f"{S1}_arena_01", f"{S1}_track_01", f"{S6}_track_01"]
+    assert all(b["problems"] == [] and b["row"]["status"] == "auto" for b in blocks)
+    assert {p for b in blocks for p in b["arrays"]["phase"]} == set(labels.PHASES)
+    assert [b["row"]["n_complete_trips"] for b in blocks] == [0, 1, 0]
 
 
-def test_the_blocks_of_a_reviewed_session_equal_the_processors_and_a_session_without_review_still_builds_its_initial_block(paused, reviewed):
+def test_the_blocks_of_a_reviewed_session_are_the_reviews_kept_blocks_and_a_session_without_review_still_builds_its_initial_block(paused):
     found, environment = loaded(paused, S1)
     made = TrajectoryEngine().blocks(found, REVIEW, environment, RULES)["blocks"]
-    same_blocks(made, reviewed, S1)
-    found, environment = loaded(paused, S6)
-    same_blocks(TrajectoryEngine().blocks(found, None, environment, RULES)["blocks"], reviewed, S6)
-    assert sorted(reviewed) == [f"{S1}_arena_01", f"{S1}_track_01", f"{S6}_track_01"]
-    edited = reviewed[f"{S1}_track_01"]
-    assert edited["row"]["status"] == "edited" and edited["row"]["reviewed_by"] == REVIEWER and edited["row"]["n_complete_trips"] == 1
+    assert [(b["row"]["block_id"], b["row"]["status"]) for b in made] == [(f"{S1}_arena_01", "confirmed"), (f"{S1}_track_01", "edited")]
+    assert all(b["problems"] == [] and b["row"]["reviewed_by"] == REVIEWER for b in made)
+    edited = made[1]
+    assert (edited["row"]["frame_start"], edited["row"]["frame_end"], edited["row"]["n_complete_trips"]) == (2151, 2750, 1)
     assert set(edited["arrays"]["run"]) == {0, 1, 2}
+    found, environment = loaded(paused, S6)
+    assert [b["row"]["block_id"] for b in TrajectoryEngine().blocks(found, None, environment, RULES)["blocks"]] == [f"{S6}_track_01"]
+
+
+def test_the_processed_folder_the_fixtures_build_through_the_review_manager_holds_the_blocks_the_tests_name(paused, tmp_path):
+    write_processed(paused, tmp_path / "processed")
+    access = ProcessedAccess(tmp_path / "processed")
+    assert [row["block_id"] for row in access.blocks()] == [f"{S1}_arena_01", f"{S1}_track_01", f"{S6}_track_01"]
+    assert {row["status"] for row in access.blocks()} == {"confirmed"} and access.built() == [S1, S6] and access.reviews() == [S1, S6]
 
 
 def test_the_trips_and_phases_of_a_run_sequence_made_by_hand_follow_the_rules():

@@ -4,32 +4,26 @@ The engines' contract: the default rules and settings are today's constants, the
 
 import inspect
 
-import process_lab_data.__main__ as processor
 import pytest
 from axis_of_travel_rnn import trajectory, windows
-from process_lab_data import frame, labels, select
-from ratreplay import data as dash
 
 from ratreplay_api.engines.generator import GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, TrajectoryEngine
+from ratreplay_api.engines.trajectory import frame as new_frame
 
-# Each rule key and the project constant it comes from (snap_s from the old Dash tool, led_separation_m
-# from the processor's checks, as t_step_tolerance_s is).
-SOURCES = {
-    "condition": (select, "CONDITION"), "epochs": (select, "EPOCHS"), "pause_step_s": (select, "PAUSE_STEP_S"),
-    "gap_lights": (select, "GAP_LIGHTS"), "jump_px": (select, "JUMP_PX"), "pause_margin_s": (select, "PAUSE_MARGIN_SEC"),
-    "min_block_s": (select, "MIN_BLOCK_S"), "snap_s": (dash, "SNAP_S"), "heading_fill_s": (select, "HEADING_FILL_SEC"),
-    "running_floor_m_per_s": (select, "RUNNING_FLOOR_M_PER_S"),
-    "outbound_paths": (labels, "OUTBOUND_PATHS"), "return_paths": (labels, "RETURN_PATHS"), "pause_min_s": (labels, "PAUSE_MIN_S"),
-    "histogram_bin_px": (frame, "HISTOGRAM_BIN_PX"), "peak_smooth_bins": (frame, "PEAK_SMOOTH_BINS"),
-    "peak_prominence": (frame, "PEAK_PROMINENCE"), "axis_agree": (frame, "AXIS_AGREE"),
-    "camera_height_m": (frame, "CAMERA_HEIGHT_M"), "track_height_m": (frame, "TRACK_HEIGHT_M"),
-    "arena_height_m": (frame, "ARENA_HEIGHT_M"), "nominal_led_separation_m": (frame, "NOMINAL_LED_SEPARATION_M"),
-    "extent_percentiles": (frame, "EXTENT_PERCENTILES"), "led_separation_m": (processor, "LED_SEPARATION_M"),
-    "speed_smooth_frames": (frame, "SPEED_SMOOTH_FRAMES"),
-    "running_px_per_s": (frame, "RUNNING_PX_PER_S"), "offset_warn_deg": (frame, "OFFSET_WARN_DEG"),
-    "smooth_window_s": (trajectory, "SMOOTH_WINDOW_S"), "smooth_order": (trajectory, "SMOOTH_ORDER"),
-    "kinematics_version": (trajectory, "KINEMATICS_VERSION"), "t_step_tolerance_s": (processor, "T_STEP_TOLERANCE_S"),
+# The rules that come from the project's trajectory module, each with the constant it must equal.
+PROJECT = {"smooth_window_s": "SMOOTH_WINDOW_S", "smooth_order": "SMOOTH_ORDER", "kinematics_version": "KINEMATICS_VERSION"}
+
+# The other rules are the constants the engine moved in from the lab data processor, recorded here as they were when it was removed. A change
+# to one of them changes which blocks a session gives, so it is a change to this record too.
+RECORD = {
+    "condition": "baseline", "epochs": ("arena", "track"), "pause_step_s": 0.1, "gap_lights": "both", "jump_px": 40.0,
+    "pause_margin_s": 5.0, "min_block_s": 10.0, "snap_s": 1.0, "heading_fill_s": 3.0, "running_floor_m_per_s": 0.03,
+    "outbound_paths": (1, 2, 3, 4), "return_paths": (9, 10), "pause_min_s": 1.0,
+    "histogram_bin_px": 2.0, "peak_smooth_bins": 5, "peak_prominence": 0.1, "axis_agree": 0.05,
+    "camera_height_m": 2.6, "track_height_m": 0.2, "arena_height_m": 0.4, "nominal_led_separation_m": 0.05,
+    "extent_percentiles": (1, 99), "led_separation_m": (0.04, 0.08), "speed_smooth_frames": 6, "running_px_per_s": 20.0,
+    "offset_warn_deg": 30.0, "t_step_tolerance_s": 1e-6,
 }
 
 # Each operation and its parameters as architecture.md names them, and the task that fills it.
@@ -44,13 +38,13 @@ ENGINES = ((TrajectoryEngine, TRAJECTORY), (GeneratorEngine, GENERATOR))
 DONE = ("E1", "E2", "E3", "E4", "E5", "E6")
 
 
-def test_every_rule_equals_the_project_constant_it_comes_from():
-    assert set(RULES) == set(SOURCES)
-    for key, (module, name) in SOURCES.items():
-        assert RULES[key] == getattr(module, name), f"{key} differs from {module.__name__}.{name}"
-    assert RULES["outbound_paths"] == frame.OUTBOUND_PATHS
+def test_every_rule_is_the_recorded_default_or_the_project_constant_it_comes_from():
+    assert set(RULES) == set(RECORD) | set(PROJECT)
+    assert {key: RULES[key] for key in RECORD} == RECORD
+    for key, name in PROJECT.items():
+        assert RULES[key] == getattr(trajectory, name), f"{key} differs from trajectory.{name}"
     parallax = (RULES["camera_height_m"] - RULES["track_height_m"]) / (RULES["camera_height_m"] - RULES["arena_height_m"])
-    assert parallax == frame.PARALLAX_RATIO
+    assert new_frame.arena_scale(100.0, RULES) == pytest.approx(100.0 * parallax)
 
 
 def test_the_settings_equal_the_projects_window_defaults_with_rate_hz_for_train_rate_hz():

@@ -32,8 +32,6 @@ packages = [
   "src/environments",
   "src/proj_helpers",
   "src/transform_lab_data",
-  "src/process_lab_data",
-  "src/ratreplay",
   "ratreplay/backend/ratreplay_api",
 ]
 

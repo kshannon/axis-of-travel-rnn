@@ -9,8 +9,6 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from process_lab_data.labels import RETURN_PATHS
-from process_lab_data.select import runs_of
 from proj_helpers.paths import repo_root
 
 from .trajectory import KINDS
@@ -36,6 +34,9 @@ CONFIG = repo_root() / "configs" / "datasets" / "lab_blocks.yaml"
 # through float rounding, within this tolerance.
 TOLERANCE_S = 1e-9
 
+# The lab's path ids of the return runs, which end a complete trip.
+RETURN_PATHS = (9, 10)
+
 # The block columns a window's checks read over its range.
 CHECK_COLUMNS = ("x", "y", "heading", "heading_filled", "heading_held")
 
@@ -50,6 +51,14 @@ def rate_of(row):
     The block's whole frame rate in Hz from its csv row, rounded because duration_s is n_frames over an integer rate and the division does not always come back exact.
     """
     return round(row["n_frames"] / row["duration_s"])
+
+
+def runs_of(mask):
+    """
+    The (first, stop) index pairs of every stretch where the mask is true.
+    """
+    edges = np.flatnonzero(np.diff(np.concatenate(([False], mask, [False])).astype(np.int8)))
+    return list(zip(edges[::2].tolist(), edges[1::2].tolist()))
 
 
 def window_count(n_frames, rate_hz, settings):

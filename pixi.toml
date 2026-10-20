@@ -17,15 +17,9 @@ new-labnote = 'axis-of-travel-rnn labnote new'
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
 
-# Lab data processor, retired by RatReplay (ratreplay/), which builds the blocks from the reviews.
-# Removed in task R2 once the first real dataset is built with RatReplay.
-process-lab-data = "python -m process_lab_data"
-
-# The old Dash review tool, retired by RatReplay (ratreplay/).
-# Removed in task R2 once the first real dataset is built with RatReplay.
-ratreplay = "python -m ratreplay"
-
-# RatReplay (ratreplay/README.md): the API serves the built frontend at http://127.0.0.1:8060, --port N for another
+# RatReplay (ratreplay/README.md): the API serves the built frontend at http://127.0.0.1:8060, --port N for another.
+# ratreplay and ratreplay-api are the same task, the short name being the one to type.
+ratreplay     = "python -m ratreplay_api"
 ratreplay-api = "python -m ratreplay_api"
 
 # Testing
@@ -61,8 +55,6 @@ uvicorn = ">=0.30"
 # Visualization
 matplotlib = ">=3.8"
 seaborn    = ">=0.13"
-plotly     = ">=5.20"   # RatReplay (docs/ratreplay/)
-dash       = ">=2.17"   # same
 
 # Validation and Stats
 pymc = ">=5.10.0"

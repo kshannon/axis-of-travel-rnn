@@ -15,7 +15,7 @@ EVERYTHING = None
 
 # The chart, one row per file or folder under ratreplay_api, the first row a file falls under being its rule: the modules of
 # ratreplay_api it may import by prefix and the outside packages it may import by prefix. A project package (axis_of_travel_rnn,
-# process_lab_data, environments, proj_helpers) is in no list, so none can be imported.
+# environments, proj_helpers) is in no list, so none can be imported.
 # Routers call managers, read the request models and share routers.deps, never each other. Managers call engines and accesses.
 # An engine calls its own package and utilities, never another engine, an access calls utilities, never another access, and
 # environment.py its private builders. Utilities call utilities. The request models read two constants, the engine's default

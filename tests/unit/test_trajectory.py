@@ -5,18 +5,23 @@ The versioned kinematics on a known path: a constant-speed circle gives its spee
 import json
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.csv as pacsv
+import pyarrow.parquet as pq
 import pytest
 
 from axis_of_travel_rnn import trajectory
-from process_lab_data import output
 
 RATE_HZ, N_FRAMES = 60, 600
 RADIUS_M, ANGULAR_RATE = 0.3, 1.5
 LOST = (200, 260)
 ISLAND = ((300, 310), (315, 320))
 
-# A synthetic processed dataset: two track blocks and one arena block, the csv rows holding only what the reader and
-# the window logic touch, the rest None.
+# A synthetic processed dataset in the layout the reader expects: two track blocks and one arena block, the csv rows holding
+# only what the reader and the window logic touch, the rest None. A block parquet holds the lab frame, then trajectory.COLUMNS.
+CSV_COLUMNS = ("block_id", "session_id", "date", "epoch", "frame_start", "frame_end", "n_frames", "duration_s", "reviewed_by")
+BLOCK_SCHEMA = pa.schema([(trajectory.FRAME_COLUMN, pa.int32())]
+                         + [(name, pa.string() if dtype == "U8" else pa.from_numpy_dtype(np.dtype(dtype))) for name, dtype in trajectory.COLUMNS.items()])
 TRACK_IDS, ARENA_IDS = ("S1_track_01", "S1_track_02"), ("S1_arena_01",)
 FIRST_FRAME = 2101
 MANIFEST = {"run": {"timestamp": "2026-10-16T10:00:00+00:00", "rules": {"select": {"JUMP_PX": 40.0}}}, "sessions": {}}
@@ -42,7 +47,7 @@ def csv_row(block_id, kind, n_frames):
     """
     One blocks csv row with the block's identity, frames and duration, the other columns None.
     """
-    return {**{field.name: None for field in output.BLOCKS_CSV_SCHEMA}, "block_id": block_id, "session_id": "S1", "date": "2015-01-01",
+    return {**dict.fromkeys(CSV_COLUMNS), "block_id": block_id, "session_id": "S1", "date": "2015-01-01",
             "epoch": kind, "frame_start": FIRST_FRAME, "frame_end": FIRST_FRAME + n_frames - 1, "n_frames": n_frames,
             "duration_s": n_frames / RATE_HZ}
 
@@ -50,14 +55,17 @@ def csv_row(block_id, kind, n_frames):
 @pytest.fixture
 def processed(tmp_path):
     """
-    The synthetic processed root written with the processor's own writers.
+    The synthetic processed root.
     """
     root = tmp_path / "processed"
+    columns = block_arrays(N_FRAMES)
+    table = pa.Table.from_arrays([pa.array(columns[field.name], type=field.type) for field in BLOCK_SCHEMA], schema=BLOCK_SCHEMA)
     for kind, ids in (("track", TRACK_IDS), ("arena", ARENA_IDS)):
         for block_id in ids:
-            output.write_block(output.block_table(block_arrays(N_FRAMES)), trajectory.block_path(root, kind, block_id))
-        output.write_csv([csv_row(block_id, kind, N_FRAMES) for block_id in ids], root / kind / trajectory.BLOCKS_CSV)
-    output.write_json(MANIFEST, root / trajectory.MANIFEST)
+            trajectory.block_path(root, kind, block_id).parent.mkdir(parents=True, exist_ok=True)
+            pq.write_table(table, trajectory.block_path(root, kind, block_id))
+        pacsv.write_csv(pa.Table.from_pylist([csv_row(block_id, kind, N_FRAMES) for block_id in ids]), root / kind / trajectory.BLOCKS_CSV)
+    (root / trajectory.MANIFEST).write_text(json.dumps(MANIFEST))
     return root
 
 

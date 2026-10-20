@@ -215,6 +215,8 @@ export interface Review {
   /** Who set the flag and when, none until it was set. */
   excluded_by: string | null;
   excluded_at: string | null;
+  /** The start offset in metres the person tuned for the session, none for the environment yaml's. */
+  start_offset_m: number | null;
 }
 
 /** The rules the engine cut and filled the session under, the ones the timeline's layers explain. The header carries all of them, these are the ones the page reads. */
