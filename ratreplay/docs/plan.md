@@ -482,3 +482,93 @@ arena, version 2 before the arrow and version 3 after.
   shifts the arena offset (10 cm on a 2 minute epoch, 2 to 3 cm on 10 minutes), real or synthetic.
 - Centreline distance (d), now registered: q25, q50, q75, q95 of 0.8, 1.8, 4.2, 9.5 cm read 0.8, 1.8, 3.4, 5.8 cm (version
   2, mis-registered, 2.4, 5.6, 9.1, 19.6). The tail cannot pass the clip at the half corridor and the LED half separation.
+
+## Debrief, 2026-10-20
+
+Times come from commit stamps, a coarse clock: commits were batched (five in one second on 10-19 at 03:25) and nights show
+as gaps, so an interval bounds the work only when it is short. The rebuild is 64 of the branch's 97 commits (the first 33
+are the converter rename, the processor, the first Dash tool and the first RatReplay build), from the docs commit on 10-17
+at 23:23 to K38 on 10-20 at 08:57: 57.6 h elapsed, 13.2 h of it in commit gaps under two hours.
+
+### Estimation accuracy
+- Unit. The plan counted in sessions of a focused half day, a human builder's unit. After the real slice the note converted
+  the 23 sessions of U1 to R1 to 15 to 19 h of agent time and recorded about 11 h, 0.6 to 0.7 of the estimate. The stamps
+  agree: 10.3 h from the docs commit to the slice's last commit, 6.5 h of it the night between F1 (02:39) and F2 (09:06). In
+  the unit as written it would be about 11 days, so no task can be read against its sessions.
+- Backend and frontend. U1 to L is 12 commits in 2 h 47 min against 15 sessions. E1 and E3, the tasks the plan said would
+  slip, landed 23 and 19 min after the commit before them. F2 sits in the night gap and cannot be told from sleep, and F2,
+  F3, S1, F5, R1 and S2 were committed within 34 min, so they were built before they were committed. The risk score of 0.73
+  priced the build, and the build was the cheap part.
+- The K round was not estimated, the plan had one line, "Kyle builds a real dataset, reports", and no number. It produced 39
+  findings and 36 of the 64 commits: 33 on 10-18 between 10:17 and 23:46 (13.5 h elapsed, more than the slice it followed)
+  and K35, K36 and K38 later. That is 1.8 times the slice in commits, the ratio to carry next time.
+- Synthetic slice. A4, E5, E6, M3 and F4 were 6.5 sessions, and F6 (the quiz page) and S3 (its flow) joined them unplanned.
+  One workflow run built them, 1.4 h from the design commit to the five commits stamped within a second. E5 and E6 were then
+  redone as generator versions 2 and 3 (K35, K36), 20 h and 21 h after. A generator is done when it matches real behavior,
+  so its estimate was a guess.
+
+### Design efficacy
+- Layering bought one builder on one layer and an import graph pinned by `test_layering.py`. Of K1 to K34, 7 touched an
+  engine (K5, K12, K14, K20, K23, K33, K34, by my reading of the task lines). The page restructure (K7, K8, K13) cost pages
+  only, and the synthetic slice went in as an access, a manager, a generator engine and two pages, the recipe filling an
+  operation the contract already held, which the decompressed order protected.
+- Pure engines bought parity against the old tools until they went (3,200 random edit lists in E2, the processor's blocks in
+  E3, a frozen fixture now). The generator's session goes through the same `blocks` call as a real one and the recipe is one
+  function run on both, so registration could be tested on synthetic data over 20 seeds, which is how K36 was found.
+- The format version rule: the page began comparing at 1 on 10-18 at 12:01, the rule was written at 19:26 for the heading
+  span shape (2), then 3 for the start offset and 4 for the synthetic folder. Each bump turned a missing key into "restart
+  the API". It does not catch changed values under one shape (K38's float32 arrays, an engine version).
+- The two exceptions to statelessness. The quiz pairs in memory were designed in, so the page never holds a block id before
+  the reveal. The memo of the last built session came with K38 and removes only the arrays request's second build, load
+  still builds twice because `blocks` builds its own session (K39) and the real fix is an engine signature.
+- Layering cost: pages broke until their tasks (F1's bridge edits redone by F2 and F3, e2e specs failing until S2), the
+  block format had to move to `utilities/blocks.py` because accesses may not import each other, `schemas.py` is a named
+  exception, and every layer went critical in turn, which is the 0.73.
+
+### The work
+- 97 commits on the branch, 64 for the rebuild: 1 docs, 20 real slice (12 backend, 7 frontend and tests, 1 notes), 33 K
+  round, 7 synthetic first pass, 3 after. About 23,300 lines under `ratreplay/`. Sonnet built, Opus reviewed, the main
+  session applied the should-fixes and committed, one commit per task, Kyle ran everything on real data.
+- 26 of 29 tasks ticked (27 planned plus F6 and S3, open are K, R2 and D). K findings: 39, 31 fixed, 8 open. K21, K24, K31
+  and K37 wait for Kyle, K18 is built and waits for his yaml, K29 is a follow-up, K39 a small task, and K20 looks built
+  (07d46c1) but is unticked. Tests at the end: backend 229 (144 at the real slice), Vitest 193 (83), four Playwright flows
+  (3), 170 project tests before R2, 85 after it removed the old tools and their tests.
+
+### Issues to avoid
+- A builder calling `create_app()` with the real config reads `configs/local.yaml` and the real folders. Builders use the
+  synthetic fixtures and `serve_synthetic.py`, and `/bin/rm` and `/bin/cp`, the aliases hang.
+- Commit chains passed failures until they ran under `set -o pipefail` with a grep for "failed", two early commits went
+  through.
+- The stale API. Builders write `dist/`, which Kyle's API serves, so he sees uncommitted work, and after a backend commit
+  the process is old. Say "restart the API" in the handoff.
+- Registration on synthetic data. A generator change that moves the corridor occupancy trips the real registration (37
+  percent between the scales, K36). Check 20 seeds at 10 and 20 minutes before accepting a version.
+- The quiz tells. Anything that differs by source gives the sides away: ids, runs, `t`, the environment backdrop. Two
+  remain, a real block's lost heading (NaN) and the block length.
+- Arena pauses. The labels paint none in the arena, so a pause there is a still stretch, and a still rat's speed noise under
+  2 mm of tracking noise (0.02 m/s) rarely stays under the 0.03 floor for a second: 0 pauses a minute against 2.
+
+### Recurring problems
+- The synthetic data never matched in one pass: K35, K36, K37 (open). After version 3 the heading spread reads 1.4 times the
+  recipe, the track turn rate 1.7 times, speed q25 23 percent low. Each fix moved the mismatch: version 2's wider wander
+  flattened the corridor peaks, and version 3 repaired that for a narrow wander only (axis warnings in 20 seeds at 10 and 20
+  minutes: 11 and 15 before, 2 and 0 after, 11 and 16 at real width).
+- The page saying nothing or the wrong thing, six times: K2 (excluded read as an error), K17 (a failed load half disabled),
+  K26 (an error on the next page), K32 ("changes nothing"), K34 ("kept as edited" read as unfinished, twice), K38 (a slow
+  tunnel with nothing shown).
+- What drawing tests cannot see: K1 (the occupancy image mirrored, the projection test passed), K17, K27 and K29 (colours
+  against amber), K28 (a card clipped 18 px at 900 px). Vitest covers pure modules and the Playwright flows check steps at
+  1440 by 900, not pixels.
+- Science decisions arriving as findings (K5, K18, K28, K21, K31, K37). They change what enters the dataset or how it is
+  registered, so they wait for Kyle, and 4 of the 8 open items are these.
+
+### Commitment to quality
+- Review and tests caught what they were aimed at: four documented divergences from the old edit rules (E2), the `rules`
+  parameter windows needed (E4), a save on an unknown session returning 500 (S1), the block format shared across accesses,
+  and in the synthetic review `t` leaking through the quiz and the environment backdrop.
+- Kyle caught what they were not aimed at, 39 findings and almost all his: a mirrored map, a start site on the wrong side of
+  a corridor (K18), a short tracking loss that drops a block (K31), words that read as unfinished, a generator that looked
+  synthetic (K35, K36), a slow tunnel. No test caught any of them before he saw it.
+- For the next slice: put Kyle's use first and small, one session through the new page before the next task. Give the
+  generator an acceptance check before the quiz (the recipe round trip and 20 seeds of registration). Run one rendered check
+  per canvas. Keep the science decisions in a list Kyle answers, and plan the first use round at about 1.8 times the slice.
