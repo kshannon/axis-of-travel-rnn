@@ -69,13 +69,16 @@ outputs, so `pixi run nbstripout-install` belongs in every clone.
 ## Machine-local paths
 
 `configs/local.yaml` holds the paths that depend on the machine, nothing else:
-`STORE` for the artifact store, `LAB_DATA` for the lab's recordings and
-`TRANSFORMED_LAB_DATA` for the tables made from them. It is git-ignored; copy
-`configs/local.example.yaml` and edit. Every such path is resolved in one order:
-the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
+`STORE` for the artifact store, `LAB_DATA` for the lab's recordings,
+`TRANSFORMED_LAB_DATA` for the tables made from them, `PROCESSED_LAB_DATA` for
+the reviews and blocks RatReplay builds and `SYNTHETIC_DATA` for the synthetic sets
+RatReplay generates. `LAB_DATA` is read by the converter alone, RatReplay reads the other three. It is git-ignored. Copy
+`configs/local.example.yaml` and edit. The first three paths are resolved in one
+order: the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
 `SUBICULUM_RNN_LAB`, `SUBICULUM_RNN_TRANSFORMED_LAB`), then this file, then the
-built-in default. Nothing in it is ever hashed into a manifest, so two machines
-with different drives produce identical artifacts.
+built-in default. RatReplay reads its keys from this file only. Nothing in it is
+ever hashed into a manifest, so two machines with different drives produce
+identical artifacts.
 
 ## Converting the lab data
 
@@ -94,32 +97,69 @@ that file only, and exits 2 naming the problem if one is missing, `LAB_DATA` is
 not a folder, or the output folder is inside the lab folder or this repository.
 
 ```bash
-pixi run transform-lab --dry-run      # list sessions, skipped files and the files it would write; writes nothing
-pixi run transform-lab                # convert every session
-pixi run transform-lab --sample 2     # only the first 2 sessions per subject
-pixi run transform-lab --only NS14    # only sessions whose id starts with NS14
+pixi run transform-lab-data --dry-run      # list sessions, skipped files and the files it would write; writes nothing
+pixi run transform-lab-data                # convert every session
+pixi run transform-lab-data --sample 2     # only the first 2 sessions per subject
+pixi run transform-lab-data --only NS14    # only sessions whose id starts with NS14
 ```
 
 Do the dry run first. A real run exits 0 when every selected session was
 written and 1 when any failed. Each run rewrites the tables, so a run with
 `--only` or `--sample` leaves tables for just those sessions; to start clean,
-delete the output folder. Details are in [docs/lab_data_transform/](docs/lab_data_transform/).
+delete the output folder. Details are in [docs/transform_lab_data/](docs/transform_lab_data/).
 
-## How synthetic data will be generated
+## RatReplay
 
-No recorded animal data lives in this repository or its store. Behavior is
-synthetic, and the generator is planned, not built: an environment config
-(triple-T track, open arena) fixes the geometry; an agent config will fix a
+RatReplay, in `ratreplay/`, is the tool that turns the converted tables into training ready blocks, a localhost app with
+its own backend and frontend. A person replays each session in the browser and confirms or edits its blocks, and saving
+builds them in metres with trip and phase labels into the folder `PROCESSED_LAB_DATA` names, beside the `windows.json` of
+the window settings selected for export, which the RNN training reads as files.
+
+- The real slice is built and in daily use for making the processed data: reviews, blocks and windows. Block building has
+  moved from the old processor into RatReplay, and the old processor and the old Dash tool are gone. The lab data
+  converter above stays the one script.
+- The synthetic slice is built as a first pass and parked for a later EDA: a recipe of statistics measured on the real
+  blocks, a generator (version 3) that writes a synthetic session into the folder `SYNTHETIC_DATA` names, a Synthetic page
+  to generate and compare, and a Real or synthetic page to tell them apart by eye. It is not yet validated against real
+  behavior, so nothing synthetic feeds training.
+
+Run it after the converter has written `TRANSFORMED_LAB_DATA` and the three RatReplay keys are in `configs/local.yaml`:
+
+```bash
+pixi run ratreplay-install                 # once per clone: the frontend's npm packages
+pixi run ratreplay-build                   # once after a pull: type checks and builds the frontend
+pixi run -e ratreplay ratreplay-api        # or: pixi run ratreplay. The page is at http://127.0.0.1:8060
+```
+
+The API listens on localhost only. From another machine, forward the port and open the same address on the laptop:
+
+```bash
+ssh -N -L 8060:127.0.0.1:8060 <host>       # on the laptop, then http://127.0.0.1:8060 in its browser
+```
+
+How to use it, the pages, the files it writes and its tests are in [ratreplay/README.md](ratreplay/README.md).
+
+## How synthetic data is generated
+
+No recorded animal data lives in this repository or its store. Behavior is synthetic. A first generator is built, inside
+RatReplay (above): a recipe of aggregate statistics measured on the built real blocks (speed, turning, pauses, runs per
+path, dwells, spread about the centreline, heading against speed) drives a seeded generator that writes a session in the
+transformed schema, so it goes through the same registration, cuts, labels and windows as a real one. Each set under
+`SYNTHETIC_DATA` keeps its provenance: sources, seed, camera, rules, generator version and both recipes. It has had a first
+check by eye and by recipe, not the validation against real behavior that comes before it feeds training.
+
+The command line route is still planned, not built. An environment config
+(triple-T track, open arena) fixes the geometry, an agent config will fix a
 behavioral profile, meaning speed, turning and dwell statistics and a goal
-policy; a dataset config will name an environment, agents, sessions and
+policy, and a dataset config will name an environment, agents, sessions and
 trials, seeds, and a split policy. `data generate` will turn that into
 trajectories of position and heading, store velocity, speed and angular
 velocity derived from them beside the raw arrays, and record every config hash
 and seed in the dataset's manifest. `data validate` will compare the dataset's
 behavioral statistics against an aggregate reference-statistics file and write
-the report into the dataset. Only position will reach the RNN during training;
-heading and kinematics exist for validation and controls. Today those commands
-are stubs that exit 3; the contract is [docs/cli/spec.md](docs/cli/spec.md).
+the report into the dataset. Only position will reach the RNN during training.
+Heading and kinematics exist for validation and controls. Today those commands
+are stubs that exit 3, and the contract is [docs/cli/spec.md](docs/cli/spec.md).
 
 ## Layout
 
@@ -130,12 +170,13 @@ src/
   cli/                 the command line entry point: groups, stub table, real commands
   environments/        parametric geometry (triple-T, open arena, plus maze), content hashes, RatInABox adapter
   proj_helpers/        machine-local paths, lab data access, new notebooks and lab notes from the templates
-  lab_data_transform/  the lab data converter (docs/lab_data_transform/), `pixi run transform-lab`
+  transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
   notebooks/           the working Jupyter notebooks
+ratreplay/       RatReplay, the review tool: backend, frontend and docs (ratreplay/README.md)
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored; synthetic/
 tests/           unit tests for the store and the CLI
-docs/            per-feature spec, plan and tasks (cli/, lab_data_transform/, notebooks/)
+docs/            per-feature spec, plan and tasks (cli/, transform_lab_data/, process_lab_data/, notebooks/)
 artifacts/       the default store: datasets, models, experiments (git-ignored, regenerable)
 labnotebook/     dated entries, `pixi run new-labnote`
 ```
@@ -148,7 +189,7 @@ There is a complex history of these tertms and what they mean within different f
 - **Reproducibility**: obtaining consistent results using the same input data, computational methods, and conditions of analysis.
 
 
-Synthetic data (generated with the RatInABox python library<sup>3</sup>), and open source data results should be reproducible. Results using your own collected recording data should be replicable to within some stated percision. Given the stochastic nature of machine learning methods, from data cleaning to pipeline construction to training and validation, it can be daunting to provide near 100% reproducibility, but it is a standard to strive for nonetheless.
+Synthetic data (so far from RatReplay's seeded generator, with the RatInABox python library<sup>3</sup> planned for the command line route), and open source data results should be reproducible. Results using your own collected recording data should be replicable to within some stated percision. Given the stochastic nature of machine learning methods, from data cleaning to pipeline construction to training and validation, it can be daunting to provide near 100% reproducibility, but it is a standard to strive for nonetheless.
 
 To that end, this README provides all instructions needed to reproduce our synthetic data results. Instructions for reproducing results with open-source data and our own recorded data are provided in the project wiki.
 

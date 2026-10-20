@@ -14,8 +14,13 @@ version   = "0.1.0"
 # Lab notebook: a dated entry from templates/labnotebook.md, optional slug words
 new-labnote = 'axis-of-travel-rnn labnote new'
 
-# Lab data converter (docs/lab_data_transform/): MATLAB files to CSV and Parquet
-transform-lab = "python -m lab_data_transform"
+# Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
+transform-lab-data = "python -m transform_lab_data"
+
+# RatReplay (ratreplay/README.md): the API serves the built frontend at http://127.0.0.1:8060, --port N for another.
+# ratreplay and ratreplay-api are the same task, the short name being the one to type.
+ratreplay     = "python -m ratreplay_api"
+ratreplay-api = "python -m ratreplay_api"
 
 # Testing
 test     = "python -m pytest"
@@ -42,6 +47,10 @@ pyarrow  = ">=14"     # the full package: Parquet frames and CSV
 dandi    = ">=0.58"
 zarr     = ">=3,<4"
 xarray   = ">=2023.6"
+
+# RatReplay rebuild (ratreplay/backend/)
+fastapi = ">=0.115"
+uvicorn = ">=0.30"
 
 # Visualization
 matplotlib = ">=3.8"
@@ -75,6 +84,16 @@ nbstripout   = "*"
 [feature.dev.pypi-dependencies]
 scienceplots = ">=2"
 
+# ---- ratreplay feature: Node for the RatReplay frontend (ratreplay/frontend/), run with -e ratreplay ----
+[feature.ratreplay.dependencies]
+nodejs = ">=22,<23"
+
+[feature.ratreplay.tasks]
+ratreplay-install = "npm --prefix ratreplay/frontend install"
+ratreplay-ui      = "npm --prefix ratreplay/frontend run dev"
+ratreplay-build   = "npm --prefix ratreplay/frontend run build"
+ratreplay-test    = "python -m pytest ratreplay/backend/tests && npm --prefix ratreplay/frontend test"
+
 # ---- cuda feature: GPU builds, Linux clusters etc. ----
 [feature.cuda]
 platforms = ["linux-64"]
@@ -88,5 +107,6 @@ pytorch = { version = ">=2.1,<3", build = "cuda*" }
 
 ###################### ======== ENVS ======== ######################
 [environments]
-default = { features = ["dev"] }
-cuda    = { features = ["dev", "cuda"] }
+default   = { features = ["dev"] }
+cuda      = { features = ["dev", "cuda"] }
+ratreplay = { features = ["dev", "ratreplay"] }

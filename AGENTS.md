@@ -41,6 +41,9 @@ Does an axis-of-travel-like representation emerge in a vanilla RNN trained only 
   reviews the diff and runs the tests before anything is committed.
 - Flag any choice that could change the scientific interpretation. Report
   exactly what changed and what was verified.
+- Every figure carries a title, a short caption saying how to read it and what
+  it shows, and which data made it (dataset or session ids, preset, seed). A
+  figure without these is not finished, in notebooks, scripts and reports alike.
 
 ## Branches, commits and pushes
 
@@ -69,7 +72,7 @@ settings and dotfiles are never changed by project work.
   analysis as they land. `src/cli/`: the command line. `src/environments/`:
   environment geometry.
 - `src/proj_helpers/`: paths, lab data access, new notebooks and lab notes.
-- `src/lab_data_transform/`: the lab data converter (`docs/lab_data_transform/`).
+- `src/transform_lab_data/`: the lab data converter (`docs/transform_lab_data/`).
 - `src/notebooks/`: the working notebooks. `templates/`: the notebook and lab
   note templates.
 - `datasets/`: datasets on disk, git-ignored.

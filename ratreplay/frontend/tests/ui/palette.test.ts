@@ -1,0 +1,97 @@
+import { readFileSync } from "node:fs";
+import { expect, test } from "vitest";
+import { allLayers, LAYERS } from "../../src/draw/layers";
+import { LAB_PATHS, runFill } from "../../src/draw/runs";
+import { sessionScene } from "../../src/draw/session-scene";
+import type { SessionHeader } from "../../src/api/types";
+import { colourOf, PALETTE_NAMES } from "../../src/ui/palette";
+import type { Palette } from "../../src/ui/palette";
+
+const css = readFileSync(new URL("../../src/styles.css", import.meta.url), "utf8");
+const themeOf = (selector: string): Record<string, string> => {
+  const block = css.split(`${selector} {`)[1].split("}")[0];
+  return Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6});/g)].map(([, name, hex]) => [name, hex]));
+};
+const LIGHT = themeOf(":root");
+const DARK = themeOf(":root.dark");
+
+test("both themes define every colour of the palette as a hex", () => {
+  for (const theme of [LIGHT, DARK]) expect(PALETTE_NAMES.filter((name) => !theme[name])).toEqual([]);
+});
+
+// WCAG relative luminance of a hex colour, for the contrast of text on a background.
+const luminance = (hex: string): number => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string): number => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+// The text colours are read on the card, so each reaches 4.5:1 there in both themes, and ok is its own green apart from the accent.
+const TEXT_COLOURS = ["ink", "muted", "accent", "ok", "warn", "bad"] as const;
+
+test("every text colour reads on the card in both themes, and ok is its own green", () => {
+  for (const theme of [LIGHT, DARK]) {
+    expect(theme.ok).not.toBe(theme.accent);
+    expect(TEXT_COLOURS.filter((name) => contrast(theme[name], theme.card) < 4.5)).toEqual([]);
+  }
+});
+
+test("the dark primary button, the page colour on the accent, reads, and the colours of the lanes show on the card in both themes", () => {
+  expect(contrast(DARK.page, DARK.accent)).toBeGreaterThanOrEqual(4.5);
+  for (const theme of [LIGHT, DARK]) {
+    expect(["neutral", "arena", "track", "soft", "trip"].filter((name) => contrast(theme[name], theme.card) < 2)).toEqual([]);
+  }
+});
+
+// CIE76 colour difference of two hex colours, through sRGB, linear light, XYZ under D65 and Lab.
+const toLab = (hex: string): number[] => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const xyz = [(0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047, 0.2126 * r + 0.7152 * g + 0.0722 * b, (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883];
+  const [fx, fy, fz] = xyz.map((t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116));
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+};
+const deltaE = (a: string, b: string): number => Math.hypot(...toLab(a).map((v, i) => v - toLab(b)[i]));
+
+// The seven layers of the frames lane, each its own colour: visible on the card, and apart from one another, from the trips, the ok green and the cursor.
+const LAYER_TOKENS = LAYERS.map((layer) => layer.colour.slice("var(--".length, -1));
+const APART = 20;
+
+test("every layer colour shows on the card in both themes", () => {
+  expect(LAYER_TOKENS).toHaveLength(7);
+  for (const theme of [LIGHT, DARK]) expect(LAYER_TOKENS.filter((name) => contrast(theme[name], theme.card) < 3)).toEqual([]);
+});
+
+test("every layer colour is apart from every other, and from the trips, the ok green and the cursor, in both themes", () => {
+  for (const theme of [LIGHT, DARK]) {
+    const close: string[] = [];
+    for (const [i, a] of LAYER_TOKENS.entries()) {
+      for (const b of [...LAYER_TOKENS.slice(i + 1), "trip", "ok", "cursor"]) if (deltaE(theme[a], theme[b]) < APART) close.push(`${a} ${b} ${deltaE(theme[a], theme[b]).toFixed(1)}`);
+    }
+    expect(close).toEqual([]);
+  }
+});
+
+test("a name stands for the theme's colour, as a name or as var(--name), else a CSS colour stands as it is", () => {
+  const colours = DARK as Palette;
+  expect(colourOf(colours, "bad")).toBe(DARK.bad);
+  expect(colourOf(colours, "var(--trimmed)")).toBe(DARK.trimmed);
+  expect(colourOf(colours, "#123456")).toBe("#123456");
+});
+
+test("every colour the timeline names resolves to a theme colour, so a canvas never gets an unknown name", () => {
+  const header = {
+    rate_hz: 60, n_frames: 600, rules: LAB_PATHS, epochs: [{ epoch: "track", frame_start: 1, frame_end: 600 }, { epoch: "other", frame_start: 1, frame_end: 600 }],
+    runs: [1, 9, 5].map((path_id, run) => ({ run, path_id, clean: true, frame_start: 1, frame_end: 10 })),
+    cut_points: [], margins: [], heading_spans: { lost: [], filled: [], held: [] },
+  } as unknown as SessionHeader;
+  const blocks = (["auto", "confirmed", "edited", "dropped"] as const).map((status) => ({ block_id: status, frame_start: 1, frame_end: 10, status, windows: null }));
+  const scene = sessionScene(header, blocks as never, [0], allLayers(), new Float64Array(0), 1);
+  const names = [
+    ...scene.bars.flatMap((bar) => [bar.fill, bar.outline ?? bar.fill]), ...scene.frames.map((layer) => layer.colour),
+    ...LAYERS.map((layer) => layer.colour), ...[1, 9, 5].map((path) => runFill(path, LAB_PATHS)),
+  ];
+  for (const theme of [LIGHT, DARK]) for (const name of names) expect(colourOf(theme as Palette, name)).toMatch(/^#[0-9a-f]{6}$/);
+});
