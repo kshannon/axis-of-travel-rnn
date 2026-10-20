@@ -12,7 +12,7 @@ from ..utilities.errors import Invalid, NotFound
 
 # The id of a set, from the time it was made and its seed, and the version of the generator recorded in its provenance.
 SET_ID = "syn_{date}_{time}_{seed}"
-GENERATOR_VERSION = 2
+GENERATOR_VERSION = 3
 CODE_VERSION = "trajectory {} {}"
 
 # The epoch kind whose registration gives the LED separation, and the rate and longest gap a synthetic session is generated at.

@@ -111,6 +111,9 @@ const times = (value: number | null | undefined, factor: number): number | null 
 const scaled = (q: Quantiles | undefined, factor: number): Quantiles | undefined =>
   q && (Object.fromEntries(Object.entries(q).map(([key, value]) => [key, times(value, factor)])) as unknown as Quantiles);
 const CM_PER_M = 100;
+
+/** The segment classes of the signed offset, outward positive, and their words in a row label. */
+const OUTWARD_ROWS = [["perimeter", "perimeter"], ["inner", "inner arms"]] as const;
 const MM_PER_M = 1000;
 
 /** The rows of a record of plain numbers, one per key of either side. */
@@ -118,7 +121,7 @@ function recordRows(prefix: string, real: Record<string, number> | undefined, sy
   return keysOf(real, synthetic).map((key) => ({ label: `${prefix} ${key}`, real: fixed(real?.[key]), synthetic: fixed(synthetic?.[key]) }));
 }
 
-/** The rows of one kind's recipes side by side: the counts, the speed and turn rate quantiles, the still fraction, the heading spread, the tracking noise, the pauses, the track's runs, speed variation, centreline distance, dwells, trips and goal shares, the arena's speed variation and boundary distance, and the phase shares. */
+/** The rows of one kind's recipes side by side: the counts, the speed and turn rate quantiles, the still fraction, the heading spread, the tracking noise, the pauses, the reversals, the track's runs, speed variation, centreline distance and offset outward on the perimeter and the inner arms, reversals inside a run, dwells, trips and goal shares, the arena's speed variation and boundary distance, and the phase shares. */
 export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefined): CompareRow[] {
   const rows: CompareRow[] = [
     { label: "blocks", real: String(real?.counts.blocks ?? NONE), synthetic: String(synthetic?.counts.blocks ?? NONE) },
@@ -132,6 +135,9 @@ export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefi
     { label: "pauses per minute", real: fixed(real?.pauses.per_min), synthetic: fixed(synthetic?.pauses.per_min) },
     ...quantileRows("pause duration (s)", real?.pauses.duration_s, synthetic?.pauses.duration_s),
   ];
+  if (real?.reversals_per_min !== undefined || synthetic?.reversals_per_min !== undefined) {
+    rows.push({ label: "reversals per minute", real: fixed(real?.reversals_per_min), synthetic: fixed(synthetic?.reversals_per_min) });
+  }
   for (const path of keysOf(real?.runs, synthetic?.runs)) {
     rows.push({ label: `runs on path ${path}`, real: String(real?.runs?.[path]?.count ?? NONE), synthetic: String(synthetic?.runs?.[path]?.count ?? NONE) });
     rows.push(...quantileRows(`run duration on path ${path} (s)`, real?.runs?.[path]?.duration_s, synthetic?.runs?.[path]?.duration_s));
@@ -140,6 +146,13 @@ export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefi
     rows.push({ label: "speed variation within a run (sd over mean)", real: fixed(real?.speed_cv_run), synthetic: fixed(synthetic?.speed_cv_run) });
   }
   if (real?.lateral_m || synthetic?.lateral_m) rows.push(...quantileRows("distance from the centreline (cm)", scaled(real?.lateral_m, CM_PER_M), scaled(synthetic?.lateral_m, CM_PER_M)));
+  for (const [key, word] of OUTWARD_ROWS) {
+    const [a, b] = [real?.lateral_outward_m?.[key], synthetic?.lateral_outward_m?.[key]];
+    if (a || b) rows.push(...quantileRows(`distance toward the outer wall side, ${word} (cm)`, scaled(a, CM_PER_M), scaled(b, CM_PER_M)));
+  }
+  if (real?.run_reversals_per_min !== undefined || synthetic?.run_reversals_per_min !== undefined) {
+    rows.push({ label: "reversals inside a run per minute", real: fixed(real?.run_reversals_per_min), synthetic: fixed(synthetic?.run_reversals_per_min) });
+  }
   for (const site of keysOf(real?.dwell_s, synthetic?.dwell_s)) rows.push(...quantileRows(`dwell at ${site} (s)`, real?.dwell_s?.[site], synthetic?.dwell_s?.[site]));
   if (real?.trips_per_min !== undefined || synthetic?.trips_per_min !== undefined) {
     rows.push({ label: "trips per minute", real: fixed(real?.trips_per_min), synthetic: fixed(synthetic?.trips_per_min) });

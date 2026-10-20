@@ -1,5 +1,5 @@
 """
-GeneratorEngine over a hand made recipe: deterministic in its seed, in the transformed schema, inside the geometry, its runs from site to site, blocked by TrajectoryEngine.blocks like a real session with the camera recovered, its lateral spread, tracking noise, varied runs, wandering dwells and speed dependent heading the recipe's, and refusing what it cannot generate from.
+GeneratorEngine over a hand made recipe: deterministic in its seed, in the transformed schema, inside the geometry, its runs from site to site, blocked by TrajectoryEngine.blocks like a real session with the camera recovered, its lateral spread and lean toward the outer wall, tracking noise, varied runs with reversals, wandering dwells, the arena's distance from the wall and speed dependent heading the recipe's, and refusing what it cannot generate from.
 """
 
 import datetime
@@ -13,12 +13,18 @@ from ratreplay_api.access.transformed import FRAMES
 from ratreplay_api.engines.generator import GOALS, START, GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
 from ratreplay_api.engines.trajectory.kinematics import kinematics
-from ratreplay_api.engines.trajectory.recipe import circular_std
+from ratreplay_api.engines.trajectory.recipe import circular_std, outward_offset, reversal_frames
 from ratreplay_api.engines.trajectory.room import to_room
 from ratreplay_api.utilities.errors import Invalid
 
 ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 SEED, LENGTH_S, SESSION_ID, DATE = 7, {"arena": 120.0, "track": 300.0}, "syn_test", datetime.date(2026, 10, 19)
+TEN_MINUTES = {"arena": 600.0, "track": 600.0}
+LEAN_TOLERANCE, REVERSAL_FACTOR = 0.3, 2.0
+
+# The arena walk hugs the wall with its midpoint on the boundary, so over thousands of frames the tracking noise carries it
+# past by up to about four of its spreads.
+WALL_NOISES = 5
 LED_SEPARATION_M = 0.05
 SITE_TOLERANCE_M, SCALE_TOLERANCE, ROTATION_TOLERANCE_RAD = 0.03, 0.05, 0.01
 RECIPE_TOLERANCE, MIN_RUN_CV, MIN_DWELL_SPAN_M = 0.3, 0.1, 0.02
@@ -56,12 +62,15 @@ RECIPE = {
         "dwell_s": {"start": q(1.0, 1.5, 2.0, 2.5, 3.0), "goal": q(1.0, 1.5, 2.0, 2.5, 3.0)},
         "trips_per_min": 3.0, "goal_share": {"1": 0.25, "2": 0.25, "3": 0.25, "4": 0.25},
         "lateral_m": q(0.0014, 0.0070, 0.0148, 0.0253, 0.0431), "speed_cv_run": 0.25, "tracking_noise_m": NOISE_M,
+        "lateral_outward_m": {"perimeter": q(-0.008, 0.005, 0.015, 0.025, 0.038), "inner": q(-0.03, -0.012, 0.0, 0.012, 0.03)},
+        "reversals_per_min": 10.0, "run_reversals_per_min": 1.0, "phase_share": {"outbound": 0.25, "dwell": 0.5, "return": 0.25, "pause": 0.0},
         "heading_spread_by_speed": curve((145, 120, 90, 60, 30, 15)), "heading_lag_s": 0.044,
     },
     "arena": {
         "speed": q(0.0, 0.05, 0.12, 0.2, 0.35), "turn_rate": q(-2.5, -0.8, 0.0, 0.8, 2.5), "turn_rate_abs_mean": 1.0,
         "still_fraction": 0.2, "heading_spread_rad": 0.4, "pauses": {"per_min": 2.0, "duration_s": q(1.0, 1.5, 2.0, 2.5, 3.0)},
         "speed_cv": 0.3, "tracking_noise_m": NOISE_M, "heading_spread_by_speed": curve((150, 125, 95, 70, 50, 50)), "heading_lag_s": 0.149,
+        "boundary_distance_m": q(0.0, 0.015, 0.03, 0.045, 0.07), "reversals_per_min": 5.0,
     },
 }
 
@@ -89,6 +98,15 @@ def built(made, environments):
     The generated session blocked by TrajectoryEngine.blocks.
     """
     return TrajectoryEngine().blocks(made, None, {g["name"]: g for g in environments.values()}, RULES)
+
+
+@pytest.fixture(scope="module")
+def ten(environments):
+    """
+    A session of ten minutes of arena and ten of track, and its blocks.
+    """
+    made = GeneratorEngine().session(RECIPE, environments, CAMERA, SEED, TEN_MINUTES, SESSION_ID, DATE)
+    return made, TrajectoryEngine().blocks(made, None, {g["name"]: g for g in environments.values()}, RULES)
 
 
 def room_of(made, kind):
@@ -137,7 +155,7 @@ def test_every_position_lies_inside_the_geometry(made, environments):
     nearest = np.min([segment_distance(track, s["p0"], s["p1"]) for s in environments["track"]["centerline"]], axis=0)
     assert nearest.max() <= allowed
     arena, _ = room_of(made, "arena")
-    assert np.hypot(*(arena - np.array(environments["arena"]["room"]) / 2).T).max() <= environments["arena"]["params"]["diameter"] / 2 + 3 * NOISE_M
+    assert np.hypot(*(arena - np.array(environments["arena"]["room"]) / 2).T).max() <= environments["arena"]["params"]["diameter"] / 2 + WALL_NOISES * NOISE_M
 
 
 def test_every_run_starts_at_its_site_and_ends_at_the_other(made, environments):
@@ -179,6 +197,36 @@ def test_the_blocks_measure_back_to_the_recipe_with_wandering_dwells_and_varied_
     dwelling = np.flatnonzero(track["arrays"]["phase"] == "dwell")
     longest = max(np.split(dwelling, np.flatnonzero(np.diff(dwelling) > 1) + 1), key=len)
     assert max(np.ptp(track["arrays"]["x"][longest]), np.ptp(track["arrays"]["y"][longest])) > MIN_DWELL_SPAN_M
+
+
+def test_on_the_perimeter_a_run_leans_toward_the_outer_wall_by_the_recipes_mean(made, environments):
+    xy, at = room_of(made, "track")
+    inside_runs = np.zeros(len(xy), bool)
+    for run in made["runs"]:
+        inside_runs[run["frame_start"] - 1 - at.start:run["frame_end"] - at.start] = True
+    speed = np.hypot(*np.gradient(xy, axis=0).T) * CAMERA["rate_hz"]
+    here = inside_runs & (speed >= RULES["running_floor_m_per_s"])
+    signed, perimeter = outward_offset(xy[here, 0], xy[here, 1], environments["track"]["centerline"], environments["track"]["room"])
+    expected = RECIPE["track"]["lateral_outward_m"]["perimeter"]["mean"]
+    assert abs(signed[perimeter].mean() / expected - 1) < LEAN_TOLERANCE
+
+
+def test_runs_reverse_at_about_the_recipes_rate_and_a_run_that_reverses_is_not_clean(ten, environments):
+    made, built = ten
+    found = recipe_of(built, environments)["track"]["run_reversals_per_min"]
+    expected = RECIPE["track"]["run_reversals_per_min"]
+    assert expected / REVERSAL_FACTOR < found < expected * REVERSAL_FACTOR
+    assert any(not run["clean"] for run in made["runs"]) and any(run["clean"] for run in made["runs"])
+    reversed_runs = {(b["row"]["block_id"], int(b["arrays"]["run"][k])) for b in built["blocks"] for k in reversal_frames(b, RULES, in_runs=True)}
+    for b in built["blocks"]:
+        for number in np.unique(b["arrays"]["run"][(b["arrays"]["run"] > 0) & ~b["arrays"]["clean"]]):
+            assert (b["row"]["block_id"], int(number)) in reversed_runs
+
+
+def test_the_arena_walk_keeps_the_recipes_distance_from_the_wall(ten, environments):
+    xy, _ = room_of(ten[0], "arena")
+    distance = environments["arena"]["params"]["diameter"] / 2 - np.hypot(*(xy - np.array(environments["arena"]["room"]) / 2).T)
+    assert abs(np.median(distance) / RECIPE["arena"]["boundary_distance_m"]["q50"] - 1) < RECIPE_TOLERANCE
 
 
 def test_the_heading_is_tight_at_a_run_wide_when_still_and_seldom_flips(built):

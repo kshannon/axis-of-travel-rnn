@@ -288,6 +288,23 @@ anything that touches real data.
       delayed by the lag plus an AR(1) noise with the speed's spread, so the head sweeps while still and
       settles while running. Provenance generator version 2. Kyle, 2026-10-19. [TrajectoryEngine.recipe,
       GeneratorEngine, plan]
+- [x] K36 After Kyle's second quiz on real data, generator version 3: the synthetic session tripped the
+      registration ("track scale x and y differ by 37 percent, an outer corridor peak missed") so its
+      trail drew out of proportion to the maze, since a symmetric wander about the centreline spreads the
+      outer corridor peaks flat while a real rat hugs the outer wall on the perimeter. The recipe measures
+      the signed lateral offset, outward positive, on perimeter and on inner segments, and the generator
+      applies it. Real rats also dwell longer and go back and forth: the recipe measures reversals per
+      minute (the direction of travel turning by over 120 degrees while running) and the generator makes
+      them, and the dwell draw is checked against the real dwell quantiles. Verified over 20 seeds at 10
+      and 20 minutes with no axis warning. Kyle, 2026-10-20. [TrajectoryEngine.recipe, GeneratorEngine]
+      Built as version 3, the registration target met on the test recipe only: with a real width of
+      wander (3 cm) the axis warning still fires on about half the seeds at 20 minutes, the top corridor
+      peak falling under the prominence cutoff set by the approach row. Open as K37.
+- [ ] K37 Proposed, awaiting Kyle: the registration on a synthetic session of real width. Options: the
+      dwell moves kept under the running threshold so the goal row stops dominating the running histogram,
+      frames within 0.15 m of a reward site left out of the scale histogram (a change to real data
+      registration too), or the prominence rule lowered. The next real generate at 20 minutes says
+      whether the real recipe trips it. [TrajectoryEngine.session frame]
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

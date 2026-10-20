@@ -577,12 +577,15 @@ export interface Recipe {
   heading_spread_rad: number | null;
   pauses: { per_min: number; duration_s: Quantiles };
   phase_share: Record<string, number>;
-  /** Both kinds: the per frame tracking noise in metres, from the spread of the position's second difference. */
+  /** Both kinds: the per frame tracking noise in metres, from the spread of the position's second difference, and the turns of the direction of motion by over 120 degrees in half a second per minute. */
   tracking_noise_m?: number | null;
-  /** Track: the runs per path id, the speed variation within a run, the distance from the centreline over running frames, the dwells per site, the trips per minute and the share of outbound runs per goal. */
+  reversals_per_min?: number;
+  /** Track: the runs per path id, the speed variation within a run, the distance from the centreline over running frames (unsigned, and signed outward on the perimeter and the inner segments), the reversals inside a run per minute, the dwells per site, the trips per minute and the share of outbound runs per goal. */
   runs?: Record<string, { count: number; duration_s: Quantiles }>;
   speed_cv_run?: number | null;
   lateral_m?: Quantiles;
+  lateral_outward_m?: { perimeter: Quantiles; inner: Quantiles };
+  run_reversals_per_min?: number;
   dwell_s?: Record<string, Quantiles>;
   trips_per_min?: number;
   goal_share?: Record<string, number>;

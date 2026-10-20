@@ -424,3 +424,61 @@ Generator version 2 (K35, 2026-10-19), after Kyle's first quiz on real data, Kyl
 - Registration on short sessions: the wider lateral spread and the noise broaden the corridor occupancy peaks, so on
   a session of 3 minutes about one seed in five misses the top corridor's peak (the axes warning), one in twenty at
   10 minutes, none in twenty at 20 minutes. The registration is untouched.
+
+Generator version 3 (K36, 2026-10-20), after Kyle's second quiz on real data and his comparison table on NS14_rec9_20141210_002,
+Kyle's to overturn. Numbers are out over in on a real shaped literal (scratchpad k36/lib.py: his centreline distance
+quantiles, dwell medians, speeds, turn rates and boundary distance, the rest invented), seed 7, 20 minutes of track and 10 of
+arena, version 2 before the arrow and version 3 after.
+
+- The recipe adds `lateral_outward_m` (track, quantiles of the offset from the nearest centreline segment over running
+  frames, on the perimeter (`side_`, `bottom_`, `top_`, `conn_`) and on the inner segments). The sign is taken along the
+  segment's normal pointing away from the room's centre at its midpoint, not along the line from the centre to the foot
+  point as the brief said: the stem lies on a line through the centre, where that dot product is zero. `reversals_per_min`
+  (both kinds) is the brief's rule: the Savitzky-Golay direction of motion turned by over 120 degrees from 0.5 s earlier,
+  the speed at or over the running floor on both frames, counted once a second. It reads 27 a minute on version 2, which
+  makes no reversals: dwell jitter at 3 cm/s, a run setting off back the way an excursion came, and the U from a
+  crossbar up a rise into an approach. So the track adds `run_reversals_per_min`, the same rule with both frames in one run
+  and the straight distance between them under half the path the speed covers, which reads 0.3 a minute on version 2.
+  The generator fits that one, each back and forth being two turns. The comparison shows both.
+- Lean: on perimeter segments the offset along the outward normal is the class mean plus the wander with the class spread
+  (interquartile range over 1.349, at most half the clip), inner segments the same with their numbers, the dwell moves
+  leaning as the corridor they walk into. On the generator's own positions the perimeter lean inside runs is 0.013 for a
+  recipe mean of 0.015. Measured back through the registration it is about half the recipe's (0.010 for 0.020): the
+  registration puts the outer occupancy peaks on the centreline, so a symmetric outward lean is taken out as scale, and
+  the scale reads 1.6 to 1.8 percent high (max 2.3). A real session's lean is measured through the same registration.
+- Registration, 20 seeds each, axes warnings at 10 and at 20 minutes of track. Test recipe (perimeter spread 1.5 cm):
+  0 and 0 before, 0 and 0 after, scale error median 0.6 then 1.7 percent, max 2.2. Real shaped literal with a narrow
+  perimeter spread (1.5 cm): 11 and 15 before, 2 and 0 after. With the spread made to agree with the real centreline
+  distance (perimeter median 2 cm outward, spread 3 cm): 11 and 16 after, so the lean alone does not fix it. On a failing
+  seed (0, 20 minutes) the y peaks taken are the bottom corridor, the crossbar and the approach row (0.83 m up, smoothed
+  height 2333, where the four goals and their dwells sit). The top corridor (1.19 m, height 226, prominence 127) falls
+  under the 10 percent cutoff of 233, so y reads 0.71 of true. The registration rules are untouched, Kyle's to decide.
+- Reversals: during a run or an excursion, with the chance the recipe's run rate over two over the share of time in runs
+  for its duration, the rat turns back for 0.5 to 2 s at the run's pace (a 0.3 s turn each way, in the middle half), the
+  run lengthened by it and still one run row, clean False. Run reversals 1.26 for 1.0, and every run marked not clean
+  shows one.
+- Dwells (c): a dwell is still stretches as before and between them moves along the corridors meeting at the site, out
+  0.1 to 0.3 m in one moving stretch, standing, back in the next. A move out and back in one stretch turned the travel
+  direction a full circle each time. The move speed bound matters little since a 0.1 to 0.3 m move over a mean 4.75 s
+  stretch walks at about 4 cm/s, so the wander keeps its 5 cm. Speed q25 0.78 to 0.77, q50 0.90 to 0.91, still fraction
+  1.06 to 1.11. q25 stays 23 percent low. On this literal version 2's speed median was already 0.15 for 0.17, not Kyle's
+  0.10, as its runs are not his.
+- Dwell draw (point 2): left as it was. Over six seeds the start dwell median reads 1.18 for a drawn 0.52 (the excursions
+  count into the dwell), the goal 11.4 for 9.9. On the e2e fixture sessions' recipe, start 1.65 for 1.65, goal 10.15 for
+  10.0, version 2 and 3 alike (the plan draws in the same order).
+- Heading (a): the noise time constant per kind from the closed form (a smooth AR(1) of spread s and time constant tau
+  turns at s over tau times sqrt(2 over pi), the travel direction's own rate taken off in quadrature), times 1.5 from a
+  search over the factor, the spread smoothed over 0.5 s (was 0.25). Turn rate, mean absolute: arena 2.35 to 0.96, track
+  2.50 to 1.67. The track cannot get lower this way: with no heading noise at all it reads 1.66 (the route corners, the
+  turn at each leg of a dwell move, the dwell wander), so tau sits at its 5 s bound. Heading spread 1.50 to 1.40 on the
+  track, 1.36 to 1.40 in the arena (on the step direction, high wherever there is tracking noise). Putting the spread
+  inside the filter instead lost the lag and raised the spread to 1.8, so it was dropped.
+- Arena (b): the walk steers toward the tangent at a target distance from the wall, drawn from `boundary_distance_m` and
+  held 2 to 6 s, turned in or out by the arctangent of the radial error over 5 cm, the midpoint never past the boundary
+  (the recipe's distance is unsigned, so a point outside would read inside, and the brief's allowance of the LED half
+  separation is not used). Boundary distance q05, q50, q95: 0.061, 0.123, 0.234 to 0.003, 0.025, 0.082 for 0.00, 0.03,
+  0.07. The modulated speed is mapped back by rank onto the recipe's quantiles: speed q95 0.49 to 0.37 for 0.40. The
+  arena's registration anchors the median position at the room centre, so a rat on one side of the wall in a short epoch
+  shifts the arena offset (10 cm on a 2 minute epoch, 2 to 3 cm on 10 minutes), real or synthetic.
+- Centreline distance (d), now registered: q25, q50, q75, q95 of 0.8, 1.8, 4.2, 9.5 cm read 0.8, 1.8, 3.4, 5.8 cm (version
+  2, mis-registered, 2.4, 5.6, 9.1, 19.6). The tail cannot pass the clip at the half corridor and the LED half separation.

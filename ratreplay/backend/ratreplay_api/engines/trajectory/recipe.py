@@ -31,6 +31,22 @@ SECOND_DIFFERENCE_GAIN = np.sqrt(6.0)
 HEADING_SPEED_EDGES = (0.0, 0.05, 0.1, 0.17, 0.25, 0.35, 0.5)
 LAG_MIN_SPEED = 0.2
 
+# The signed lateral offset on the track: the centreline segments of the perimeter by the start of their name, every other
+# segment inner (the stem, the crossbars, the rises and the approaches), the offset taken along the segment's normal pointing
+# away from the room's centre. The brief's sign of the offset against the line from the centre to the foot point is zero on
+# the stem, which lies on a line through the centre, so the normal is fixed per segment and east or north there.
+PERIMETER_PREFIXES = ("side_", "bottom_", "top_", "conn_")
+PERIMETER, INNER = "perimeter", "inner"
+
+# A reversal: the Savitzky-Golay direction of motion turned by over REVERSAL_RAD from its value REVERSAL_LAG_S earlier,
+# the speed at or over the running floor on both frames, a turn counted once in REVERSAL_WINDOW_S. That count reads about
+# 25 a minute on generator version 2, which makes no reversals (dwell jitter at the floor, a run setting off back the way
+# an excursion came, the U from a crossbar up a rise into an approach), so the track adds a run reversal, the one the
+# generator fits: both frames in one run and the straight distance between them under RUN_REVERSAL_SHARE of the path the
+# smoothed speed covers between them, a turn back along the path and not a U through the maze.
+REVERSAL_RAD, REVERSAL_LAG_S, REVERSAL_WINDOW_S = 2 * np.pi / 3, 0.5, 1.0
+RUN_REVERSAL_SHARE = 0.5
+
 # A pause on the track is the phase the labels paint inside a run. The labels paint no pause in the arena (every frame
 # forages), so an arena pause is a still stretch: speed under the running floor for over pause_min_s, the rule the
 # session's stops use. A frame runs when its smoothed speed and its own step to the next frame are both at or over the
@@ -97,14 +113,22 @@ def heading_residuals(block, rules):
     return np.angle(np.exp(1j * (heading[running] - direction[running])))
 
 
+def motion_of(block, rules):
+    """
+    The Savitzky-Golay direction of motion per frame of the block.
+    """
+    arrays = block["arrays"]
+    _, motion, _ = kinematics(arrays["x"], arrays["y"], arrays["heading"], np.zeros(len(arrays["x"]), bool), block["row"]["rate_hz"], rules)
+    return motion
+
+
 def motion_residuals(block, rules):
     """
     Per frame: heading minus the Savitzky-Golay direction of motion (wrapped), the speed, the turn rate of that direction, and true where the heading, the direction and the speed are all finite.
     """
     arrays, rate_hz = block["arrays"], block["row"]["rate_hz"]
-    no_breaks = np.zeros(len(arrays["x"]), bool)
-    _, motion, _ = kinematics(arrays["x"], arrays["y"], arrays["heading"], no_breaks, rate_hz, rules)
-    _, _, turn = kinematics(arrays["x"], arrays["y"], motion, no_breaks, rate_hz, rules)
+    motion = motion_of(block, rules)
+    _, _, turn = kinematics(arrays["x"], arrays["y"], motion, np.zeros(len(arrays["x"]), bool), rate_hz, rules)
     residual = np.angle(np.exp(1j * (arrays["heading"] - motion)))
     return residual, arrays["speed"], turn, np.isfinite(residual) & np.isfinite(arrays["speed"])
 
@@ -184,6 +208,57 @@ def centreline_distance(x, y, centerline):
     return nearest
 
 
+def outward_normal(seg, centre):
+    """
+    The unit perpendicular of a centreline segment pointing away from the room's centre at its midpoint, the east or the north one for a segment on a line through the centre (the stem).
+    """
+    p0, p1 = np.array(seg["p0"], float), np.array(seg["p1"], float)
+    along = (p1 - p0) / np.hypot(*(p1 - p0))
+    normal = np.array([along[1], -along[0]])
+    away = normal @ ((p0 + p1) / 2 - centre)
+    if abs(away) < 1e-9:
+        away = normal[0] + normal[1]
+    return normal if away > 0 else -normal
+
+
+def outward_offset(x, y, centerline, room):
+    """
+    The offset of every position from the nearest centreline segment along that segment's outward normal (positive away from the room's centre), and true where that segment is on the perimeter.
+    """
+    points, centre = np.column_stack([x, y]), np.array(room, float) / 2
+    nearest, signed, perimeter = np.full(len(points), np.inf), np.zeros(len(points)), np.zeros(len(points), bool)
+    for seg in centerline:
+        p0, p1 = np.array(seg["p0"], float), np.array(seg["p1"], float)
+        along = p1 - p0
+        offset = points - p0 - np.clip((points - p0) @ along / (along @ along), 0.0, 1.0)[:, None] * along
+        distance = np.hypot(*offset.T)
+        closer = distance < nearest
+        nearest[closer], signed[closer] = distance[closer], (offset @ outward_normal(seg, centre))[closer]
+        perimeter[closer] = seg["name"].startswith(PERIMETER_PREFIXES)
+    return signed, perimeter
+
+
+def reversal_frames(block, rules, in_runs=False):
+    """
+    The frame of every reversal in the block: frames whose direction of motion turned by over REVERSAL_RAD from REVERSAL_LAG_S earlier with the speed at or over the running floor on both, one counted in each REVERSAL_WINDOW_S, and when in_runs only those with both frames in one run and the straight distance between them under RUN_REVERSAL_SHARE of the path between them.
+    """
+    arrays, rate_hz = block["arrays"], block["row"]["rate_hz"]
+    speed = np.nan_to_num(arrays["speed"], nan=-np.inf)
+    lag, motion = round(REVERSAL_LAG_S * rate_hz), motion_of(block, rules)
+    running = speed >= rules["running_floor_m_per_s"]
+    turned = (np.abs(np.angle(np.exp(1j * (motion[lag:] - motion[:-lag])))) > REVERSAL_RAD) & running[lag:] & running[:-lag]
+    if in_runs:
+        run, path = arrays["run"], np.cumsum(np.maximum(speed, 0.0)) / rate_hz
+        straight = np.hypot(arrays["x"][lag:] - arrays["x"][:-lag], arrays["y"][lag:] - arrays["y"][:-lag])
+        turned &= (run[lag:] > 0) & (run[lag:] == run[:-lag]) & (straight < RUN_REVERSAL_SHARE * (path[lag:] - path[:-lag]))
+    found, free = [], 0
+    for k in np.flatnonzero(turned) + lag:
+        if k >= free:
+            found.append(int(k))
+            free = k + REVERSAL_WINDOW_S * rate_hz
+    return found
+
+
 def phase_share(blocks, phases):
     """
     The share of every frame in each of the phases, keyed by phase.
@@ -230,7 +305,7 @@ def boundary_distance(x, y, boundary):
 
 def common(blocks, paused, rules):
     """
-    The counts, the speed and turn rate distributions, the still fraction, the heading spread (in all, by speed and its lag behind turns), the tracking noise and the pauses, shared by both kinds, the pauses from the mask paused gives per block.
+    The counts, the speed and turn rate distributions, the still fraction, the heading spread (in all, by speed and its lag behind turns), the tracking noise, the reversals per minute and the pauses, shared by both kinds, the pauses from the mask paused gives per block.
     """
     seconds = sum(b["row"]["duration_s"] for b in blocks)
     speed, turn_rate = gathered(blocks, "speed"), gathered(blocks, "turn_rate")
@@ -246,23 +321,28 @@ def common(blocks, paused, rules):
         "heading_spread_by_speed": heading_by_speed(blocks, rules),
         "heading_lag_s": heading_lag(blocks, rules),
         "tracking_noise_m": tracking_noise(blocks),
+        "reversals_per_min": sum(len(reversal_frames(b, rules)) for b in blocks) / (seconds / SECONDS_PER_MINUTE),
         "pauses": {"per_min": len(pauses) / (seconds / SECONDS_PER_MINUTE), "duration_s": quantiles(pauses)},
     }
 
 
 def track(blocks, environments, rules):
     """
-    The track's additions: run durations per path, the speed variation within a run (the median over runs), the distance from the centreline over running frames, dwell durations per site, trips per minute, the share of outbound runs per goal and the phase shares.
+    The track's additions: run durations per path, the speed variation within a run (the median over runs), the distance from the centreline over running frames (unsigned, and signed outward on the perimeter and on the inner segments), the reversals inside runs, dwell durations per site, trips per minute, the share of outbound runs per goal and the phase shares.
     """
     seconds = sum(b["row"]["duration_s"] for b in blocks)
-    runs, dwells, trips, cvs, lateral = {}, {START: [], GOAL: []}, 0, [], []
+    runs, dwells, trips, cvs, lateral, outward = {}, {START: [], GOAL: []}, 0, [], [], {PERIMETER: [], INNER: []}
     for b in blocks:
         rate_hz, arrays = b["row"]["rate_hz"], b["arrays"]
         for first, stop, path in run_stretches(b):
             runs.setdefault(path, []).append((stop - first) / rate_hz)
             cvs.append(middle_cv(arrays["speed"][first:stop]))
         running = np.nan_to_num(arrays["speed"], nan=-np.inf) >= rules["running_floor_m_per_s"]
-        lateral.append(centreline_distance(arrays["x"][running], arrays["y"][running], environments[b["row"]["environment"]]["centerline"]))
+        geometry = environments[b["row"]["environment"]]
+        lateral.append(centreline_distance(arrays["x"][running], arrays["y"][running], geometry["centerline"]))
+        signed, perimeter = outward_offset(arrays["x"][running], arrays["y"][running], geometry["centerline"], geometry["room"])
+        outward[PERIMETER].append(signed[perimeter])
+        outward[INNER].append(signed[~perimeter])
         for first, stop in runs_of(b["arrays"]["phase"] == DWELL):
             site = dwell_site(b, first, rules)
             if site is not None:
@@ -275,6 +355,8 @@ def track(blocks, environments, rules):
         "runs": {str(path): {"count": len(durations), "duration_s": quantiles(durations)} for path, durations in sorted(runs.items())},
         "speed_cv_run": median_or_none(cvs),
         "lateral_m": quantiles(np.concatenate(lateral)),
+        "lateral_outward_m": {name: quantiles(np.concatenate(found)) for name, found in outward.items()},
+        "run_reversals_per_min": sum(len(reversal_frames(b, rules, in_runs=True)) for b in blocks) / (seconds / SECONDS_PER_MINUTE),
         "dwell_s": {site: quantiles(durations) for site, durations in dwells.items()},
         "trips_per_min": trips / (seconds / SECONDS_PER_MINUTE),
         "goal_share": {str(path): len(runs.get(path, [])) / outbound if outbound else 0.0 for path in rules["outbound_paths"]},

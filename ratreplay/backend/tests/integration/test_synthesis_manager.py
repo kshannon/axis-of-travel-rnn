@@ -94,7 +94,7 @@ def test_a_set_is_generated_from_two_built_sessions_with_both_recipes_and_its_pr
     assert provenance["camera"]["led_separation_m"] == ProcessedAccess(folders[1]).metadata(S1)["frame"]["track"]["led_separation_m"]
     assert set(provenance["recipe_real"]) == set(provenance["recipe_synthetic"]) == {"arena", "track"}
     assert provenance["recipe_real"]["track"]["counts"]["blocks"] == 2 and provenance["recipe_synthetic"]["track"]["counts"]["blocks"] == 1
-    assert provenance["rules"] == json.loads(json.dumps(RULES)) and provenance["generator"] == {"version": 2} and provenance["code_version"].endswith(COMMIT)
+    assert provenance["rules"] == json.loads(json.dumps(RULES)) and provenance["generator"] == {"version": 3} and provenance["code_version"].endswith(COMMIT)
     rows = access.blocks(set_id)
     assert [row["kind"] for row in rows] == ["arena", "track"] and all(row["block_id"].startswith(set_id) and row["session_id"] == set_id for row in rows)
     assert all(set(row) == set(BLOCKS_CSV_SCHEMA.names) and row["subject_id"] == "synthetic" and row["date"] == provenance["created_at"][:10] for row in rows)

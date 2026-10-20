@@ -23,8 +23,10 @@ TRACK_TRIPS = ((1, 30, 330), (2, 330, 600))
 # and the centre of the 2 m square the environment's boundary and room are.
 ARENA_FRAMES = 300
 ARENA_PAUSE = (120, 186)
-ENVIRONMENTS = {"e": {"boundary": None, "room": [1.8, 1.8], "centerline": [{"p0": [0.0, 0.0], "p1": [10.0, 0.0]}]},
-                "square": {"boundary": [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)], "room": [2.0, 2.0]}}
+ENVIRONMENTS = {"e": {"boundary": None, "room": [1.8, 1.8], "centerline": [{"name": "cross_e", "p0": [0.0, 0.0], "p1": [10.0, 0.0]}]},
+                "square": {"boundary": [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)], "room": [2.0, 2.0]},
+                "two": {"boundary": None, "room": [1.8, 1.8], "centerline": [{"name": "side_w", "p0": [0.0, 0.0], "p1": [0.0, 1.0]},
+                                                                             {"name": "stem", "p0": [0.9, 0.0], "p1": [0.9, 1.0]}]}}
 
 
 def labels(n_frames, kind):
@@ -171,6 +173,40 @@ def test_track_speed_variation_lateral_distance_and_tracking_noise(track):
     assert found["lateral_m"]["mean"] == pytest.approx(0.02) and found["lateral_m"]["q95"] == pytest.approx(0.02 + noise)
     second = np.concatenate([np.zeros(98), 4 * noise * (-1.0) ** np.arange(98)])
     assert found["tracking_noise_m"] == pytest.approx(second.std() / np.sqrt(6))
+
+
+def test_signed_outward_offset_by_segment_class():
+    """
+    The offset from the nearest segment along its normal away from the room's centre, on the perimeter (side_w, outward to the west) and on the inner segments (the stem, on the line through the centre, outward to the east), over running frames alone.
+    """
+    arrays = labels(100, "track")
+    arrays["x"] = np.repeat([-0.01, -0.01, 0.92, 0.87, 0.5], 20)
+    arrays["y"] = np.tile(np.linspace(0.2, 0.8, 20), 5)
+    arrays["speed"][:] = 0.6
+    arrays["speed"][80:] = 0.0
+    found = recipe_of([block("track", arrays, environment="two")])["track"]["lateral_outward_m"]
+    assert found["perimeter"]["mean"] == pytest.approx(0.01) and found["perimeter"]["q05"] == pytest.approx(0.01)
+    assert found["inner"]["mean"] == pytest.approx(-0.005) and found["inner"]["q95"] == pytest.approx(0.02, abs=1e-3)
+
+
+def test_reversals_count_each_turn_once_and_in_runs_not_a_u_through_the_maze():
+    """
+    A block running east 2 s, back west 2 s and east 1 s at 0.3 m/s inside one run turns twice in 5 s, 24 a minute in all and in runs, and a U (east, 0.1 m north, west) inside a run turns over 120 degrees in 0.5 s but its ends lie apart, so it counts in all and not in runs.
+    """
+    step = 0.3 / RATE_HZ
+    arrays = labels(300, "track")
+    arrays["x"] = np.cumsum(np.repeat([step, -step, step], [120, 120, 60]))
+    arrays["speed"][:] = 0.3
+    arrays["run"][:], arrays["path_id"][:] = 1, 1
+    found = recipe_of([block("track", arrays)])["track"]
+    assert found["reversals_per_min"] == pytest.approx(24.0) and found["run_reversals_per_min"] == pytest.approx(24.0)
+    u = labels(300, "track")
+    moves = np.repeat([[step, 0.0], [0.0, step], [-step, 0.0]], [120, 20, 160], axis=0)
+    u["x"], u["y"] = np.cumsum(moves, axis=0).T
+    u["speed"][:] = 0.3
+    u["run"][:], u["path_id"][:] = 1, 1
+    found = recipe_of([block("track", u)])["track"]
+    assert found["reversals_per_min"] == pytest.approx(12.0) and found["run_reversals_per_min"] == 0.0
 
 
 def test_arena_pauses_boundary_and_grid(arena):
