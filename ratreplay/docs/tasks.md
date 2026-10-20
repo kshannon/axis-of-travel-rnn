@@ -271,6 +271,23 @@ anything that touches real data.
       [TrajectoryEngine.apply, ReviewManager.save_blocks, Page 3]
       Built: engine version 2. A review saved before it that holds edited blocks shows "saved blocks
       differ" when opened, Accept all and Save brings it up to date.
+- [x] K35 Generator version 2, after Kyle's first quiz on real data: the synthetic rat hugs one line, takes
+      square corners, sits still at the sites, runs identical bells and has no tracking noise, the real one
+      fills the corridor, cuts corners, wanders at the goals, varies its pace within and between runs and
+      jitters frame to frame. The recipe measures three more things on the real blocks (the lateral
+      distance from the centreline on the track, the within run speed variation, the tracking noise as the
+      spread of the position's second difference) and the generator matches them: lateral wander with the
+      measured spread on two time scales, corners rounded by smoothing the path over a quarter second,
+      a per run pace multiplier and a slow within run modulation, dwells as a local wander with still
+      stretches, per LED pixel noise, and now and then an excursion between trips that is not a run.
+      Heading from Kyle's analysis of the 109 sessions: the head points backwards in the synthetic at small
+      steps and barely moves when still, while the real head minus travel scatter falls with speed (about
+      145 degrees at 0.05 m/s down to 15 at 0.67 on the maze, a 50 degree floor in the arena) and the head
+      lags the travel direction by about 44 ms on the maze and 149 ms in the arena. The recipe measures the
+      spread per speed bin and the lag, the generator builds heading as the smoothed travel direction
+      delayed by the lag plus an AR(1) noise with the speed's spread, so the head sweeps while still and
+      settles while running. Provenance generator version 2. Kyle, 2026-10-19. [TrajectoryEngine.recipe,
+      GeneratorEngine, plan]
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

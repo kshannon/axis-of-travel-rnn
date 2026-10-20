@@ -375,3 +375,52 @@ Decided in the review of the first backend pass (2026-10-19), Kyle's to overturn
   both sides or to trim both to the shorter one.
 - The block format moved to `utilities/blocks.py`, shared by the processed folder and the synthetic sets,
   so no access imports another.
+
+Generator version 2 (K35, 2026-10-19), after Kyle's first quiz on real data, Kyle's to overturn:
+
+- The recipe adds `lateral_m` (track, quantiles of the distance to the nearest centreline segment over frames at or
+  over the running floor), `speed_cv_run` (track, per run the standard deviation over the mean of the speed over the
+  middle 60 percent of its frames, the median over runs), `speed_cv` (arena, the same over running stretches of 1 s or
+  more), `tracking_noise_m` (both, the spread of the second difference of the block's x and y over sqrt(6), on the
+  block's raw room positions, the smoothed ones being only for drawing), `heading_spread_by_speed` (speed bins with
+  edges 0, 0.05, 0.1, 0.17, 0.25, 0.35, 0.5 m/s, each with its median speed, spread and frame count) and
+  `heading_lag_s`. The last two read heading against the Savitzky-Golay direction of motion, not the step to the
+  next frame as the brief said: with 2 mm of tracking noise the step's direction is noise at a walk (it put the
+  spread at 0.3 m/s 50 percent high) and its turn rate is noise at any speed, which drove the lag to zero. The lag
+  is the regression over frames at 0.2 m/s or more. `heading_spread_rad` stays on the step and so reads high
+  wherever there is tracking noise.
+- The generator. Track runs: duration drawn from the recipe times a lognormal pace (sigma 0.2), a raised cosine
+  bell times an AR(1) modulation (spread `speed_cv_run`, 1 s), a hesitation with chance 0.3 (0.3 to 0.8 s down to a
+  third of the cruise, in the middle half), renormalised to the run's length. Lateral offset: two smooth AR(1)
+  processes (3 s and 0.5 s, equal variance) with a total spread of the `lateral_m` median over 0.6745, at most half
+  the clip, faded in and out over 5 cm at a run's ends, clipped at the half corridor plus the LED half separation.
+  Corners: a centred moving average over 0.25 s per run, the window shrinking at the ends so a run starts and ends
+  on its sites. Dwells: a smooth AR(1) wander (5 cm along the corridor, the lateral spread across, 1 s) that stands
+  during still stretches (mean 1.5 s) covering the recipe's still fraction over its dwell phase share (0.05 to
+  0.8), faded to the site over 0.3 s at each end. Excursions, not runs: with chance 0.25 after a start dwell, down
+  the stem and 0.2 to 0.8 of the way along a bottom segment and back, and with chance 0.15 after a goal dwell, up
+  its connector and back, each leg at the recipe's q75 speed. Every track position is pulled back within the clip
+  of the centreline at the end.
+- Heading: the travel direction is the tangent of the path smoothed over 0.1 s, held through dwells and under the
+  running floor, turned toward the next run over a dwell's last second and limited to 2 pi rad/s (an excursion's
+  turnaround otherwise flipped the head in one frame). The heading is that direction delayed by `heading_lag_s`
+  plus a smooth AR(1) noise whose spread follows the speed through `heading_spread_by_speed` (smoothed over
+  0.25 s). The noise time constant is 0.5 s, not the 0.15 s asked for: at 0.15 s a still head (spread near 145
+  degrees) moved about 16 degrees a frame, at 0.5 s the median frame change is 2.6 degrees on the track (real about
+  2). The arena walk's steps follow its angle, and its heading comes from the path the same way.
+- Tracking noise: Gaussian pixel noise on both LEDs giving the midpoint the recipe's `tracking_noise_m`, one tenth
+  of its variance drawn for each LED alone and the rest shared. All of it independent per LED, as asked, made the
+  heading jitter by about 7 degrees a frame and the turn rate seven times the recipe's. The arena speed gets an AR(1)
+  modulation of spread `speed_cv` (0.5 s).
+- Round trip on a hand made recipe (900 s track, 300 s arena, seed 7, out over in): lateral median 0.78 (q95
+  0.97), speed_cv_run 0.91, arena speed_cv 1.19, tracking noise 1.01 and 1.00, run duration medians 1.10 and 0.95,
+  dwell medians 1.30 and 1.16, still fraction 0.88 and 1.06, speed median 0.86, the spread by speed within 20 percent
+  from 0.07 m/s up on the track (the arena reads 25 percent high above 0.3 m/s), lag 1.01 on the track and 0.63 in
+  the arena, no frame pair turning over 90 degrees. Left: `heading_spread_rad` 1.6 to 1.8 times (the step direction
+  under noise, above), the turn rate 3.5 to 4 times the invented literal (it is not fitted, the real median frame
+  change is the better target), and arena pauses per minute 0 against 2: the speed noise of a still rat under 2 mm
+  of tracking noise is about 0.02 m/s, so a still stretch rarely stays under the 0.03 floor for 1 s. Real blocks
+  carry the same effect in their own recipe.
+- Registration on short sessions: the wider lateral spread and the noise broaden the corridor occupancy peaks, so on
+  a session of 3 minutes about one seed in five misses the top corridor's peak (the axes warning), one in twenty at
+  10 minutes, none in twenty at 20 minutes. The registration is untouched.

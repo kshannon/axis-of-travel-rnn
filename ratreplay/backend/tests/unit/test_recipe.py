@@ -23,7 +23,7 @@ TRACK_TRIPS = ((1, 30, 330), (2, 330, 600))
 # and the centre of the 2 m square the environment's boundary and room are.
 ARENA_FRAMES = 300
 ARENA_PAUSE = (120, 186)
-ENVIRONMENTS = {"e": {"boundary": None, "room": [1.8, 1.8]},
+ENVIRONMENTS = {"e": {"boundary": None, "room": [1.8, 1.8], "centerline": [{"p0": [0.0, 0.0], "p1": [10.0, 0.0]}]},
                 "square": {"boundary": [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)], "room": [2.0, 2.0]}}
 
 
@@ -135,17 +135,42 @@ def test_track_runs_dwells_trips_and_goals(track):
 
 def test_heading_spread_is_zero_when_heading_follows_motion():
     """
-    A block running along a straight line with the heading equal to the direction of motion has a heading spread of 0, a heading off by a constant also 0, and a frame whose step is zero adds no residual whatever its heading.
+    A block running along a straight line with the heading equal to the direction of motion has a heading spread of 0 (in all and in its speed bin), a heading off by a constant also 0, and a frame whose step is zero adds no residual whatever its heading.
     """
     arrays = labels(100, "track")
     arrays["x"] = np.arange(100) * 0.01
     arrays["speed"][:] = 0.6
-    assert recipe_of([block("track", arrays)])["track"]["heading_spread_rad"] == pytest.approx(0.0)
+    found = recipe_of([block("track", arrays)])["track"]
+    assert found["heading_spread_rad"] == pytest.approx(0.0)
+    fast = found["heading_spread_by_speed"][-1]
+    assert fast["n"] == 100 and fast["spread_rad"] == pytest.approx(0.0) and fast["speed_m_per_s"] == pytest.approx(0.6)
     arrays["heading"][:] = 1.0
     assert recipe_of([block("track", arrays)])["track"]["heading_spread_rad"] == pytest.approx(0.0)
     arrays["x"][50] = arrays["x"][49]
     arrays["heading"][49] = np.pi
     assert recipe_of([block("track", arrays)])["track"]["heading_spread_rad"] == pytest.approx(0.0)
+
+
+def test_track_speed_variation_lateral_distance_and_tracking_noise(track):
+    """
+    The speed variation is the median over runs of the spread over the mean of the middle 60 percent of each run's speeds, the lateral distance is the offset from the centreline over running frames, and the tracking noise is the spread of the second difference over sqrt(6).
+    """
+    def cv(first, stop):
+        cut = round(0.2 * (stop - first))
+        middle = np.arange(first + cut, stop - cut) / 1000.0
+        return middle.std() / middle.mean()
+
+    found = recipe_of([track])["track"]
+    assert found["speed_cv_run"] == pytest.approx(np.median([cv(first, stop) for _, _, first, stop in TRACK_RUNS]))
+    noise = 0.002
+    arrays = labels(100, "track")
+    arrays["x"] = np.arange(100) * 0.01
+    arrays["y"] = 0.02 + noise * (-1.0) ** np.arange(100)
+    arrays["speed"][:] = 0.6
+    found = recipe_of([block("track", arrays)])["track"]
+    assert found["lateral_m"]["mean"] == pytest.approx(0.02) and found["lateral_m"]["q95"] == pytest.approx(0.02 + noise)
+    second = np.concatenate([np.zeros(98), 4 * noise * (-1.0) ** np.arange(98)])
+    assert found["tracking_noise_m"] == pytest.approx(second.std() / np.sqrt(6))
 
 
 def test_arena_pauses_boundary_and_grid(arena):
@@ -167,6 +192,7 @@ def test_arena_pauses_boundary_and_grid(arena):
     assert grid[9, 0] == pytest.approx(60 / ARENA_FRAMES) and grid[9, 9] == pytest.approx(60 / ARENA_FRAMES)
     assert grid[5, 5] == pytest.approx(60 / ARENA_FRAMES)
     assert found["phase_share"] == {"forage": pytest.approx(1.0), "pause": 0.0}
+    assert found["speed_cv"] == pytest.approx(0.0)
 
 
 def test_two_blocks_pool_frames_and_count_stretches_per_block(track):

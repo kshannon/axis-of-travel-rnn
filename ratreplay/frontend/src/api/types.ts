@@ -577,13 +577,18 @@ export interface Recipe {
   heading_spread_rad: number | null;
   pauses: { per_min: number; duration_s: Quantiles };
   phase_share: Record<string, number>;
-  /** Track: the runs per path id, the dwells per site, the trips per minute and the share of outbound runs per goal. */
+  /** Both kinds: the per frame tracking noise in metres, from the spread of the position's second difference. */
+  tracking_noise_m?: number | null;
+  /** Track: the runs per path id, the speed variation within a run, the distance from the centreline over running frames, the dwells per site, the trips per minute and the share of outbound runs per goal. */
   runs?: Record<string, { count: number; duration_s: Quantiles }>;
+  speed_cv_run?: number | null;
+  lateral_m?: Quantiles;
   dwell_s?: Record<string, Quantiles>;
   trips_per_min?: number;
   goal_share?: Record<string, number>;
-  /** Arena: its environment, the distance to the boundary and the occupancy over the room's grid. */
+  /** Arena: its environment, the speed variation within a running stretch, the distance to the boundary and the occupancy over the room's grid. */
   environment?: string;
+  speed_cv?: number | null;
   boundary_distance_m?: Quantiles;
   occupancy_grid?: number[][];
 }

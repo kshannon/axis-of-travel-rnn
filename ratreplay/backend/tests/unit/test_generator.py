@@ -1,5 +1,5 @@
 """
-GeneratorEngine over a hand made recipe: deterministic in its seed, in the transformed schema, inside the geometry, its runs from site to site, blocked by TrajectoryEngine.blocks like a real session with the camera recovered, its dwells still and its heading spread the recipe's, and refusing what it cannot generate from.
+GeneratorEngine over a hand made recipe: deterministic in its seed, in the transformed schema, inside the geometry, its runs from site to site, blocked by TrajectoryEngine.blocks like a real session with the camera recovered, its lateral spread, tracking noise, varied runs, wandering dwells and speed dependent heading the recipe's, and refusing what it cannot generate from.
 """
 
 import datetime
@@ -12,6 +12,8 @@ from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.transformed import FRAMES
 from ratreplay_api.engines.generator import GOALS, START, GeneratorEngine
 from ratreplay_api.engines.trajectory import RULES, TrajectoryEngine
+from ratreplay_api.engines.trajectory.kinematics import kinematics
+from ratreplay_api.engines.trajectory.recipe import circular_std
 from ratreplay_api.engines.trajectory.room import to_room
 from ratreplay_api.utilities.errors import Invalid
 
@@ -19,7 +21,9 @@ ENVIRONMENTS = Path(__file__).resolve().parents[4] / "configs" / "environments"
 SEED, LENGTH_S, SESSION_ID, DATE = 7, {"arena": 120.0, "track": 300.0}, "syn_test", datetime.date(2026, 10, 19)
 LED_SEPARATION_M = 0.05
 SITE_TOLERANCE_M, SCALE_TOLERANCE, ROTATION_TOLERANCE_RAD = 0.03, 0.05, 0.01
-SPREAD_TOLERANCE_RAD = 0.05
+RECIPE_TOLERANCE, MIN_RUN_CV, MIN_DWELL_SPAN_M = 0.3, 0.1, 0.02
+FAST_M_PER_S, MAX_FAST_SPREAD_RAD, MIN_STILL_SPREAD_RAD, MAX_FLIP_SHARE = 0.3, 0.6, 1.5, 1e-3
+NOISE_M = 0.002
 TRACK_SCALE = 300.0
 CAMERA = {
     "track": {"scale_px_per_m": TRACK_SCALE, "rotation_rad": 0.1, "flip": True, "offset_m": [-0.3, 2.1]},
@@ -35,6 +39,13 @@ def q(q05, q25, q50, q75, q95):
     return {"q05": q05, "q25": q25, "q50": q50, "q75": q75, "q95": q95, "mean": q50}
 
 
+def curve(degrees):
+    """
+    A heading spread by speed list over the speeds of Kyle's real curves, the spreads given in degrees.
+    """
+    return [{"speed_m_per_s": s, "spread_rad": float(np.radians(d)), "n": 1000} for s, d in zip((0.05, 0.1, 0.17, 0.23, 0.33, 0.67), degrees)]
+
+
 OUTBOUND, RETURN = q(4.0, 4.5, 5.0, 5.5, 6.0), q(6.0, 7.0, 7.5, 8.0, 9.0)
 RECIPE = {
     "track": {
@@ -44,10 +55,13 @@ RECIPE = {
                  "10": {"count": 20, "duration_s": RETURN}},
         "dwell_s": {"start": q(1.0, 1.5, 2.0, 2.5, 3.0), "goal": q(1.0, 1.5, 2.0, 2.5, 3.0)},
         "trips_per_min": 3.0, "goal_share": {"1": 0.25, "2": 0.25, "3": 0.25, "4": 0.25},
+        "lateral_m": q(0.0014, 0.0070, 0.0148, 0.0253, 0.0431), "speed_cv_run": 0.25, "tracking_noise_m": NOISE_M,
+        "heading_spread_by_speed": curve((145, 120, 90, 60, 30, 15)), "heading_lag_s": 0.044,
     },
     "arena": {
         "speed": q(0.0, 0.05, 0.12, 0.2, 0.35), "turn_rate": q(-2.5, -0.8, 0.0, 0.8, 2.5), "turn_rate_abs_mean": 1.0,
         "still_fraction": 0.2, "heading_spread_rad": 0.4, "pauses": {"per_min": 2.0, "duration_s": q(1.0, 1.5, 2.0, 2.5, 3.0)},
+        "speed_cv": 0.3, "tracking_noise_m": NOISE_M, "heading_spread_by_speed": curve((150, 125, 95, 70, 50, 50)), "heading_lag_s": 0.149,
     },
 }
 
@@ -119,11 +133,11 @@ def test_the_arrays_carry_every_frames_column_with_its_length_and_dtype(made):
 
 def test_every_position_lies_inside_the_geometry(made, environments):
     track, _ = room_of(made, "track")
-    half = environments["track"]["params"]["corridor_width"] / 2
+    allowed = environments["track"]["params"]["corridor_width"] / 2 + LED_SEPARATION_M / 2 + 3 * NOISE_M
     nearest = np.min([segment_distance(track, s["p0"], s["p1"]) for s in environments["track"]["centerline"]], axis=0)
-    assert nearest.max() <= half
+    assert nearest.max() <= allowed
     arena, _ = room_of(made, "arena")
-    assert np.hypot(*(arena - np.array(environments["arena"]["room"]) / 2).T).max() <= environments["arena"]["params"]["diameter"] / 2
+    assert np.hypot(*(arena - np.array(environments["arena"]["room"]) / 2).T).max() <= environments["arena"]["params"]["diameter"] / 2 + 3 * NOISE_M
 
 
 def test_every_run_starts_at_its_site_and_ends_at_the_other(made, environments):
@@ -146,14 +160,36 @@ def test_the_session_blocks_like_a_real_one_with_trips_and_the_camera_recovered(
         assert abs(built["frame"][kind]["rotation_rad"] - CAMERA[kind]["rotation_rad"]) < ROTATION_TOLERANCE_RAD
 
 
-def test_the_blocks_measure_back_to_the_recipe_with_still_dwells(built, environments):
-    found = TrajectoryEngine().recipe([{"row": b["row"], "arrays": b["arrays"]} for b in built["blocks"]], {g["name"]: g for g in environments.values()}, RULES)
+def recipe_of(built, environments):
+    """
+    The recipe of the generated blocks.
+    """
+    return TrajectoryEngine().recipe([{"row": b["row"], "arrays": b["arrays"]} for b in built["blocks"]], {g["name"]: g for g in environments.values()}, RULES)
+
+
+def test_the_blocks_measure_back_to_the_recipe_with_wandering_dwells_and_varied_runs(made, built, environments):
+    found = recipe_of(built, environments)
+    assert abs(found["track"]["lateral_m"]["q50"] / RECIPE["track"]["lateral_m"]["q50"] - 1) < RECIPE_TOLERANCE
     for kind in ("track", "arena"):
-        assert abs(found[kind]["heading_spread_rad"] - RECIPE[kind]["heading_spread_rad"]) < SPREAD_TOLERANCE_RAD
+        assert abs(found[kind]["tracking_noise_m"] / NOISE_M - 1) < RECIPE_TOLERANCE
+        assert found[kind]["still_fraction"] > 0.05
+    durations = np.array([run["duration_s"] for run in made["runs"] if run["path_id"] in GOALS])
+    assert durations.std() / durations.mean() > MIN_RUN_CV
     track = next(b for b in built["blocks"] if b["row"]["kind"] == "track")
-    dwelling = track["arrays"]["phase"] == "dwell"
-    assert dwelling.any() and np.nanmedian(track["arrays"]["speed"][dwelling]) < RULES["running_floor_m_per_s"] / 2
-    assert found["track"]["still_fraction"] > 0.2 and found["arena"]["pauses"]["per_min"] > 0
+    dwelling = np.flatnonzero(track["arrays"]["phase"] == "dwell")
+    longest = max(np.split(dwelling, np.flatnonzero(np.diff(dwelling) > 1) + 1), key=len)
+    assert max(np.ptp(track["arrays"]["x"][longest]), np.ptp(track["arrays"]["y"][longest])) > MIN_DWELL_SPAN_M
+
+
+def test_the_heading_is_tight_at_a_run_wide_when_still_and_seldom_flips(built):
+    track = next(b for b in built["blocks"] if b["row"]["kind"] == "track")
+    arrays = track["arrays"]
+    _, motion, _ = kinematics(arrays["x"], arrays["y"], arrays["heading"], np.zeros(len(arrays["x"]), bool), 60, RULES)
+    residual = np.angle(np.exp(1j * (arrays["heading"] - motion)))
+    fast, still = arrays["speed"] > FAST_M_PER_S, arrays["speed"] < RULES["running_floor_m_per_s"]
+    assert circular_std(residual[fast & np.isfinite(residual)]) < MAX_FAST_SPREAD_RAD
+    assert circular_std(residual[still & np.isfinite(residual)]) > MIN_STILL_SPREAD_RAD
+    assert np.mean(np.abs(np.angle(np.exp(1j * np.diff(arrays["heading"])))) > np.pi / 2) < MAX_FLIP_SHARE
 
 
 def test_a_track_that_is_not_the_triple_t_an_arena_that_is_not_a_circle_and_an_empty_track_recipe_are_refused(environments):

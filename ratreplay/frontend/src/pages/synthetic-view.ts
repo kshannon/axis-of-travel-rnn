@@ -106,12 +106,19 @@ function numberRows(prefix: string, real: Numbers | undefined, synthetic: Number
 const quantileRows = (prefix: string, real: Quantiles | undefined, synthetic: Quantiles | undefined): CompareRow[] =>
   numberRows(prefix, real as Numbers | undefined, synthetic as Numbers | undefined, QUANTILE_ROWS);
 
+/** A number or a distribution times a factor, for a unit two decimals can show (metres as centimetres or millimetres). */
+const times = (value: number | null | undefined, factor: number): number | null | undefined => (value === null || value === undefined ? value : value * factor);
+const scaled = (q: Quantiles | undefined, factor: number): Quantiles | undefined =>
+  q && (Object.fromEntries(Object.entries(q).map(([key, value]) => [key, times(value, factor)])) as unknown as Quantiles);
+const CM_PER_M = 100;
+const MM_PER_M = 1000;
+
 /** The rows of a record of plain numbers, one per key of either side. */
 function recordRows(prefix: string, real: Record<string, number> | undefined, synthetic: Record<string, number> | undefined): CompareRow[] {
   return keysOf(real, synthetic).map((key) => ({ label: `${prefix} ${key}`, real: fixed(real?.[key]), synthetic: fixed(synthetic?.[key]) }));
 }
 
-/** The rows of one kind's recipes side by side: the counts, the speed and turn rate quantiles, the still fraction, the heading spread, the pauses, the track's runs, dwells, trips and goal shares, the arena's boundary distance, and the phase shares. */
+/** The rows of one kind's recipes side by side: the counts, the speed and turn rate quantiles, the still fraction, the heading spread, the tracking noise, the pauses, the track's runs, speed variation, centreline distance, dwells, trips and goal shares, the arena's speed variation and boundary distance, and the phase shares. */
 export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefined): CompareRow[] {
   const rows: CompareRow[] = [
     { label: "blocks", real: String(real?.counts.blocks ?? NONE), synthetic: String(synthetic?.counts.blocks ?? NONE) },
@@ -121,6 +128,7 @@ export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefi
     { label: "turn rate, mean of the absolute value", real: fixed(real?.turn_rate_abs_mean), synthetic: fixed(synthetic?.turn_rate_abs_mean) },
     { label: "still fraction", real: fixed(real?.still_fraction), synthetic: fixed(synthetic?.still_fraction) },
     { label: "heading spread (rad)", real: fixed(real?.heading_spread_rad), synthetic: fixed(synthetic?.heading_spread_rad) },
+    { label: "tracking noise (mm)", real: fixed(times(real?.tracking_noise_m, MM_PER_M)), synthetic: fixed(times(synthetic?.tracking_noise_m, MM_PER_M)) },
     { label: "pauses per minute", real: fixed(real?.pauses.per_min), synthetic: fixed(synthetic?.pauses.per_min) },
     ...quantileRows("pause duration (s)", real?.pauses.duration_s, synthetic?.pauses.duration_s),
   ];
@@ -128,11 +136,18 @@ export function compareRows(real: Recipe | undefined, synthetic: Recipe | undefi
     rows.push({ label: `runs on path ${path}`, real: String(real?.runs?.[path]?.count ?? NONE), synthetic: String(synthetic?.runs?.[path]?.count ?? NONE) });
     rows.push(...quantileRows(`run duration on path ${path} (s)`, real?.runs?.[path]?.duration_s, synthetic?.runs?.[path]?.duration_s));
   }
+  if (real?.speed_cv_run !== undefined || synthetic?.speed_cv_run !== undefined) {
+    rows.push({ label: "speed variation within a run (sd over mean)", real: fixed(real?.speed_cv_run), synthetic: fixed(synthetic?.speed_cv_run) });
+  }
+  if (real?.lateral_m || synthetic?.lateral_m) rows.push(...quantileRows("distance from the centreline (cm)", scaled(real?.lateral_m, CM_PER_M), scaled(synthetic?.lateral_m, CM_PER_M)));
   for (const site of keysOf(real?.dwell_s, synthetic?.dwell_s)) rows.push(...quantileRows(`dwell at ${site} (s)`, real?.dwell_s?.[site], synthetic?.dwell_s?.[site]));
   if (real?.trips_per_min !== undefined || synthetic?.trips_per_min !== undefined) {
     rows.push({ label: "trips per minute", real: fixed(real?.trips_per_min), synthetic: fixed(synthetic?.trips_per_min) });
   }
   rows.push(...recordRows("goal share, path", real?.goal_share, synthetic?.goal_share));
+  if (real?.speed_cv !== undefined || synthetic?.speed_cv !== undefined) {
+    rows.push({ label: "speed variation within a running stretch (sd over mean)", real: fixed(real?.speed_cv), synthetic: fixed(synthetic?.speed_cv) });
+  }
   if (real?.boundary_distance_m || synthetic?.boundary_distance_m) rows.push(...quantileRows("boundary distance (m)", real?.boundary_distance_m, synthetic?.boundary_distance_m));
   rows.push(...recordRows("phase share", real?.phase_share, synthetic?.phase_share));
   return rows;
