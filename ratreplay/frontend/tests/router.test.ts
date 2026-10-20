@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { pageFromHash, Visit } from "../src/router";
 
 const PAGE_IDS = ["incoming", "settings", "replay"];
@@ -46,4 +46,41 @@ test("a load that fails after its page was left reports nothing, so no error lan
   fail("could not load");
   await loading;
   expect(reported).toEqual([]);
+});
+
+// A visit retrying a read every 5 s for a minute, the clock faked.
+const EVERY_MS = 5000;
+const FOR_MS = 60000;
+
+test("a retry stops at the first attempt that answers", async () => {
+  vi.useFakeTimers();
+  const attempt = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(false).mockResolvedValue(true);
+  const retried = new Visit().retry(attempt, EVERY_MS, FOR_MS);
+  await vi.advanceTimersByTimeAsync(FOR_MS);
+  expect(await retried).toBe(true);
+  expect(attempt).toHaveBeenCalledTimes(3);
+  vi.useRealTimers();
+});
+
+test("a retry gives up after the minute, twelve attempts in all", async () => {
+  vi.useFakeTimers();
+  const attempt = vi.fn().mockResolvedValue(false);
+  const retried = new Visit().retry(attempt, EVERY_MS, FOR_MS);
+  await vi.advanceTimersByTimeAsync(2 * FOR_MS);
+  expect(await retried).toBe(false);
+  expect(attempt).toHaveBeenCalledTimes(12);
+  vi.useRealTimers();
+});
+
+test("a retry makes no attempt once its page was left", async () => {
+  vi.useFakeTimers();
+  const attempt = vi.fn().mockResolvedValue(false);
+  const visit = new Visit();
+  const retried = visit.retry(attempt, EVERY_MS, FOR_MS);
+  await vi.advanceTimersByTimeAsync(EVERY_MS);
+  visit.hide();
+  await vi.advanceTimersByTimeAsync(FOR_MS);
+  expect(await retried).toBe(false);
+  expect(attempt).toHaveBeenCalledTimes(1);
+  vi.useRealTimers();
 });

@@ -21,6 +21,16 @@ export class Visit {
     this.on = false;
   }
 
+  /** Try again every `everyMs` for `forMs` while the page is shown, until the attempt answers true. Gives back whether it did, and false when the page was left first. */
+  async retry(attempt: () => Promise<boolean>, everyMs: number, forMs: number): Promise<boolean> {
+    for (let waited = 0; waited < forMs; waited += everyMs) {
+      await new Promise((resolve) => setTimeout(resolve, everyMs));
+      if (!this.on) return false;
+      if (await attempt()) return this.on;
+    }
+    return false;
+  }
+
   /** Say something about the page's own work, such as a failure for the toast stack, only while the page is shown. */
   say(message: () => void): void {
     if (this.on) message();

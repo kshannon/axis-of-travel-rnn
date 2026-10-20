@@ -32,7 +32,7 @@ import { chipsOf, leaveQuestion, neighbours, pickerOrder, stepReason } from "./r
 import type { Step } from "./replay-picker";
 import { escapeClears, laneSelection, pickedRun, selectionText, toggled } from "./replay-selection";
 import type { Picked } from "./replay-selection";
-import { blockCards, factsLine, liveTiles, mapTitle, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
+import { blockCards, factsLine, liveTiles, LOADING, loadingText, mapTitle, marksLine, saveToast, sessionNotes, sessionStatus, settingsLine, summaryTiles } from "./replay-view";
 import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Incoming page.";
@@ -67,6 +67,8 @@ function registerReplay(): void {
     let picked: Picked | null = null;
     const visit = new Visit();
     let stopPlayback = () => {};
+    // The seconds-waited counter of a load, one tick a second from the moment it starts.
+    let ticker: ReturnType<typeof setInterval> | undefined;
     // The run a flag acts on: the run selected, else the run under the cursor.
     const runInReach = () => pickedRun(ws.header, picked) ?? runAt(ws.header.runs, ws.clock.index + 1);
     const targetOf = (position?: number) => {
@@ -76,6 +78,7 @@ function registerReplay(): void {
 
     return {
       loading: true,
+      waited: 0,
       busy: false,
       sessionId: "",
       facts: "",
@@ -131,7 +134,11 @@ function registerReplay(): void {
       get speedLabel() {
         return `${SPEEDS[this.speedIndex]}x`;
       },
+      get loadingLine() {
+        return loadingText(this.sessionId, this.waited);
+      },
       get mapTitle() {
+        if (this.loading) return LOADING;
         return mapTitle(this.sessionId, this.mapLayers.scope, this.epochKinds, this.epochNow, this.selectedName);
       },
       /** The choices of the epoch scope: follow the cursor, each epoch kind the session has, then all of them together. */
@@ -180,6 +187,7 @@ function registerReplay(): void {
 
       destroy() {
         visit.hide();
+        clearInterval(ticker);
         stopPlayback();
         timeline?.destroy();
         map?.destroy();
@@ -192,6 +200,9 @@ function registerReplay(): void {
       async load(sessionId: string): Promise<boolean> {
         this.loading = true;
         this.sessionId = sessionId;
+        this.waited = 0;
+        clearInterval(ticker);
+        ticker = setInterval(() => this.waited++, 1000);
         try {
           ws = await Workspace.open(sessionId, { ...(await settingsStore().load()) });
           if (!visit.shown) return false;
@@ -224,6 +235,7 @@ function registerReplay(): void {
           healthStore().closeSession(); // the page shows its empty state and the way to choose a session
           return false;
         } finally {
+          clearInterval(ticker);
           this.loading = false;
         }
       },

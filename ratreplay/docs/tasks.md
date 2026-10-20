@@ -305,6 +305,18 @@ anything that touches real data.
       frames within 0.15 m of a reward site left out of the scale histogram (a change to real data
       registration too), or the prominence rule lowered. The next real generate at 20 minutes says
       whether the real recipe trips it. [TrajectoryEngine.session frame]
+- [x] K38 Opening a session over a tunnel is slow and silent: the header request builds the whole session
+      and the arrays request builds it again, ten float64 columns travel as Arrow, and the page shows
+      nothing until both land. ReviewManager keeps the last built session (keyed by session id, start
+      offset and the transformed stamp) so the second request reuses it, the arrays travel as float32
+      except t, and the Replay page says "loading {sid}, {n} s" in the session card and the map while it
+      waits, with the health store retried on the Incoming page when the boot read failed. Kyle,
+      2026-10-20. [ReviewManager, Page 3, Frontend]
+      Built: on the fixture session the arrays request fell from 8 ms to 0.1 ms and the stream shrank 44
+      percent. Left: load still builds the engine session twice, since blocks builds its own inside the
+      manager's _made, about half of load's time, K39.
+- [ ] K39 TrajectoryEngine.blocks takes a built session (or the manager hands it the one it has) so a
+      header load builds the session once. [TrajectoryEngine, ReviewManager]
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]

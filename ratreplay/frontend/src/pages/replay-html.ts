@@ -4,6 +4,7 @@ import { START_OFFSET_LIMIT, START_OFFSET_STEP } from "../session/workspace";
 import { BUTTON, BUTTON_ICON, BUTTON_PRIMARY, BUTTON_WARN, CHIP_ON, CHIP_OFF, disabledWhy, FIELD, GROUP_LABEL, INPUT, KBD, LAYER_TOGGLE, SEGMENT, SEGMENT_PRIMARY, SEGMENTS, TILE, TILE_LABEL, TILE_VALUE } from "../ui/style";
 import { EXCLUDED_SAVE } from "./exclusion-view";
 import { playbackBody } from "./playback-html";
+import { LOADING } from "./replay-view";
 
 const MAP_HELP = `
   <p>The room in metres, north up, the same frame for every epoch. The layers are checkboxes, each on or off on its own. Occupancy is where the animal spent time in an epoch, darker is more. Geometry is the environment of the epoch: the walls, the boundary or circle of an arena, the dotted centerline and the reward sites. The epochs are one choice of several, and the title says which is drawn. Follow cursor draws the occupancy and geometry of the epoch under the cursor only, so the map changes where the cursor crosses into the next epoch. Arena or track draws that epoch alone, and both draws every epoch of the session together.</p>
@@ -60,7 +61,7 @@ const sessionPicker = `
 const sessionBody = `
   <div class="flex flex-col gap-2">
     ${sessionPicker}
-    <p class="text-sm" x-text="facts"></p>
+    <p data-testid="facts" class="text-sm" x-text="loading ? loadingLine : facts"></p>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span data-testid="state" :class="status.state.chip" :title="status.state.title" x-text="status.state.text"></span>
       <template x-for="flag in status.flags" :key="flag.text">
@@ -74,7 +75,8 @@ const sessionBody = `
   </div>`;
 
 const summaryBody = `
-  <div class="grid grid-cols-9 gap-2">
+  <p x-show="loading" data-testid="summary-loading" class="text-sm text-muted">${LOADING}</p>
+  <div x-show="!loading" class="grid grid-cols-9 gap-2">
     <template x-for="tile in summary" :key="tile.label">
       <div class="${TILE}" :class="tile.wide ? 'col-span-2' : ''" :title="tile.title">
         <p class="truncate ${TILE_LABEL}" x-text="tile.label"></p>
@@ -83,7 +85,7 @@ const summaryBody = `
       </div>
     </template>
   </div>
-  <p data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
+  <p x-show="!loading" data-testid="settings" class="mt-2 text-xs text-muted" title="The window settings the counts are at. The Blocks page changes them.">settings in use: <span class="text-ink" x-text="settingsLine"></span></p>`;
 
 // What a block problem costs, said after it: the frames of the block are not built until they are cut out or the block is rejected.
 const PROBLEM_CONSEQUENCE = ", not built until the frames are cut out or the block rejected";

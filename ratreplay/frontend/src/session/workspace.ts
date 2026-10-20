@@ -11,6 +11,13 @@ export const START_OFFSET_STEP = 0.01;
 const sameResult = (a: Preview, b: Preview) =>
   JSON.stringify([a.blocks, a.flagged_runs, a.cuts]) === JSON.stringify([b.blocks, b.flagged_runs, b.cuts]);
 
+/** The arrays as the views take them: each float32 column the API sends widened to float64, every other column as it came. */
+export function widened(sent: object): SessionArrays {
+  return Object.fromEntries(Object.entries(sent).map(([name, values]) => [name, values instanceof Float32Array ? Float64Array.from(values) : values])) as unknown as SessionArrays;
+}
+
+const arraysOf = async (...asked: Parameters<typeof getSessionArrays>) => widened(await getSessionArrays(...asked));
+
 export interface Loaded {
   header: SessionHeader;
   arrays: SessionArrays;
@@ -73,7 +80,7 @@ export class Workspace {
       await kept.useSettings(settings);
       return kept;
     }
-    const [header, arrays] = await Promise.all([getSession(sessionId, settings), getSessionArrays(sessionId)]);
+    const [header, arrays] = await Promise.all([getSession(sessionId, settings), arraysOf(sessionId)]);
     const { review: saved, blocks, refusals, cuts, flagged_runs } = header;
     return (Workspace.current = new Workspace({ header, arrays, settings, saved, preview: { blocks, refusals, cuts, flagged_runs } }));
   }
@@ -124,7 +131,7 @@ export class Workspace {
       if (offset === this.startOffset) return false;
       const { session_id: id } = this.header;
       const asked = offset ?? this.header.start_offset_default_m;
-      const [header, arrays, preview] = await Promise.all([getSession(id, this.settings, asked), getSessionArrays(id, asked), this.previewOf(this.editor.edits, this.settings, offset)]);
+      const [header, arrays, preview] = await Promise.all([getSession(id, this.settings, asked), arraysOf(id, asked), this.previewOf(this.editor.edits, this.settings, offset)]);
       this.header = header;
       this.arrays = arrays;
       this.preview = preview;

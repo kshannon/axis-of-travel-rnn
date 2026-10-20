@@ -75,6 +75,23 @@ def manager_on(folders, transformed_access=TransformedAccess):
     return ReviewManager(TrajectoryEngine(), transformed_access(transformed), ProcessedAccess(processed), EnvironmentAccess(environments), COMMIT)
 
 
+class CountingEngine(TrajectoryEngine):
+    """
+    The engine counting the sessions it builds.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.built = 0
+
+    def session(self, arrays, environment, rules):
+        """
+        The engine's session, counted.
+        """
+        self.built += 1
+        return super().session(arrays, environment, rules)
+
+
 @pytest.fixture
 def manager(folders):
     """
@@ -116,6 +133,27 @@ def test_load_gives_the_header_with_the_initial_blocks_and_their_window_counts_a
     json.dumps(header)
     with pytest.raises(NotFound):
         manager.load(S2, SHORT)
+
+
+def test_the_last_session_built_is_reused_by_every_verb_until_the_session_offset_or_stamp_changes(folders):
+    transformed, processed, environments = folders
+    engine = CountingEngine()
+    manager = ReviewManager(engine, TransformedAccess(transformed), ProcessedAccess(processed), EnvironmentAccess(environments), COMMIT)
+    manager.load(S1, SHORT)
+    manager.arrays(S1)
+    manager.preview(S1, ACCEPT, SHORT)
+    assert engine.built == 1
+    manager.load(S1, SHORT, OFFSET)
+    manager.arrays(S1, OFFSET)
+    assert engine.built == 2
+    manager.load(S1, SHORT)
+    assert engine.built == 3
+    manager.load(S6, SHORT)
+    manager.load(S1, SHORT)
+    assert engine.built == 5
+    (transformed / "manifest.json").write_text(json.dumps({"run": {"timestamp": "2026-10-20T10:00:00+00:00"}}))
+    manager.load(S1, SHORT)
+    assert engine.built == 6
 
 
 def test_a_session_the_funnel_leaves_out_is_refused_a_save_and_its_review_is_skipped_by_a_rebuild(folders, manager, monkeypatch):

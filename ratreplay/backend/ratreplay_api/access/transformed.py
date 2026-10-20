@@ -128,7 +128,15 @@ class TransformedAccess:
                 "epochs": [e for e in found["epochs"] if e["session_id"] == sid],
                 "runs": [r for r in found["runs"] if r["session_id"] == sid],
                 "arrays": tables.read_parquet(self._frames_path(sid)),
-                "stamp": self._manifest()["run"]["timestamp"]}
+                "stamp": self.stamp()}
+
+    def stamp(self):
+        """
+        The converter run's timestamp, which a session is stamped with, from the manifest alone, NotFound when the folder is not there.
+        """
+        if not self.root.is_dir():
+            raise NotFound(f"{self.root} does not exist")
+        return self._manifest()["run"]["timestamp"]
 
     def _manifest(self):
         """

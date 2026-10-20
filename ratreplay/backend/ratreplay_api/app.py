@@ -64,7 +64,7 @@ class UnsetAccess:
         raise Invalid(self.problem)
 
     # The verbs of TransformedAccess, ProcessedAccess and SyntheticAccess that need their folder.
-    sessions = session = refused
+    sessions = session = stamp = refused
     reviews = review = write_review = delete_review = refused
     blocks = block = built = metadata = write_blocks = delete_build = refused
     window_settings = write_window_settings = refused

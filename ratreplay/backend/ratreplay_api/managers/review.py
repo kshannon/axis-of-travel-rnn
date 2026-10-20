@@ -4,6 +4,7 @@ ReviewManager: the sessions index, a session loaded for the replay, the blocks s
 
 import getpass
 import json
+import threading
 
 from ..engines.trajectory import RULES, VERSION
 from ..utilities import clock
@@ -15,6 +16,10 @@ EPOCH_KEYS = ("epoch", "environment", "condition", "frame_start", "frame_end", "
 RUN_KEYS = ("run", "epoch", "path_id", "clean", "frame_start", "frame_end")
 DRAWN_KEYS = ("frame", "heading_spans", "cut_points", "margins", "stretches", "occupancy", "stops")
 ARRAY_KEYS = ("t", "x", "y", "x_smooth", "y_smooth", "heading", "speed", "turn_rate", "motion", "n_lights")
+
+# The arrays travel as float32 to halve the bytes over a tunnel, except the time axis t, which keeps its float64.
+WIRE_FLOAT, FULL_FLOAT = "float32", "float64"
+FULL_PRECISION = ("t",)
 
 # The statuses of a block: the two a build keeps, a block no one has looked at, and a removed block, and the keys of a review's block.
 CONFIRMED, AUTO, DROPPED = "confirmed", "auto", "dropped"
@@ -99,12 +104,14 @@ def warnings_of(found, review):
 
 class ReviewManager:
     """
-    Stateless: the engine and the accesses it works with, handed in at the composition root.
+    Stateless but for one memo: the engine and the accesses it works with, handed in at the composition root, and the last session built.
     """
 
     def __init__(self, trajectory, transformed, processed, environment, code_version):
         self.trajectory, self.transformed, self.processed, self.environment = trajectory, transformed, processed, environment
         self.code_version = code_version
+        # The memo: (session id, start offset, transformed stamp) and what _session built for it, held under a lock so two requests at once build once.
+        self._last, self._lock = None, threading.Lock()
 
     def index(self):
         """
@@ -147,10 +154,11 @@ class ReviewManager:
 
     def arrays(self, sid, start_offset_m=None):
         """
-        A session's arrays over every frame in metres, registered with the start offset that applies, what the page plays, without the blocks and their windows.
+        A session's arrays over every frame in metres, registered with the start offset that applies, what the page plays, without the blocks and their windows, as float32 but t.
         """
         offset = offset_applied(self.processed.review(sid), start_offset_m)
-        return picked(self._session(sid, offset)[2]["kinematics"], ARRAY_KEYS)
+        found = picked(self._session(sid, offset)[2]["kinematics"], ARRAY_KEYS)
+        return {name: values.astype(WIRE_FLOAT) if str(values.dtype) == FULL_FLOAT and name not in FULL_PRECISION else values for name, values in found.items()}
 
     def preview(self, sid, edits, settings, start_offset_m=None):
         """
@@ -261,10 +269,14 @@ class ReviewManager:
 
     def _session(self, sid, start_offset_m=None):
         """
-        The session, its environments built with this start offset and the engine's session over them.
+        The session, its environments built with this start offset and the engine's session over them, built once for the last session id, start offset and transformed stamp asked for and handed back as it was while they stay the same.
         """
-        arrays, environments = self._frames(sid, start_offset_m)
-        return arrays, environments, self.trajectory.session(arrays, environments, RULES)
+        with self._lock:
+            key = (sid, start_offset_m, self.transformed.stamp())
+            if self._last is None or self._last[0] != key:
+                arrays, environments = self._frames(sid, start_offset_m)
+                self._last = (key, (arrays, environments, self.trajectory.session(arrays, environments, RULES)))
+            return self._last[1]
 
     def _yaml_offset(self, arrays):
         """

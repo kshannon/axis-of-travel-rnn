@@ -13,7 +13,8 @@ export interface HealthStore {
   /** The API's format has been checked against the page's. */
   checked: boolean;
   sessionId: string;
-  load(reload?: boolean): Promise<boolean>;
+  /** Read the folders and say whether that worked, the failure going to the toast stack unless the read is quiet (a retry of one that already said so). */
+  load(reload?: boolean, quiet?: boolean): Promise<boolean>;
   /** Whether the API is the one this page was built for, checked on the first load, a warning when it is not. */
   checkApi(): Promise<void>;
   openSession(sessionId: string): void;
@@ -34,7 +35,7 @@ export function registerHealth(): void {
     checked: false,
     sessionId: localStorage.getItem(SESSION_KEY) ?? "",
     /** Read the folders and say so when that fails. Another folder than before drops the work open on the old one. */
-    async load(reload = false) {
+    async load(reload = false, quiet = false) {
       try {
         const next = await getHealth(reload);
         if (this.found && foldersOf(next) !== foldersOf(this.found)) {
@@ -49,7 +50,7 @@ export function registerHealth(): void {
         }
         return true;
       } catch (error) {
-        toast.error(errorText(error));
+        if (!quiet) toast.error(errorText(error));
         return false;
       }
     },

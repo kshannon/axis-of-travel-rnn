@@ -116,6 +116,14 @@ export function factsLine(header: SessionHeader): string {
   return `rat ${header.subject_id}, ${header.date}, ${header.protocol}, ${header.rate_hz} Hz, ${header.n_frames} frames, ${counted(header.n_initial_blocks, "block")} automatically derived`;
 }
 
+/** What the map card's title and the summary say while a session loads. */
+export const LOADING = "loading";
+
+/** What the session card says while it loads: the word, the session id and the seconds waited so far. */
+export function loadingText(sessionId: string, seconds: number): string {
+  return `${LOADING} ${sessionId}, ${seconds} s`;
+}
+
 /** What the map card's title says is drawn: the session, the epochs of the scope (the one under the cursor when it is followed, and none when that epoch is not one the rules cut) and the block selected. */
 export function mapTitle(sessionId: string, scope: string, kinds: string[], epochNow: string, selectedName: string): string {
   let epochs = scope;

@@ -170,9 +170,11 @@ flowchart TB
   the synthetic sets, so it lives in `utilities/blocks.py` and both accesses read it from there, the
   json, temporary name and key check helpers beside it in `utilities/files.py`. An access still owns
   its layout and its own files' schemas (reviews, metadata, provenance, guesses).
-- One named exception to statelessness: SynthesisManager keeps the open quiz pairs in memory under
+- Two named exceptions to statelessness: SynthesisManager keeps the open quiz pairs in memory under
   opaque ids, so the page never holds a block id before the reveal. Lost on restart, which only closes
-  the unanswered pairs.
+  the unanswered pairs. ReviewManager keeps a memo of the last session built, one entry keyed by session
+  id, start offset and the transformed stamp, so the arrays request after the header reuses the build
+  (Rebuild all does not use it). Lost on restart or Reload, which only builds the session again.
 
 ## Components
 
@@ -511,7 +513,7 @@ query parameters on GET and in the body otherwise.
     GET  /api/sessions/{sid}                 header: epochs, runs, cuts, spans, blocks with window counts, offset, review,
                                              the environments geometry, warnings, refusals, in_dataset and reason,
                                              excluded, annotated_exclude
-    GET  /api/sessions/{sid}/arrays          the arrays as an Arrow IPC stream
+    GET  /api/sessions/{sid}/arrays          the arrays as an Arrow IPC stream, float32 but t (float64) and n_lights (int8)
     POST /api/sessions/{sid}/preview         body edits and settings, returns blocks and refusals, writes nothing
     PUT  /api/sessions/{sid}/blocks          body edits, notes, settings, saves the review and builds the blocks
     PUT  /api/sessions/{sid}/exclusion       body excluded, note, settings: excludes (and builds the session empty at once) or

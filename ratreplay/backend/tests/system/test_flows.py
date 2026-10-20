@@ -75,6 +75,11 @@ def test_a_session_is_listed_loaded_at_the_query_settings_and_streamed_as_arrow(
     assert table.schema.names == list(ARRAY_KEYS) and table.num_rows == header.json()["n_frames"]
 
 
+def test_the_session_arrays_travel_as_float32_but_t_and_the_lights(client):
+    types = {field.name: field.type for field in table_of(client.get(f"/api/sessions/{S1}/arrays")).schema}
+    assert types == {"t": pa.float64(), "n_lights": pa.int8(), **{name: pa.float32() for name in ARRAY_KEYS if name not in ("t", "n_lights")}}
+
+
 def test_a_preview_returns_the_refusal_of_an_illegal_edit_and_writes_nothing(client, processed):
     body = {"edits": [*ACCEPT, {"op": "split", "frame": 100}], "settings": SHORT, "start_offset_m": None}
     response = client.post(f"/api/sessions/{S1}/preview", json=body)

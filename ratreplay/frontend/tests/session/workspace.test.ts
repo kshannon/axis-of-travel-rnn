@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { decodeColumns } from "../../src/api/arrow";
 import * as client from "../../src/api/client";
 import type { Edit, MadeBlock, Preview, ReviewBlock, SessionArrays, SessionHeader, WindowSettings } from "../../src/api/types";
-import { Workspace } from "../../src/session/workspace";
+import { widened, Workspace } from "../../src/session/workspace";
 
 vi.mock("../../src/api/client");
 
@@ -221,4 +221,12 @@ test("the workspace keeps the smoothed position beside the measured one, as the 
   expect(Array.from(arrays.y_smooth)).toEqual([NaN, 5.1, 6]);
   expect(Array.from(arrays.x)).toEqual([1, 2, 3]);
   Workspace.current = null;
+});
+
+test("float32 columns widen to float64 on decode and t and the integer columns stay as they came", () => {
+  const sent = { t: Float64Array.of(0.5, 1e6), x: Float32Array.of(1.5, NaN), n_lights: Int8Array.of(2, 1) };
+  const arrays = widened(sent);
+  expect(arrays.x).toBeInstanceOf(Float64Array);
+  expect(Array.from(arrays.x)).toEqual([1.5, NaN]);
+  expect([arrays.t, arrays.n_lights]).toEqual([sent.t, sent.n_lights]);
 });

@@ -276,7 +276,7 @@ export interface SessionHeader {
   flagged_runs: number[];
 }
 
-// One typed array per column of the Arrow streams, one row per frame.
+// One typed array per column of the Arrow streams, one row per frame. The session's arrays are sent as float32 but t, the Workspace widens them to float64 when it reads them.
 export interface SessionArrays {
   t: Float64Array;
   x: Float64Array;

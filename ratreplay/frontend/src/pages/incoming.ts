@@ -17,6 +17,9 @@ import { blockText, COLUMNS, filterRows, incomingGroups, reviewText, rowTitle, s
 import type { Page } from "./page";
 
 const REPLAY_HASH = "#/replay";
+// A boot read of health that failed, the API not being up yet, is tried again this often for this long.
+const HEALTH_RETRY_MS = 5000;
+const HEALTH_RETRY_FOR_MS = 60000;
 
 function registerIncoming(): void {
   // The strip of read paths and the format. `reloaded` counts the times the config was read again, which the sessions list follows.
@@ -46,10 +49,17 @@ function registerIncoming(): void {
 
       async init() {
         void this.loadFormat();
-        await healthStore().load();
+        if (!(await healthStore().load())) await this.retryHealth();
       },
       destroy() {
         visit.hide();
+      },
+      /** Read health again until it answers, quietly since the first failure was said, then fill in what the failed API left empty: the formats and the sessions list. */
+      async retryHealth() {
+        if (await visit.retry(() => healthStore().load(false, true), HEALTH_RETRY_MS, HEALTH_RETRY_FOR_MS)) {
+          void this.loadFormat();
+          this.reloaded++;
+        }
       },
       /** Read the formats of the files once, they do not change while the tool runs. */
       async loadFormat() {

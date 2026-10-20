@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { MadeBlock, Preview, ReviewBlock, SavedBlocks, SessionHeader } from "../../src/api/types";
-import { blockCards, factsLine, headingText, mapTitle, saveToast, sessionNotes, sessionStatus, summaryTiles } from "../../src/pages/replay-view";
+import { blockCards, factsLine, headingText, loadingText, mapTitle, saveToast, sessionNotes, sessionStatus, summaryTiles } from "../../src/pages/replay-view";
 
 const SETTINGS = { window_s: 5, stride_s: 5, burn_in_s: 1, horizon_s: 0, rate_hz: 20, min_heading_measured: 0.8, min_complete_trips: 1 };
 
@@ -137,4 +137,9 @@ test("the map title names the session and what is drawn: the epoch under the cur
   expect(mapTitle("NS14_rec1", "follow", kinds, "variant", "")).toBe("NS14_rec1, no epoch (following the cursor)"); // an epoch the rules do not cut is not drawn
   expect(mapTitle("NS14_rec1", "arena", kinds, "track", "")).toBe("NS14_rec1, arena");
   expect(mapTitle("NS14_rec1", "all", kinds, "track", "block 2")).toBe("NS14_rec1, arena and track, block 2");
+});
+
+test("the session card says which session loads and for how many seconds", () => {
+  expect(loadingText("NS14_rec1", 0)).toBe("loading NS14_rec1, 0 s");
+  expect(loadingText("NS14_rec1", 12)).toBe("loading NS14_rec1, 12 s");
 });
