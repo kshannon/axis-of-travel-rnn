@@ -60,12 +60,14 @@ export function yieldOf(block: MadeBlock): string {
   return `${counted(count, "window")}, ${verdict.ok ? "ok" : verdict.reasons.join(", ")}`;
 }
 
+/** The block bars, the removed ones first so they draw beneath the blocks that replaced them and give way to them under a click. */
 function blockBars(blocks: MadeBlock[], rateHz: number): Bar[] {
-  return blocks.map((b, position) => ({
+  const bars = blocks.map((b, position) => ({
     lane: "blocks", first: b.frame_start, last: b.frame_end, fill: BLOCK_FILLS[b.status], alpha: BLOCK_ALPHAS[b.status],
-    text: blockName(position), short: blockNumber(position), pick: position,
+    text: blockName(position), short: blockNumber(position), pick: position, under: b.status === "dropped",
     tip: `${blockName(position)}, ${b.status}, frames ${b.frame_start} to ${b.frame_end}, ${(framesOf(b.frame_start, b.frame_end) / rateHz).toFixed(1)} s, ${yieldOf(b)}`,
   }));
+  return [...bars.filter((bar) => bar.under), ...bars.filter((bar) => !bar.under)];
 }
 
 /**

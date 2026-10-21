@@ -53,6 +53,8 @@ export interface Bar {
   /** What the bar writes when `text` is too wide for it, such as "5" for "block 5". */
   short?: string;
   hatched?: boolean;
+  /** Drawn beneath the other bars of its lane and hit only where no other bar is, such as a removed block under the blocks that replaced it. */
+  under?: boolean;
   /** A palette colour name. */
   outline?: string;
   /** Bars that overlap in time sit in rows of their lane, this one in row `row` of `rows`. */
@@ -156,10 +158,11 @@ export function barBox(scale: Scale, bands: Bands, bar: Bar, rateHz: number): [n
 
 /** The bar under a point, none over a gap, the axis or an empty part of a lane. */
 export function hitBar(bars: Bar[], bands: Bands, scale: Scale, rateHz: number, point: { x: number; y: number }): Bar | null {
-  return bars.find((bar) => {
+  const hits = bars.filter((bar) => {
     const [x, y, width, height] = barBox(scale, bands, bar, rateHz);
     return point.x >= x - HIT_SLOP_PX && point.x <= x + width + HIT_SLOP_PX && point.y >= y && point.y <= y + height;
-  }) ?? null;
+  });
+  return hits.find((bar) => !bar.under) ?? hits[0] ?? null;
 }
 
 export function zoomLimits(durationS: number): [number, number] {
