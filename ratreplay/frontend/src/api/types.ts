@@ -183,6 +183,7 @@ export type Edit =
   | { op: "drop"; frame: number }
   | { op: "new"; frame_start: number; frame_end: number }
   | { op: "cut"; frame_start: number; frame_end: number }
+  | { op: "trips" }
   | { op: "flag"; run: number };
 
 /** An edit the rules refused, by its place in the list. */

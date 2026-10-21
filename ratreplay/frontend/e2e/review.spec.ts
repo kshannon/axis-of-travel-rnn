@@ -71,7 +71,7 @@ test("read the folders, review a session, refuse a split, split the track block,
     await expect(cards).toHaveCount(3);
     // the piece selected is edited, which is kept but not accepted yet: its card and the timeline both offer Accept
     const piece = cards.nth(1).getByRole("button", { name: "Accept block 2" });
-    const accept = page.getByRole("button", { name: "Accept", exact: true });
+    const accept = page.getByRole("button", { name: "Accept a", exact: true });
     await expect(cards.nth(1)).toContainText("edited");
     await expect(piece).toBeEnabled();
     await expect(piece).toHaveAttribute("aria-pressed", "false");
@@ -134,6 +134,45 @@ test("read the folders, review a session, refuse a split, split the track block,
     await page.getByRole("button", { name: /^Undo/ }).click();
     await expect(cards).toHaveCount(3);
     await expect(cards.first()).toContainText("confirmed");
+    await expect(state).toHaveText("3 edits not saved");
+  });
+
+  await test.step("One block per trip removes the track blocks and drops the one trip under 10 s, the keys A and R act as their buttons and say why when they cannot, and Undo restores the blocks", async () => {
+    const notes = page.getByLabel("Notes on the session");
+    await page.getByRole("button", { name: "One block per trip" }).click();
+    await expect(toast(page, "0 trip blocks made, 1 dropped as short, the old track blocks removed")).toBeVisible();
+    await expect(cards).toHaveCount(4); // the arena block, the two track pieces removed, and the trip of 5 s (frames 2200 to 2500) dropped
+    await expect(cards.first()).toContainText("confirmed");
+    for (const i of [1, 2, 3]) await expect(cards.nth(i)).toContainText("dropped");
+    await expect(state).toHaveText("4 edits not saved");
+    // typing in the notes box is not a key press for the blocks
+    await notes.pressSequentially("ar");
+    await expect(notes).toHaveValue("ar");
+    await notes.fill("");
+    await expect(state).toHaveText("4 edits not saved");
+    // with nothing selected R says why, with the arena block selected A says it is accepted already and R removes it, which z takes back
+    await cards.first().click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("selection")).toHaveText("nothing selected");
+    await page.keyboard.press("r");
+    const none = toast(page, "Select a block first.");
+    await expect(none).toBeVisible();
+    await none.getByRole("button", { name: "Close" }).click();
+    await cards.first().click();
+    await page.keyboard.press("a");
+    const accepted = toast(page, "Already accepted.");
+    await expect(accepted).toBeVisible();
+    await accepted.getByRole("button", { name: "Close" }).click();
+    await expect(state).toHaveText("4 edits not saved");
+    await page.keyboard.press("r");
+    await expect(cards.first()).toContainText("dropped");
+    await expect(state).toHaveText("5 edits not saved");
+    await page.keyboard.press("z");
+    await expect(cards.first()).toContainText("confirmed");
+    await expect(state).toHaveText("4 edits not saved");
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(cards).toHaveCount(3);
+    for (const i of [0, 1, 2]) await expect(cards.nth(i)).toContainText("confirmed");
     await expect(state).toHaveText("3 edits not saved");
   });
 

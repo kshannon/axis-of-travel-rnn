@@ -111,6 +111,11 @@ const blockCard = `
     </div>
   </article>`;
 
+const TRIPS_TITLE = "Replace the track blocks with one block per complete trip, outbound run to return run, a trip under the minimum length is dropped";
+const blocksActions = `
+  <button type="button" @click="act('trips')" ${disabledWhy("loading", "session still loading", TRIPS_TITLE)} class="${BUTTON}">One block per trip</button>
+  <button type="button" @click="act('accept-all')" ${disabledWhy("loading", "session still loading", "Accept every automatic and edited block")} class="${BUTTON}">Accept all</button>`;
+
 const blocksBody = `
   <p x-show="!loading && !blocks.length" class="text-sm text-muted">The rules cut no block from this session.</p>
   <div class="flex flex-col gap-2">
@@ -219,8 +224,8 @@ const editRow = `
       <button type="button" @click="act('start-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the start of the selected block to the cursor")} class="${SEGMENT}">Start here</button>
       <button type="button" @click="act('end-to-cursor')" ${disabledWhy("!hasSelection", "select a block first", "Move the end of the selected block to the cursor")} class="${SEGMENT}">End here</button>`)}
     ${group("status", `
-      <button type="button" @click="act('accept')" :disabled="!!acceptOff" :title="acceptOff || 'Accept the selected block'" class="${SEGMENT_PRIMARY}">Accept</button>
-      <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject</button>
+      <button type="button" @click="act('accept')" :disabled="!!acceptOff" :title="acceptOff || 'Accept the selected block'" class="${SEGMENT_PRIMARY}">Accept <kbd class="${KBD}" title="press a to accept">a</kbd></button>
+      <button type="button" @click="act('reject')" ${disabledWhy("!hasSelection", "select a block first", "Reject the selected block, which removes it, again to restore it")} class="${SEGMENT}">Reject <kbd class="${KBD}" title="press r to reject">r</kbd></button>
       <button type="button" @click="undo()" ${disabledWhy("!editCount", "nothing to undo", "Take the last edit back")} class="${SEGMENT}">Undo <kbd class="${KBD}" title="press z to undo">z</kbd></button>
       <button type="button" @click="reset()" ${disabledWhy("!editCount", "no edits to clear", "Clear every edit so the blocks are automatic again. A saved review stays on disk until you save.")} class="${SEGMENT}">Reset</button>`)}
     <span x-show="hasMarks" data-testid="marks" :title="marksLine" class="min-w-0 truncate text-xs text-muted" x-text="marksLine"></span>
@@ -253,7 +258,7 @@ export const replayGrid = `
     class="grid h-full grid-cols-12 grid-rows-[auto_minmax(0,5fr)_minmax(0,6fr)] gap-4">
     ${card("Session", sessionBody, "col-span-5", sessionActions)}
     ${card("Summary", summaryBody, "col-span-7")}
-    ${card("Blocks", blocksBody, "col-span-3", `<button type="button" @click="act('accept-all')" ${disabledWhy("loading", "session still loading", "Accept every automatic and edited block")} class="${BUTTON}">Accept all</button>`)}
+    ${card("Blocks", blocksBody, "col-span-3", blocksActions)}
     ${card(mapTitle, mapBody, "col-span-5", helpPopover("About the map", MAP_HELP))}
     ${card("Playback", playbackCard, "col-span-4")}
     ${card("Timeline", timelineBody, "col-span-12", timelineActions)}

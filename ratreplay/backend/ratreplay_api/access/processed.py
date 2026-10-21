@@ -23,7 +23,7 @@ REVIEW_DEFAULTS = {"excluded": False, "excluded_by": None, "excluded_at": None, 
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 STATUSES = ("auto", "confirmed", "edited", "dropped")
 EDIT_FIELDS = {"accept": (), "confirm": ("frame",), "move": ("frame", "edge", "at"), "split": ("frame",), "drop": ("frame",),
-               "new": ("frame_start", "frame_end"), "cut": ("frame_start", "frame_end"), "flag": ("run",)}
+               "new": ("frame_start", "frame_end"), "cut": ("frame_start", "frame_end"), "trips": (), "flag": ("run",)}
 
 # What a build records per session (windows is per block the count and verdict at the build's settings, informative, frame the
 # registration it was built under, warnings the session's, failed the blocks not written, excluded whether the person excluded

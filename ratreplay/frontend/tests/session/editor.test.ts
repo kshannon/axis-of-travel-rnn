@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ReviewBlock } from "../../src/api/types";
-import { acceptWhy, Editor, editFor, label, reselected, unchangedText } from "../../src/session/editor";
+import { acceptWhy, Editor, editFor, label, reselected, tripsText, unchangedText } from "../../src/session/editor";
 import type { Target } from "../../src/session/editor";
 
 function block(frame_start: number, frame_end: number, status: ReviewBlock["status"] = "auto"): ReviewBlock {
@@ -106,4 +106,16 @@ test("an accept that changes nothing names why when the block is confirmed or re
   expect(unchangedText("accept", "edited")).toBe("Nothing changed.");
   expect(unchangedText("accept", undefined)).toBe("Nothing changed.");
   expect(unchangedText("reject", "confirmed")).toBe("Nothing changed.");
+});
+
+test("one block per trip needs nothing on the screen and counts the trip blocks made and dropped from the blocks before and after", () => {
+  expect(editFor("trips", NOTHING)).toEqual({ op: "trips" });
+  expect(label({ op: "trips" })).toBe("one block per trip");
+  const track = (frame_start: number, frame_end: number, status: ReviewBlock["status"]): ReviewBlock => ({ ...block(frame_start, frame_end, status), epoch: "track" });
+  const before = [block(1, 100, "confirmed"), track(200, 900, "confirmed"), track(950, 990, "edited"), track(1000, 1500, "dropped")];
+  const replaced = [before[0], track(200, 900, "dropped"), track(950, 990, "dropped"), before[3]];
+  // the two kept track blocks are replaced (the one removed already stays), two trips are made and one is dropped as short
+  const after = [...replaced, track(250, 400, "edited"), track(500, 700, "edited"), track(800, 820, "dropped")];
+  expect(tripsText(before, after)).toBe("2 trip blocks made, 1 dropped as short, the old track blocks removed");
+  expect(tripsText(before, replaced)).toBe("0 trip blocks made, 0 dropped as short, the old track blocks removed");
 });

@@ -78,8 +78,8 @@ what is built.
 
 **Replay.** Replay plays the session over a timeline with the cuts the rules make. Each block is a card with its window
 count and verdict at the settings in use. Accept or Reject a block, move its start or end to the cursor, split it at the
-cursor, mark a range and make a block of it, cut a marked range out of every block it touches, flag a run, write notes,
-undo, or reset to the automatic blocks. Start offset, m, under Flag run is how far up the stem the start site sits for
+cursor, mark a range and make a block of it, cut a marked range out of every block it touches, replace the track blocks with one block per complete trip, flag a run,
+write notes, undo, or reset to the automatic blocks. The keys A and R accept and reject the selected block. Start offset, m, under Flag run is how far up the stem the start site sits for
 this session (the environment's yaml gives the default and Use measured fills in the engine's reading of the data), and
 Save writes it into the review. The server applies every edit and says why it refused one, and a preview writes nothing.
 Save blocks is refused until every kept block is accepted, an automatic block as drawn and an edited block after a change.

@@ -48,7 +48,8 @@ What the answers hold, beyond their keys:
 
 - An edit is `{"op", ...}` with the fields `GET /api/format` lists under the review's edits: `accept`, `confirm {frame}`,
   `move {frame, edge, at}`, `split {frame}`, `drop {frame}`, `new {frame_start, frame_end}`, `cut {frame_start,
-  frame_end}` and `flag {run}`. Frames and runs are whole numbers from 1.
+  frame_end}`, `trips` (no fields, one block per complete trip of the track in place of the kept track blocks) and `flag {run}`.
+  Frames and runs are whole numbers from 1.
 - A block of the session header or a preview is `block_id, epoch, environment, frame_start, frame_end, status, note`,
   plus `windows` (`count`, `verdict`, null for a dropped block) and `problems`. `refusals` are `{index, op, reason}`.
 - Save applies the edits first and one illegal edit refuses the whole save. It also refuses a kept block not yet accepted (still auto or edited) and a

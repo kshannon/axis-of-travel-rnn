@@ -13,7 +13,7 @@ import type { LaneClick } from "../draw/timeline";
 import { Visit } from "../router";
 import { epochAt, runAt } from "../session/at";
 import { REAL_TIME, SPEEDS, stepSpeed } from "../session/clock";
-import { acceptWhy, editFor, label, reselected, unchangedText } from "../session/editor";
+import { acceptWhy, editFor, label, reselected, tripsText, unchangedText } from "../session/editor";
 import type { Action } from "../session/editor";
 import { startPlayback } from "../session/playback";
 import { START_OFFSET_LIMIT, Workspace } from "../session/workspace";
@@ -36,6 +36,7 @@ import { blockCards, factsLine, liveTiles, LOADING, loadingText, mapTitle, marks
 import type { BlockCard, Note, Status, Tile } from "./replay-view";
 
 const NO_SESSION = "No session is open, choose one on the Incoming page.";
+const SELECT_FIRST = "select a block first";
 const START_OFFSET_DIGITS = 2;
 const PROBLEM = "$store.health.problem('transformed', 'processed', 'environments')";
 
@@ -119,7 +120,7 @@ function registerReplay(): void {
       editCount: 0,
       hasSelection: false,
       // Why the timeline's Accept is off: nothing is selected, or the selected block is accepted already or removed. Empty when it can be pressed.
-      acceptOff: "select a block first",
+      acceptOff: SELECT_FIRST,
       hasRange: false,
       hasMarks: false,
       selectedName: "",
@@ -294,7 +295,7 @@ function registerReplay(): void {
         this.hasRange = editor.range !== null;
         this.hasMarks = editor.markIn !== null || editor.markOut !== null;
         this.hasSelection = selected !== null;
-        this.acceptOff = selected ? acceptWhy(selected.status) : "select a block first";
+        this.acceptOff = selected ? acceptWhy(selected.status) : SELECT_FIRST;
         this.selectedName = this.blocks.find((b) => b.selected)?.name ?? "";
         this.selectionLine = selectionText(header, picked, selected, selected ? preview.blocks.indexOf(selected) : -1);
         const outline = laneSelection(header, picked, selected);
@@ -308,8 +309,16 @@ function registerReplay(): void {
       /** The keys that are not playback keys. */
       command(command: Command) {
         if (command === "confirm") void this.act("accept");
+        else if (command === "accept" || command === "reject") this.pressed(command);
         else if (command === "undo") void this.undo();
         else if (command === "clear") this.clear();
+      },
+
+      /** The Accept or Reject button by its key: what the button does, or the reason it is off as a warning, and nothing sent. */
+      pressed(action: "accept" | "reject") {
+        const off = action === "accept" ? this.acceptOff : this.hasSelection ? "" : SELECT_FIRST;
+        if (off) toast.warning(`${off[0].toUpperCase()}${off.slice(1)}.`);
+        else void this.act(action);
       },
 
       togglePlay() {
@@ -461,6 +470,7 @@ function registerReplay(): void {
       /** Make an action's edit, which the server applies or refuses with its reason. */
       async act(action: Action, position?: number) {
         try {
+          const before = ws.preview.blocks;
           const result = await ws.edit(() => editFor(action, targetOf(position)), () => unchangedText(action, targetOf(position).block?.status));
           if (typeof result === "string") {
             toast.warning(result);
@@ -468,7 +478,7 @@ function registerReplay(): void {
           }
           selected = reselected(selected, ws.preview.blocks, result);
           if (result.op === "new" || result.op === "cut") ws.editor.clearMarks();
-          toast.success(`Added ${label(result)}, ${counted(ws.editor.edits.length, "edit")} not saved yet`);
+          toast.success(result.op === "trips" ? tripsText(before, ws.preview.blocks) : `Added ${label(result)}, ${counted(ws.editor.edits.length, "edit")} not saved yet`);
           this.sync();
         } catch (error) {
           toast.error(errorText(error));

@@ -37,6 +37,7 @@ NOT_ACCEPTED = "every kept block must be accepted before saving, {n} still autom
 EXCLUDED = "session {sid} is excluded, include it first"
 REFUSED = "edit {number} ({what}): {reason}"
 AT_FRAME, AT_FRAMES = "{op} at frame {frame}", "{op} at frames {frame_start} to {frame_end}"
+OP_WORDS = {"trips": "one block per trip"}
 NOT_IN_DATASET = "session {sid} is not in the dataset: {reason}"
 BUILD_ERROR = "{kind}: {text}"
 OTHER_RULES = "reviewed under other rules"
@@ -77,7 +78,7 @@ def described(edit):
     """
     if "frame" in edit:
         return AT_FRAME.format(**edit)
-    return AT_FRAMES.format(**edit) if "frame_start" in edit else edit["op"]
+    return AT_FRAMES.format(**edit) if "frame_start" in edit else OP_WORDS.get(edit["op"], edit["op"])
 
 
 def shaped(blocks):

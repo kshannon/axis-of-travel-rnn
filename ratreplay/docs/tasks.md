@@ -319,6 +319,17 @@ anything that touches real data.
       manager's _made, about half of load's time, K39.
 - [ ] K39 TrajectoryEngine.blocks takes a built session (or the manager hands it the one it has) so a
       header load builds the session once. [TrajectoryEngine, ReviewManager]
+- [x] K40 Blocks for training are cut by hand, so two helps. The edit "trips" (no fields) replaces the kept
+      track blocks with one block per complete trip: an outbound run (path in outbound_paths) to the end of the
+      first return run (path in return_paths) that starts before the next outbound run, both inside one stretch
+      (no cut, pause or gap inside), else the trip is skipped. The old track blocks are removed with the note
+      "replaced by one block per trip", a trip block is edited, a trip under min_block_s is removed with the short
+      note so a save is never refused for it, the arena blocks stay. A button "One block per trip" sits beside
+      Accept all and its toast counts the trip blocks made and dropped. The keys A and R accept and reject the
+      selected block as the buttons do, with the button's reason as a warning when they cannot, and do nothing
+      while the person types in a field. Kyle, 2026-10-21. [TrajectoryEngine.apply, Page 3]
+      Built: the engine version stays 2 (no old input answers differently), the format version stays 4 (an
+      added op). Left: a run flagged as wrong still makes a trip, since flags only act when the blocks are built.
 - [ ] K29 Dark theme follow-ups: a flag outline and an edited block that read against amber (another
       hue or a thicker stroke, not alpha alone), the Replay and Blocks help text naming colours by token
       word (outbound, return, flagged) instead of blue and violet. [Page 3, Page 4]
