@@ -10,7 +10,7 @@ from proj_helpers.paths import repo_root
 
 from .handmade import corridor_travel, wandering
 
-THRESHOLDS = "pilot/pilot/thresholds.yaml"
+THRESHOLDS = "configs/analysis/thresholds.yaml"
 EAST_WEST = ("cross_e", "cross_w", "bottom_w", "bottom_e", "approach_ee")
 NORTH_SOUTH = ("stem", "up_e", "up_w", "side_w", "side_e")
 REPEATS = 4
