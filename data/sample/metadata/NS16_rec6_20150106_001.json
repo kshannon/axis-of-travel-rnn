@@ -1,0 +1,111 @@
+{
+  "built_at": "2026-10-22T03:16:24+00:00",
+  "code_version": "blocks 2 6420f96+dirty",
+  "excluded": false,
+  "failed": [],
+  "frame": {
+    "goals_px": [
+      244.99999999999972,
+      286.6025403784437
+    ],
+    "led_offset_n": 5400,
+    "led_offset_r": 4.751803644448938e-06,
+    "led_offset_rad": 3.1217325654496677,
+    "start_px": [
+      345.0000000000002,
+      286.60254037844373
+    ],
+    "track": {
+      "flip": true,
+      "led_separation_m": 0.06855065201431053,
+      "offset_m": [
+        3.9600195812419012,
+        0.6140941022997033
+      ],
+      "rotation_concentration": 2.4966125273524167e-06,
+      "rotation_rad": -2.35095850243565,
+      "scale_px_per_m": 145.87753297973615,
+      "scale_x_px_per_m": 126.89718482252144,
+      "scale_y_px_per_m": 164.85788113695085,
+      "start_offset_measured_m": 0.8350585704324484
+    }
+  },
+  "review_stamp": {
+    "converter_manifest_timestamp": "2026-10-13T10:00:00+00:00",
+    "reviewed_at": "2026-10-13T10:00:00+00:00"
+  },
+  "rules": {
+    "arena_height_m": 0.4,
+    "axis_agree": 0.05,
+    "camera_height_m": 2.6,
+    "condition": "baseline",
+    "epochs": [
+      "arena",
+      "track"
+    ],
+    "extent_percentiles": [
+      1,
+      99
+    ],
+    "gap_lights": "both",
+    "heading_fill_s": 3.0,
+    "histogram_bin_px": 2.0,
+    "jump_px": 40.0,
+    "kinematics_version": 1,
+    "led_separation_m": [
+      0.04,
+      0.08
+    ],
+    "min_block_s": 10.0,
+    "nominal_led_separation_m": 0.05,
+    "offset_warn_deg": 30.0,
+    "outbound_paths": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "pause_margin_s": 5.0,
+    "pause_min_s": 1.0,
+    "pause_step_s": 0.1,
+    "peak_prominence": 0.1,
+    "peak_smooth_bins": 5,
+    "return_paths": [
+      9,
+      10
+    ],
+    "running_floor_m_per_s": 0.03,
+    "running_px_per_s": 20.0,
+    "smooth_order": 2,
+    "smooth_window_s": 0.15,
+    "snap_s": 1.0,
+    "speed_smooth_frames": 6,
+    "t_step_tolerance_s": 1e-06,
+    "track_height_m": 0.2
+  },
+  "settings": {
+    "burn_in_s": 1.0,
+    "horizon_s": 0.5,
+    "min_complete_trips": 1,
+    "min_heading_measured": 0.8,
+    "rate_hz": 20,
+    "stride_s": 10.0,
+    "window_s": 40.0
+  },
+  "start_offset_m": null,
+  "warnings": [
+    "NS16_rec6_20150106_001 track scale x and y differ by 26 percent, over 5: an outer corridor peak missed?"
+  ],
+  "windows": {
+    "NS16_rec6_20150106_001_track_01": {
+      "count": 0,
+      "verdict": {
+        "ok": false,
+        "reasons": [
+          "no window of 40 s plus 0.5 s horizon fits in this 20 s block",
+          "0 complete trips in this track block, under the minimum complete trips setting of 1"
+        ]
+      }
+    }
+  }
+}

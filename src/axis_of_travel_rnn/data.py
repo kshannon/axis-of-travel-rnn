@@ -10,6 +10,7 @@ import numpy as np
 from proj_helpers.paths import local_config, repo_root
 
 from .blocks import io
+from .blocks.blueprint import blueprint_path, read_blueprint
 
 # The configs/local.yaml key of the folder the builds go under, and the three data roots this package never writes to.
 PROCESSED_KEY = "PROCESSED_LAB_DATA"
@@ -30,12 +31,16 @@ class LabDataError(Exception):
 
 def built_folder(name, config=None):
     """
-    The built folder PROCESSED_LAB_DATA/<name>/ of a blueprint, refused when it has no manifest.
+    The built folder of a blueprint, its built key relative to the repository when set, else PROCESSED_LAB_DATA/<name>/, refused when it has no manifest.
     """
-    config = local_config() if config is None else config
-    if not config.get(PROCESSED_KEY):
-        raise LabDataError(f"{PROCESSED_KEY} is missing from configs/local.yaml")
-    folder = Path(str(config[PROCESSED_KEY])).expanduser() / name
+    built = read_blueprint(blueprint_path(name)).built
+    if built is not None:
+        folder = repo_root() / built
+    else:
+        config = local_config() if config is None else config
+        if not config.get(PROCESSED_KEY):
+            raise LabDataError(f"{PROCESSED_KEY} is missing from configs/local.yaml")
+        folder = Path(str(config[PROCESSED_KEY])).expanduser() / name
     if not (folder / MANIFEST).is_file():
         raise LabDataError(f"no {MANIFEST} in {folder}, build it with pixi run build-blocks --blueprint {name}")
     return folder

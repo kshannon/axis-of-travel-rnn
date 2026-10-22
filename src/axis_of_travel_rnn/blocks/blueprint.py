@@ -21,7 +21,7 @@ FROM_REVIEWS = "from_reviews"
 
 class Blueprint(BaseModel):
     """
-    The blueprint's keys: its name and format version, the local.yaml key of the transformed folder, the reviews folder, the sessions, the rule and setting overrides, the start offsets and the data id a build must give.
+    The blueprint's keys: its name and format version, the local.yaml key of the transformed folder, the reviews folder, the sessions, the rule and setting overrides, the start offsets, the data id a build must give and where the built folder is read from.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -36,6 +36,7 @@ class Blueprint(BaseModel):
     settings: dict = {}
     start_offsets: dict[str, float] | Literal["from_reviews"] = FROM_REVIEWS
     expected_data_id: str | None = None
+    built: str | None = None  # the built folder relative to the repository, none for PROCESSED_LAB_DATA/<name>
 
     @field_validator("rules")
     @classmethod

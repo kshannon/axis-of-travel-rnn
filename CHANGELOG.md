@@ -10,4 +10,5 @@ engine came back as `axis_of_travel_rnn.blocks` with `pixi run build-blocks`, an
 October pilot and `src/lab_rnn` into `axis_of_travel_rnn` (data, dataset, models, train, analysis, viz) with an
 `ExperimentConfig` read from `configs/experiments/*.yaml`. The network is given position only and predicts the position a
 horizon ahead. `save_results(results_dir, config, data_id, metrics_rows, summary, figures, started, finished)` writes an
-experiment folder's summary.json, metrics.csv and figures. RatInABox is no longer a dependency.
+experiment folder's summary.json, metrics.csv and figures. A blueprint's `built` key names a built folder inside the
+repository, which `load_blocks` reads with no configs/local.yaml, as the committed sample in data/sample does. RatInABox is no longer a dependency.
