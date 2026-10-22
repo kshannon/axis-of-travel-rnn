@@ -8,8 +8,11 @@ version   = "0.2.0"
 
 ###################### ======== TASKS ======== ######################
 [tasks]
-# Lab notebook: a dated entry from templates/labnotebook.md, optional slug words
-new-labnote = "python -m proj_helpers.notebooks labnote"
+# New files from templates/: a dated lab note (optional slug words), an EDA notebook under notebooks/eda/, and an
+# experiment folder under experiments/ with the notebook and a copy of configs/experiments/<--config, default baseline>.yaml
+new-labnote    = "python -m proj_helpers.new labnote"
+new-eda        = "python -m proj_helpers.new eda"
+new-experiment = "python -m proj_helpers.new experiment"
 
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
@@ -17,18 +20,16 @@ transform-lab-data = "python -m transform_lab_data"
 # Block step (configs/blueprints/): transformed folder and review files to PROCESSED_LAB_DATA/<blueprint>/
 build-blocks = "python -m axis_of_travel_rnn.blocks"
 
-# Experiments: a folder from templates/experiment, and the html of its run notebook written beside it
-new-experiment    = "python -m proj_helpers.experiments"
+# Experiments: the html of a run notebook written beside it
 export-experiment = "jupyter nbconvert --to html"
-# The drift guard: the template notebook run headless on tests/fixtures/sample with configs/experiments/smoke.yaml
+# The drift guard: the experiment template notebook run headless on tests/fixtures/sample with configs/experiments/smoke.yaml
 smoke             = "python -m proj_helpers.smoke"
 
 # Testing
 test     = "python -m pytest"
 test-cov = "python -m pytest --cov=src --cov-report=term-missing"
 
-# Jupyter notebooks: create one from the template; strip outputs on commit (once per clone)
-new-jupyter-nb       = "python -m proj_helpers.notebooks notebook"
+# Jupyter notebooks: strip outputs on commit (once per clone)
 nbstripout-install   = "nbstripout --install --attributes .gitattributes"
 
 

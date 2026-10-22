@@ -15,7 +15,8 @@ Three steps, each a function of its inputs. Paths come from `configs/local.yaml`
 1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
 2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/blueprints/` become blocks.
    `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
-3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `experiments/`. Run its notebook, then
+3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `experiments/` (`--config biological` copies another
+   config than the baseline). Run its notebook, then
    `pixi run export-experiment experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
 
 The review files, a person's cuts and flags per session, are written by RatTrack, the review tool (no link yet).
@@ -48,9 +49,10 @@ pixi run test    # the tests, and pixi run test-cov for coverage
 ## Start an experiment
 
 `pixi run new-experiment "window 60 s"` makes `experiments/YYYY-MM-DD_window-60-s/`. The folder holds `config.yaml` (a copy of
-`configs/experiments/baseline.yaml`) and `notebook.ipynb`, whose first cells hold the purpose and notes and whose last cell
-holds the outcome. Fill in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`, `results_dir`, `checkpoint_dir`), so papermill can
-rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
+`configs/experiments/baseline.yaml`, or of `configs/experiments/<name>.yaml` with `--config <name>`) and `notebook.ipynb` (from
+`templates/notebook-experiment.ipynb`), whose first cells hold the purpose and notes and whose last cell holds the outcome. Fill
+in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`,
+`results_dir`, `checkpoint_dir`), so papermill can rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
 
 The network's inputs are a config choice (`inputs.columns`, see inputs in `DATA_DICTIONARY.md`): `configs/experiments/baseline.yaml` gives
 position only, the control, and `configs/experiments/biological.yaml` adds speed, head direction and angular velocity.
@@ -62,6 +64,13 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 - The notebook calls the library's surface, `help(axis_of_travel_rnn)`, which changes only with a line in `CHANGELOG.md`.
 - To rerun an old one: `git worktree add ../aot-old <git_commit of its summary.json>`, `pixi install` there, run.
 
+## Notebooks and lab notes
+
+`pixi run new-eda "heading gaps"` makes `notebooks/eda/YYYY-MM-DD_heading-gaps.ipynb` from `templates/notebook-eda.ipynb`. Its
+`parameters` cell names the project config and the blueprint, and the next cells load every block of that built folder at the
+lab rate with `load_blocks`, so an exploratory notebook starts with the data in hand. `pixi run new-labnote` writes the day's
+entry under `labnotebook/` from `templates/labnotebook.md`, with optional words for the file name.
+
 ## Layout
 
 ```text
@@ -72,8 +81,8 @@ labnotebook/  the authors' dated log, pixi run new-labnote
 notebooks/    working notebooks, eda/ for the exploratory ones
 scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds tests/fixtures/sample)
 src/          axis_of_travel_rnn/ (the library, blocks/ is the block engine), environments/ (maze geometry),
-              proj_helpers/ (paths, new experiments, notebooks, notes), transform_lab_data/ (the converter)
-templates/    experiment/, notebook.ipynb and labnotebook.md
+              proj_helpers/ (paths, new.py for new notebooks, experiments and notes, the smoke), transform_lab_data/ (the converter)
+templates/    notebook-eda.ipynb, notebook-experiment.ipynb and labnotebook.md
 tests/        unit/, integration/ (the smoke) and fixtures/sample/ (a synthetic built folder for the smoke, committed)
 tmp/          uncommitted scratch and planning
 ```

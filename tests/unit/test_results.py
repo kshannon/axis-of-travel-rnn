@@ -1,5 +1,5 @@
 """
-An experiment's record: save_results writes summary.json with its keys, metrics.csv and the figures, and new-experiment copies the template with the title in place.
+An experiment's record: save_results writes summary.json with its keys, metrics.csv and the figures, and new-experiment writes the template notebook with the title in place and a copy of the named config.
 """
 
 import csv
@@ -10,10 +10,11 @@ import nbformat
 from matplotlib.figure import Figure
 
 from axis_of_travel_rnn import __version__, load_config, save_results
-from proj_helpers.experiments import new_experiment
-from proj_helpers.paths import configs_dir, repo_root
+from proj_helpers.new import new_experiment
+from proj_helpers.paths import configs_dir
 
 BASELINE = configs_dir() / "experiments" / "baseline.yaml"
+BIOLOGICAL = configs_dir() / "experiments" / "biological.yaml"
 ROWS = [{"epoch": 1, "train_loss": 0.5, "val_loss": 0.6, "seconds": 1.0, "best": True},
         {"epoch": 2, "train_loss": 0.4, "val_loss": 0.7, "seconds": 1.0, "best": False}]
 SUMMARY_KEYS = {"git_commit", "package_version", "blueprint", "data_id", "config", "pixi_lock_sha256", "started", "finished", "metrics"}
@@ -35,12 +36,13 @@ def test_save_results_writes_the_summary_the_metrics_and_the_figures(tmp_path):
     assert (tmp_path / "run" / "figures" / "loss.png").is_file()
 
 
-def test_new_experiment_copies_the_template_with_the_title_in_place(tmp_path):
+def test_new_experiment_writes_the_template_with_the_title_in_place_and_copies_the_config(tmp_path):
     folder = new_experiment("Window 60 s", directory=tmp_path, author="kyle", today=date(2026, 10, 22))
-    template = repo_root() / "templates" / "experiment"
     assert folder == tmp_path / "2026-10-22_window-60-s"
-    assert sorted(path.name for path in folder.iterdir()) == sorted(path.name for path in template.iterdir())
+    assert sorted(path.name for path in folder.iterdir()) == ["config.yaml", "notebook.ipynb"]
     assert load_config(folder / "config.yaml") == load_config(BASELINE)
+    other = new_experiment("Biological", "biological", directory=tmp_path, author="kyle", today=date(2026, 10, 22))
+    assert load_config(other / "config.yaml") == load_config(BIOLOGICAL)
     notebook = nbformat.read(folder / "notebook.ipynb", as_version=4)
     assert notebook.cells[0].source.startswith("# Window 60 s\n") and "{{" not in notebook.cells[0].source
     assert any("parameters" in cell.metadata.get("tags", []) for cell in notebook.cells)

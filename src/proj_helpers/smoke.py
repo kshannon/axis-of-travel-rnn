@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .paths import repo_root
 
-TEMPLATE = "templates/experiment/notebook.ipynb"
+TEMPLATE = "templates/notebook-experiment.ipynb"
 CONFIG = "configs/experiments/smoke.yaml"
 EXECUTED = "notebook.ipynb"
 SUMMARY = "summary.json"
