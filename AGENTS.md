@@ -6,6 +6,19 @@ Project rules for Agent interaction are here, as well as brief context on the pr
 
 Does an axis-of-travel-like representation emerge in a vanilla RNN trained only to predict future position? A negative result is a valid outcome. Never optimize the pipeline toward a positive one. We are seeking to observe emergent properties within the RNN's latent space. This is based on work by Olsen et al. 2017. The paper that observed axis-of-travel tuning in subiculum neurons.
 
+## The pipeline
+
+Three steps, each a function of its inputs (`docs/restructure/plan.md`).
+
+1. Transform: the lab's MATLAB files become plain tables (`pixi run transform-lab-data`).
+1. Build blocks: the transformed tables, the review files (the person's cuts and flags per session) and a blueprint
+   yaml become the blocks, `pixi run build-blocks --blueprint <name>`.
+1. Experiment: an experiment folder, a config and a notebook, turns the blocks into windows, a trained network,
+   measures and figures.
+
+This is the target. Steps 9 to 18 of `docs/restructure/tasks.md` bring steps 2 and 3 into the repository, until then
+the review tool and the training code live outside it.
+
 ## Important Contextual Considerations When Working
 
 1. Nothing that encodes axis of travel reaches RNN training: no axis labels,
@@ -15,9 +28,10 @@ Does an axis-of-travel-like representation emerge in a vanilla RNN trained only 
    config.
 1. Behavioral generation is validated on its own, against real behavior,
    before it feeds training. The model never shapes how behavior is generated.
-1. Real behavioral recordings never enter the repository, the artifact store
-   or the CLI. Their analysis happens outside; only aggregate statistics files
-   reach the tool.
+1. Raw recordings, transformed frames and block parquet files never enter the
+   repository. They stay in the folders `configs/local.yaml` names. The review
+   json files (`data/reviews/`) and a small synthetic sample (`data/sample/`,
+   no real recording) do.
 1. Every trained network is a model animal with a manifest: seed, configs,
    dataset, environment hash, commit, lockfile, checkpoints, metrics. Failures
    are kept. Seeds are never cherry-picked.
@@ -47,8 +61,10 @@ Does an axis-of-travel-like representation emerge in a vanilla RNN trained only 
 
 ## Branches, commits and pushes
 
-- All work happens on a branch named `agents/<topic>`, created from an
-  up-to-date `main`. Never commit to `main` unless the authors ask for that commit.
+- All work happens on a branch created from an up-to-date `main`. Until the
+  restructure lands (`docs/restructure/`) that branch is `cleanup`, after it
+  branches are named `agents/<topic>`. Never commit to `main` unless the
+  authors ask for that commit.
 - A finished branch is a PR candidate. It is never merged, and nothing is
   pushed to the remote, without the author's consent for that specific action.
 - Commits are scoped to the task's files, one sentence commit messages each.
@@ -62,18 +78,25 @@ settings and dotfiles are never changed by project work.
 ## Map
 
 - `README.md`: what this is, how to run it, versioning layers, layout.
-- `docs/cli/`: CLI spec, plan and tasks.
-- `docs/research_plan.md` and `docs/data_dictionary.md`: phases, milestones,
-  stored fields; arrive with the docs PR.
-- `configs/`: declarative YAML; environments today, agents, datasets, models,
-  training and experiments as they land. `configs/local.yaml` is the one
-  machine-local file: paths only, git-ignored, never hashed.
-- `src/axis_of_travel_rnn/`: the store today; behavior, datasets, models and
-  analysis as they land. `src/cli/`: the command line. `src/environments/`:
-  environment geometry.
-- `src/proj_helpers/`: paths, lab data access, new notebooks and lab notes.
-- `src/transform_lab_data/`: the lab data converter (`docs/transform_lab_data/`).
-- `src/notebooks/`: the working notebooks. `templates/`: the notebook and lab
-  note templates.
+- `docs/restructure/`: the plan and the twenty steps from the repository as it
+  was to the pipeline above. `docs/transform_lab_data/`: the lab data
+  converter's spec, plan and tasks. `docs/data_dictionary.md` arrives in step
+  13 (the root `DATA_DICTIONARY.md` is the old one until then).
+- `configs/`: declarative YAML. `environments/` today, `blueprints/` and
+  `experiments/` as they land. `configs/local.yaml` is the one machine-local
+  file: paths only, git-ignored, never hashed.
+- `src/axis_of_travel_rnn/`: the block schema, kinematics, reader and window
+  rules today, then `blocks/` (the block builder), models, dataset, training
+  and analysis as they land. `src/environments/`: environment geometry.
+- `src/proj_helpers/`: paths, new notebooks and lab notes.
+- `src/transform_lab_data/`: the lab data converter.
+- `src/lab_rnn/`: the adapter that trained the pilot networks on reviewed
+  blocks, replaced in step 14.
+- `data/`: `reviews/` (the review json files) and `sample/` (the synthetic
+  sample), both committed, as they land. The real data is outside the repository.
+- `experiments/`: one folder per experiment with its config, notebook and
+  results, as they land.
+- `notebooks/`: the working notebooks, `notebooks/eda/` for the exploratory
+  ones. `templates/`: the notebook and lab note templates.
 - `datasets/`: datasets on disk, git-ignored.
 - `tmp/planning/`: the full project overview and working notes, never committed.
