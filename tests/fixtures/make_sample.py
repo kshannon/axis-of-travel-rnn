@@ -1,5 +1,5 @@
 """
-Build tests/fixtures/sample/ from the block tests' synthetic fixture sessions with the sample blueprint, run as pixi run python scripts/make_sample.py.
+Build tests/fixtures/sample/ from the block tests' synthetic fixture sessions with the sample blueprint, run as pixi run python tests/fixtures/make_sample.py from the repository.
 """
 
 import json
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))  # the tests package holds the fixture
 
 import axis_of_travel_rnn.blocks.__main__ as entry  # noqa: E402

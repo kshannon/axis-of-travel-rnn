@@ -49,14 +49,14 @@ blueprints:
     expected_data_id: null              # the data id of the first build, written in after it (docs/restructure/tasks.md step 12)
   sample:
     # The committed sample for the drift guard (pixi run smoke): three synthetic sessions of the block tests' fixture
-    # (tests/unit/blocks/fixtures.py), never a real recording, built by python scripts/make_sample.py into tests/fixtures/sample/.
+    # (tests/unit/blocks/fixtures.py), never a real recording, built by pixi run python tests/fixtures/make_sample.py into tests/fixtures/sample/.
     # That script writes the fixture's transformed folder and accepted reviews to a temporary folder and runs the build on
     # them, so transformed and reviews name nothing here, and pixi run build-blocks does not build this blueprint.
     name: sample
     format_version: 4
     description: Three fixture sessions on three dates, four blocks (two arena, two track), for the smoke run.
-    transformed: made_by_scripts/make_sample.py
-    reviews: made_by_scripts/make_sample.py
+    transformed: made_by_tests/fixtures/make_sample.py
+    reviews: made_by_tests/fixtures/make_sample.py
     sessions: [NS14_rec1_20150101_001, JL1_rec4_20140704_001, NS16_rec6_20150106_001]
     rules: {}
     settings: {}

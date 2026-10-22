@@ -112,8 +112,8 @@ metadata/{sid}.json         one per built session
 | `failed`, `skipped`, `excluded`, `errors` | by session: failed blocks, the skip reason, excluded ids, the error message |
 
 The data id hashes, in this order, `blocks.csv` then every `blocks/{block_id}.parquet` in block id order, one line each: the path
-inside the build folder, a space, the sha256 of the file's bytes, a newline. `scripts/compare_blocks.py OLD NEW` compares two built
-folders by content.
+inside the build folder, a space, the sha256 of the file's bytes, a newline. `pixi run build-blocks --blueprint NAME --compare FOLDER` compares the
+built folder with another by content after building.
 
 ## Blueprint: `blueprints.{name}` in `configs/project.yaml`
 

@@ -346,7 +346,7 @@ says never read, move, rename or touch `configs/local.yaml`, anything under `lab
 has the lab notebook rule and none for `local.yaml`, adding one is Kyle's call.
 
 Left for Kyle: step 2 (confirm the RatReplay copy, rename the GitHub repository, set the remote), step 12 (copy the review files
-into `data/reviews/`, run `build-blocks`, run `scripts/compare_blocks.py`, write the data id into `blocks_v1.yaml`), step 17 (the
+into `data/reviews/`, run `build-blocks`, run the comparison, now `build-blocks --compare`, write the data id into `blocks_v1.yaml`), step 17 (the
 baseline experiment on `blocks_v1`, outputs under 5 MB, the `docs/experiments.md` index). Step 1's box in tasks.md is still empty
 though its work is in the commits above, the worktree was not used.
 

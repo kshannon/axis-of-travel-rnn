@@ -15,6 +15,8 @@ Three steps, each a function of its inputs. Paths come from `configs/local.yaml`
 1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
 2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/project.yaml` become blocks.
    `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
+   With P the `PROCESSED_LAB_DATA` folder, `pixi run build-blocks --blueprint blocks_v1 --compare "$P"` also compares the
+   built blocks and `blocks.csv` by content with the review tool's in `$P`, prints the blocks that differ and exits 1 if any does.
 3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `notebooks/experiments/` (`pixi run new-experiment
    "<title>" biological` copies another config than the baseline). Run its notebook, then
    `pixi run export-experiment notebooks/experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
@@ -80,11 +82,11 @@ configs/      project.yaml (environments, blueprints, eda, analysis thresholds),
 docs/         blocks_schema.md, pilot.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
 labnotebook/  the authors' dated log, pixi run new-labnote
 notebooks/    working notebooks, eda/ for the exploratory ones, experiments/ one folder per experiment (config, notebook, results)
-scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds tests/fixtures/sample)
 src/          axis_of_travel_rnn/ (the library, config.py for paths and configs, blocks/ the block engine with geometry.py),
               transform_lab_data/ (the converter)
 templates/    notebook-eda.ipynb, notebook-experiment.ipynb, labnotebook.md and new.sh
-tests/        unit/, integration/ (the smoke) and fixtures/sample/ (a synthetic built folder for the smoke, committed)
+tests/        unit/, integration/ (the smoke) and fixtures/ (sample/, a synthetic built folder for the smoke, committed,
+              and make_sample.py, which rebuilds it)
 tmp/          uncommitted scratch and planning
 ```
 

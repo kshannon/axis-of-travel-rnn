@@ -11,6 +11,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+import pyarrow.csv as pacsv
+import pyarrow.parquet as pq
 from pydantic import ValidationError
 
 from axis_of_travel_rnn import __version__
@@ -152,6 +155,32 @@ def build(blueprint, blueprint_sha256, transformed, reviews, out):
     return manifest
 
 
+def same_table(a, b):
+    """
+    Whether two Arrow tables have the same schema and the same values column by column, NaN equal to NaN.
+    """
+    if a.schema != b.schema:
+        return False
+    for name in a.column_names:
+        x, y = a.column(name).to_numpy(zero_copy_only=False), b.column(name).to_numpy(zero_copy_only=False)
+        if not np.array_equal(x, y, equal_nan=x.dtype.kind == "f"):
+            return False
+    return True
+
+
+def compare(built, other):
+    """
+    The blocks only one folder holds, the blocks whose parquet differs and blocks.csv when it differs, by content, so a pyarrow version that writes other bytes changes nothing.
+    """
+    blocks = {root: {path.stem for path in (root / io.BLOCKS_DIR).glob(f"*{io.PARQUET}")} for root in (built, other)}
+    found = [f"only in {root}: {block_id}" for root, rest in ((built, other), (other, built)) for block_id in sorted(blocks[root] - blocks[rest])]
+    found += [f"differs: {block_id}" for block_id in sorted(blocks[built] & blocks[other])
+              if not same_table(*(pq.read_table(root / io.BLOCKS_DIR / f"{block_id}{io.PARQUET}") for root in (built, other)))]
+    if not same_table(pacsv.read_csv(built / io.BLOCKS_CSV), pacsv.read_csv(other / io.BLOCKS_CSV)):
+        found.append(f"differs: {io.BLOCKS_CSV}")
+    return found
+
+
 def refuse(message):
     """
     Print a configuration problem to stderr and exit 2.
@@ -162,11 +191,12 @@ def refuse(message):
 
 def parse_args(argv):
     """
-    The command line: --blueprint NAME (an entry of the blueprints section of configs/project.yaml) and --replace.
+    The command line: --blueprint NAME (an entry of the blueprints section of configs/project.yaml), --replace and --compare FOLDER.
     """
     parser = argparse.ArgumentParser(prog="build-blocks", description="Build the blocks a blueprint names into PROCESSED_LAB_DATA/<name>/.")
     parser.add_argument("--blueprint", required=True, metavar="NAME", help="a blueprint in the blueprints section of configs/project.yaml")
     parser.add_argument("--replace", action="store_true", help="replace an earlier build of this blueprint")
+    parser.add_argument("--compare", type=Path, metavar="FOLDER", help="after the build, compare its blocks and blocks.csv by content with FOLDER (the review tool's)")
     return parser.parse_args(argv)
 
 
@@ -194,7 +224,7 @@ def folders(blueprint, config):
 
 def main(argv=None, config=None, project=None):
     """
-    Read the blueprint from the project config (or the yaml at project) and local.yaml, build into a temporary folder beside the build's folder and rename it into place, print the summary, exit 1 when the data id is not the expected one and 2 on a configuration problem.
+    Read the blueprint from the project config (or the yaml at project) and local.yaml, build into a temporary folder beside the build's folder and rename it into place, print the summary, exit 1 when the data id is not the expected one or a compared block differs and 2 on a configuration problem.
     """
     args = parse_args(argv)
     try:
@@ -206,6 +236,8 @@ def main(argv=None, config=None, project=None):
     except ValidationError as error:
         refuse(f"{args.blueprint}: {error}")
     transformed, reviews, out = folders(blueprint, local_config() if config is None else config)
+    if args.compare is not None and not (args.compare / io.BLOCKS_CSV).is_file():
+        refuse(f"no {io.BLOCKS_CSV} in {args.compare} to compare with")
     if out.exists() and not args.replace:
         refuse(f"{out} exists, pass --replace to build it again")
     staging = out.with_name(out.name + BUILDING)
@@ -220,11 +252,16 @@ def main(argv=None, config=None, project=None):
     print(f"{counts['sessions_built']} sessions built, {counts['blocks_written']} blocks written, {counts['failed_blocks']} failed, "
           f"{counts['skipped_sessions']} skipped, {counts['excluded_sessions']} excluded, {counts['errors']} errors")
     print(f"data id {manifest['data_id']} in {out}")
+    status = 0
     expected = blueprint.expected_data_id
     if expected is not None and expected != manifest["data_id"]:
         print(f"build-blocks: data id differs from the blueprint's expected {expected}", file=sys.stderr)
-        return 1
-    return 0
+        status = 1
+    if args.compare is not None:
+        differs = compare(out, args.compare)
+        print("\n".join(differs) if differs else f"{counts['blocks_written']} blocks and {io.BLOCKS_CSV} equal to {args.compare}")
+        status = 1 if differs else status
+    return status
 
 
 if __name__ == "__main__":

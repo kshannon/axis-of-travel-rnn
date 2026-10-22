@@ -1,8 +1,9 @@
 """
-The build: two fixture sessions with their reviews build into a temporary folder with a stable data id, a changed review changes it, a session without a review is skipped, an excluded one writes no blocks, main reads the reviews from PROCESSED_LAB_DATA/review by default, and exits 1 on an unexpected data id and 2 on an unknown blueprint key.
+The build: two fixture sessions with their reviews build into a temporary folder with a stable data id, a changed review changes it, a session without a review is skipped, an excluded one writes no blocks, main reads the reviews from PROCESSED_LAB_DATA/review by default, and exits 1 on an unexpected data id or a compared block that differs and 2 on an unknown blueprint key.
 """
 
 import json
+import shutil
 
 import pytest
 import yaml
@@ -110,3 +111,15 @@ def test_an_unknown_blueprint_key_or_rule_exits_2(tmp_path, transformed, reviews
             entry.main(["--blueprint", "fixture_v1"], config=config, project=write_blueprint(tmp_path, reviews, **changes))
         assert stop.value.code == 2
     assert not (tmp_path / "processed").exists()
+
+
+def test_compare_exits_0_on_the_same_blocks_and_1_when_a_block_differs(tmp_path, transformed, reviews, capsys):
+    config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(tmp_path / "processed")}
+    path = write_blueprint(tmp_path, reviews)
+    assert entry.main(["--blueprint", "fixture_v1"], config=config, project=path) == 0
+    theirs = tmp_path / "theirs"
+    shutil.copytree(tmp_path / "processed" / "fixture_v1", theirs)
+    assert entry.main(["--blueprint", "fixture_v1", "--replace", "--compare", str(theirs)], config=config, project=path) == 0
+    (theirs / io.BLOCKS_DIR / f"{S6}_track_01{io.PARQUET}").unlink()
+    assert entry.main(["--blueprint", "fixture_v1", "--replace", "--compare", str(theirs)], config=config, project=path) == 1
+    assert f"only in {tmp_path / 'processed' / 'fixture_v1'}: {S6}_track_01" in capsys.readouterr().out

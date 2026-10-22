@@ -50,10 +50,10 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       (`PROCESSED_LAB_DATA/review/`, no copy step since 2026-10-22), and compare with RatReplay's blocks
       (`diff -rq` or the parity script). A difference is a finding first. Write the data id into the
       blueprint. (Kyle, 1 h)
-      The commands, with P the PROCESSED_LAB_DATA folder: `pixi run build-blocks --blueprint blocks_v1`, then
-      `pixi run python scripts/compare_blocks.py "$P" "$P/blocks_v1"`, which compares every block parquet and blocks.csv
+      The command, with P the PROCESSED_LAB_DATA folder: `pixi run build-blocks --blueprint blocks_v1 --compare "$P"`,
+      which builds and then compares every block parquet and blocks.csv of `$P/blocks_v1` with the review tool's in `$P`
       by content (the two lock files carry different pyarrow versions, so `diff -rq "$P/blocks" "$P/blocks_v1/blocks"`
-      may differ in file bytes alone) and exits 1 on a difference. The metadata json files differ in code_version and
+      may differ in file bytes alone), prints the blocks that differ and exits 1 on a difference. The metadata json files differ in code_version and
       built_at by design. On the fixtures the parquet files and blocks.csv came out byte identical to the review tool's.
 - [x] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
       blocks.csv, metadata, the blueprint keys, the data id, what stays out of training. It replaces
