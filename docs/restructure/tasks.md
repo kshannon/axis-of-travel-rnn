@@ -75,14 +75,14 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       library function taking the config or its fields, the public surface in `__init__.py`
       (load_blocks, make_windows, make_dataset, train, evaluate, measures, figures, save_results),
       version 0.2.0 and `CHANGELOG.md`. Check: `help(axis_of_travel_rnn)` lists them. (2 h)
-- [ ] 16. Experiments as folders: `templates/experiment/` (config.yaml, notebook with a parameters
+- [x] 16. Experiments as folders: `templates/experiment/` (config.yaml, notebook with a parameters
       cell, README with purpose, notes, outcome), `pixi run new-experiment "<title>"` making
       `experiments/YYYY-MM-DD_<slug>/`, `save_results` writing `summary.json` (commit, version,
       blueprint and data id, resolved config, pixi.lock sha256, timings, metrics), `metrics.csv`,
       `figures/` and an html export of the executed notebook. Check: a test over a temp folder. (3 h)
 - [ ] 17. The baseline experiment reproducing the 2026-10-19 notebook on blocks_v1, run by Kyle,
       outputs committed under 5 MB, `docs/experiments.md` index with its row. (Kyle 1 h, agent 1 h)
-- [ ] 18. The drift guard: `data/sample/` from a RatReplay synthetic set (three blocks, about 2 MB,
+- [x] 18. The drift guard: `data/sample/` from a RatReplay synthetic set (three blocks, about 2 MB,
       no real recording) with its own blueprint and `configs/experiments/smoke.yaml`, `pixi run smoke`
       running the template notebook headless with papermill in under a minute, wrapped in a test.
       papermill as a dev dependency. (2 h)
