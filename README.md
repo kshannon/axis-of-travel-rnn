@@ -45,7 +45,7 @@ Check the install:
 
 ```bash
 pixi run smoke   # the experiment template on the committed synthetic sample in tests/fixtures/sample, headless, takes seconds
-pixi run test    # the tests, and pixi run test-cov for coverage
+pixi run test    # the tests
 ```
 
 ## Start an experiment
