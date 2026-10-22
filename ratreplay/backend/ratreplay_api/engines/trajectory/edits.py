@@ -6,12 +6,13 @@ from .cuts import INITIAL_NOTE, INITIAL_STATUS
 
 # The block keys the engine returns, the statuses (a block starts AUTO, a confirm or an accept makes an AUTO or an EDITED block
 # CONFIRMED and nothing takes it back but Undo), the edit that changes no block, and the field of an edit that reaches a block
-# by its frame. A block with nothing to say carries INITIAL_NOTE.
+# by its frame. A block with nothing to say carries INITIAL_NOTE. TRACK is the epoch kind whose runs make trips.
 BLOCK_KEYS = ("block_id", "epoch", "environment", "frame_start", "frame_end", "status", "note")
 AUTO, CONFIRMED, EDITED, REMOVED = INITIAL_STATUS, "confirmed", "edited", "dropped"
 ACCEPTABLE = (AUTO, EDITED)
 FLAG = "flag"
 ANCHORS = {"confirm": "frame", "move": "at", "split": "frame", "drop": "frame"}
+TRACK = "track"
 
 # Why an edit is refused, and what a cut writes on the blocks it removes. The seconds are the min_block_s rule.
 UNKNOWN_MESSAGE = "{} is not an edit op"
@@ -22,9 +23,12 @@ SHORT_MESSAGE = "a new block must last {:g} s or more"
 OVERLAPS_MESSAGE = "a new block cannot overlap a block that is kept, remove that block first"
 RESTORES_MESSAGE = "a removed block cannot come back over a block that is kept, remove that block first"
 TOO_SHORT_MESSAGE = "a kept block must last {:g} s or more, reject it or cut the range out with marks instead"
+NO_TRACK_MESSAGE = "no track epoch to cut into trips"
 CUT_REASON = "tracking artifact"
 SHORT_NOTE = "under {:g} s after a cut"
+SHORT_TRIP_NOTE = "a trip under {:g} s"
 INSIDE_NOTE = "inside a cut"
+REPLACED_NOTE = "replaced by one block per trip"
 
 
 def reaching(blocks, frame):
@@ -157,7 +161,38 @@ def cut(blocks, edit, session):
     return result
 
 
-EDITS = {"accept": accept, "confirm": confirm, "move": move, "split": split, "drop": drop, "new": new, "cut": cut}
+def trips_in(session, epoch):
+    """
+    The (first, last) frames of every complete trip of the track epoch: an outbound run to the end of the first return run starting before the next outbound run, both inside one stretch.
+    """
+    rules, found = session["rules"], []
+    runs = sorted((r for r in session["runs"] if r["duplicate_of"] is None and epoch["frame_start"] <= r["frame_start"] <= epoch["frame_end"]),
+                  key=lambda r: r["frame_start"])
+    outbound = [r for r in runs if r["path_id"] in rules["outbound_paths"]]
+    for out, following in zip(outbound, outbound[1:] + [None]):
+        until = following["frame_start"] if following else float("inf")
+        back = next((r for r in runs if r["path_id"] in rules["return_paths"] and out["frame_start"] < r["frame_start"] < until), None)
+        stretch = stretch_of(session, out["frame_start"])
+        if back and stretch and stretch["epoch"] == TRACK and max(out["frame_end"], back["frame_end"]) <= stretch["frame_end"]:
+            found.append((out["frame_start"], back["frame_end"]))
+    return found
+
+
+def trips(blocks, edit, session):
+    """
+    The track blocks that are kept removed and one edited block made of each complete trip, a trip under min_block_s dropped with its note.
+    """
+    result = [{**b, "status": REMOVED, "note": REPLACED_NOTE} if b["epoch"] == TRACK and b["status"] != REMOVED else b for b in blocks]
+    for epoch in (e for e in session["epochs"] if e["epoch"] == TRACK):
+        for first, last in trips_in(session, epoch):
+            made = {"epoch": TRACK, "environment": epoch["environment"], "frame_start": first, "frame_end": last, "status": EDITED, "note": INITIAL_NOTE}
+            if not long_enough(first, last, session):
+                made.update(status=REMOVED, note=SHORT_TRIP_NOTE.format(session["rules"]["min_block_s"]))
+            result.append(made)
+    return result
+
+
+EDITS = {"accept": accept, "confirm": confirm, "move": move, "split": split, "drop": drop, "new": new, "cut": cut, "trips": trips}
 
 
 def crowded(blocks):
@@ -189,11 +224,13 @@ def new_refusal(blocks, edit, session):
 
 def refusal(blocks, edit, session):
     """
-    Why the edit is illegal on these blocks, or None: its op is unknown, no block holds the frame it anchors to, a new block does not fit (it starts outside the epochs the rules cut, crosses a cut, is short or overlaps a kept block), it would bring a removed block back over a kept one, or it would leave a kept block under min_block_s.
+    Why the edit is illegal on these blocks, or None: its op is unknown, no block holds the frame it anchors to, a new block does not fit (it starts outside the epochs the rules cut, crosses a cut, is short or overlaps a kept block), trips finds no track epoch, it would bring a removed block back over a kept one, or it would leave a kept block under min_block_s.
     """
     op = edit["op"]
     if op not in EDITS:
         return UNKNOWN_MESSAGE.format(op)
+    if op == "trips" and not any(e["epoch"] == TRACK for e in session["epochs"]):
+        return NO_TRACK_MESSAGE
     if op == "new":
         return new_refusal(blocks, edit, session)
     if op in ANCHORS and reaching(blocks, edit[ANCHORS[op]]) is None:

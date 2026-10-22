@@ -129,3 +129,11 @@ test("a bar's name is written in the ink, and in the page colour where the ink w
   expect(labelColour("#f2a900", 0.45, "#26201a", "#f1e6cf", "#1c1814")).toBe("#f1e6cf"); // the faint amber of an automatic block
   expect(labelColour("#0077ae", 1, "#ffffff", "#0b0d0f", "#f1f4f6")).toBe("#0b0d0f"); // black on the light theme's blue
 });
+
+test("a removed block drawn under the blocks that replaced it gives way to them under a click and is hit only where it stands alone", () => {
+  const removed = bar("blocks", 1000, 5000, { under: true });
+  const kept = bar("blocks", 2000, 3000);
+  const y = middle("blocks");
+  expect(hitBar([removed, kept], bands, base, RATE_HZ, { x: base(2500 / RATE_HZ), y })).toBe(kept);
+  expect(hitBar([removed, kept], bands, base, RATE_HZ, { x: base(1200 / RATE_HZ), y })).toBe(removed);
+});

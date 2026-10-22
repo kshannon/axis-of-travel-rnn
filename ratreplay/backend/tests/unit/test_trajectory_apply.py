@@ -36,6 +36,16 @@ SESSION = {"rules": RULES, "session_id": S1, "rate_hz": RATE_HZ, "runs": RUNS,
            "epochs": [{"epoch": epoch, "environment": environment, "condition": "baseline", "frame_start": EPOCH_BOUNDS[epoch][0],
                        "frame_end": EPOCH_BOUNDS[epoch][1]} for epoch, environment in ENVIRONMENT_OF.items()]}
 AUTO = [(start, end) for _, start, end in STRETCHES[:4]]
+
+# The runs of the trips edit, one run per (path_id, first, last): the trips 2800 to 3500 and 4400 to 5200 are complete, the outbound run at
+# 3900 has its return in the next stretch, the one at 5400 has no return, the one at 7500 has a return ending past its stretch, and 8400 to 8600
+# is a complete trip of 201 frames, under the 10 s the rules keep.
+TRIP_RUNS = [{"epoch": "track", "run": number, "path_id": path, "clean": True, "frame_start": first, "frame_end": last, "duplicate_of": None}
+             for number, (path, first, last) in enumerate([(3, 2800, 2900), (9, 3300, 3500), (1, 3900, 3950), (10, 4100, 4200), (2, 4400, 4500),
+                                                          (9, 4800, 5200), (4, 5400, 5500), (3, 7500, 7600), (9, 7650, 7800), (1, 8400, 8450),
+                                                          (10, 8500, 8600)], 1)]
+TRIP_SESSION = {**SESSION, "runs": TRIP_RUNS}
+TRIPS = [{"op": "trips"}]
 TOO_SHORT = rules_of.TOO_SHORT_MESSAGE.format(10.0)
 
 
@@ -172,6 +182,33 @@ def test_a_cut_splits_the_block_and_drops_a_piece_under_ten_seconds():
     assert ranges(blocks)[2:] == [(4050, 5700, "auto"), (6301, 7700, "dropped")]
     assert blocks[3]["note"] == rules_of.INSIDE_NOTE
     assert result["cuts"] == [{"frame_start": 4600, "frame_end": 5000, "reason": rules_of.CUT_REASON}]
+
+
+def test_trips_replace_the_track_blocks_with_one_edited_block_per_complete_trip_and_leave_the_arena_block():
+    result = apply(TRIPS, session=TRIP_SESSION)
+    blocks = result["blocks"]
+    assert ranges(blocks) == [(301, 2100, "auto"), (2701, 3999, "dropped"), (2800, 3500, "edited"), (4050, 5700, "dropped"), (4400, 5200, "edited"),
+                              (6301, 7700, "dropped"), (8400, 8600, "dropped")]
+    assert [b["note"] for b in blocks] == [None, rules_of.REPLACED_NOTE, None, rules_of.REPLACED_NOTE, None, rules_of.REPLACED_NOTE,
+                                           rules_of.SHORT_TRIP_NOTE.format(10.0)]
+    assert [(b["epoch"], b["environment"]) for b in blocks[1:]] == [("track", "triple_t")] * 6
+    assert [b["block_id"].rsplit("_", 2)[-2:] for b in blocks] == [["arena", "01"]] + [["track", f"{i:02d}"] for i in range(1, 7)]
+    assert result["refusals"] == []
+
+
+def test_a_trip_without_a_return_in_its_stretch_is_skipped_and_a_block_already_removed_keeps_its_note():
+    blocks = made([{"op": "drop", "frame": 7000}, *TRIPS], TRIP_SESSION)
+    starts = [b["frame_start"] for b in blocks]
+    # 3900 returns in the next stretch, 5400 never returns, 7500 returns past the end of its stretch.
+    assert not {3900, 5400, 7500} & set(starts)
+    assert [b["note"] for b in blocks if b["frame_start"] == 6301] == [None] and ranges(blocks)[5] == (6301, 7700, "dropped")
+
+
+def test_trips_are_refused_only_when_the_session_has_no_track_epoch():
+    arena_only = {**TRIP_SESSION, "epochs": [e for e in TRIP_SESSION["epochs"] if e["epoch"] == "arena"]}
+    assert refused(TRIPS, session=arena_only) == [(0, "trips", rules_of.NO_TRACK_MESSAGE)]
+    assert made(TRIPS, arena_only) == made([], arena_only)
+    assert refused(TRIPS, session=TRIP_SESSION) == []
 
 
 def test_an_edit_whose_block_or_room_is_gone_is_skipped_with_its_index_and_reason():

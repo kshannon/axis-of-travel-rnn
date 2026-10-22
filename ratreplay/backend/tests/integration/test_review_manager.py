@@ -17,6 +17,7 @@ from ratreplay_api.access.environment import EnvironmentAccess
 from ratreplay_api.access.processed import METADATA_KEYS, ProcessedAccess
 from ratreplay_api.access.transformed import TransformedAccess
 from ratreplay_api.engines.trajectory import RULES, SETTINGS, VERSION, TrajectoryEngine
+from ratreplay_api.engines.trajectory import edits as edit_rules
 from ratreplay_api.managers.review import EXCLUDED, OTHER_RULES, SAVED_DIFFER, NOT_ACCEPTED, ReviewManager
 from ratreplay_api.utilities.errors import Invalid, NotFound
 
@@ -174,6 +175,15 @@ def test_a_preview_of_an_illegal_split_returns_the_refusal_and_writes_nothing(fo
     assert [(r["index"], r["op"]) for r in done["refusals"]] == [(1, "split")] and done["refusals"][0]["reason"]
     assert [b["status"] for b in done["blocks"]] == ["confirmed", "confirmed"] and done["cuts"] == [] and done["flagged_runs"] == []
     assert not folders[1].exists()
+
+
+def test_a_preview_of_trips_on_the_fixture_session_removes_its_track_block_and_drops_its_one_short_trip_and_the_edit_reads_in_words(folders, manager):
+    # S1's track block has a trip of 5 s (an outbound run at 2200, its return ending at 2500) and an outbound run at 2600 with no return.
+    done = manager.preview(S1, [{"op": "trips"}], SHORT)
+    assert [(b["frame_start"], b["frame_end"], b["status"], b["note"]) for b in done["blocks"]] == [
+        (301, 1500, "auto", None), (2101, 3300, "dropped", edit_rules.REPLACED_NOTE), (2200, 2500, "dropped", edit_rules.SHORT_TRIP_NOTE.format(10.0))]
+    assert done["refusals"] == []
+    assert review_module.described({"op": "trips"}) == "one block per trip"
 
 
 def test_save_writes_the_review_and_the_blocks_and_load_gives_them_back(folders, manager):

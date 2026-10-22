@@ -1,12 +1,14 @@
 import type { Edit, ReviewBlock, Run } from "../api/types";
+import { counted } from "../ui/text";
 
-export type Action = "accept-all" | "accept" | "reject" | "new-block" | "cut" | "start-to-cursor" | "end-to-cursor" | "split" | "flag";
+export type Action = "accept-all" | "accept" | "reject" | "new-block" | "cut" | "start-to-cursor" | "end-to-cursor" | "split" | "flag" | "trips";
 
 const BURIED = "Every frame of this removed block lies under another block, so no edit can reach it.";
 const MARK_FIRST = "Mark both ends of the range first.";
 const ALREADY_ACCEPTED = "already accepted";
 const RESTORE_FIRST = "restore the block first, Reject again";
 export const NOTHING_CHANGED = "Nothing changed.";
+const TRACK = "track";
 
 /** What an action reads of the screen: the cursor as a lab frame, the block it targets among the blocks in time order, the marked range and the run under the cursor. */
 export interface Target {
@@ -32,6 +34,7 @@ function anchorOf(block: ReviewBlock, blocks: ReviewBlock[]): number | null {
 export function editFor(action: Action, target: Target): Edit | string {
   const { cursor, block, blocks, range, run } = target;
   if (action === "accept-all") return { op: "accept" };
+  if (action === "trips") return { op: "trips" };
   if (action === "new-block") return range ? { op: "new", ...range } : MARK_FIRST;
   if (action === "cut") return range ? { op: "cut", ...range } : MARK_FIRST;
   if (action === "flag") return run ? { op: "flag", run: run.run } : "There is no run under the cursor.";
@@ -66,8 +69,18 @@ export function label(edit: Edit): string {
     case "split": return `split at frame ${edit.frame}`;
     case "new": return `new block over frames ${edit.frame_start} to ${edit.frame_end}`;
     case "cut": return `cut of frames ${edit.frame_start} to ${edit.frame_end}`;
+    case "trips": return "one block per trip";
     case "flag": return `flag toggle on run ${edit.run}`;
   }
+}
+
+/** What the trips edit did, from the blocks before and after it. It keeps every old block in the list as removed and adds one block per trip, a trip under the minimum length removed too. */
+export function tripsText(before: ReviewBlock[], after: ReviewBlock[]): string {
+  const removed = (blocks: ReviewBlock[]) => blocks.filter((b) => b.status === "dropped").length;
+  const replaced = before.filter((b) => b.epoch === TRACK && b.status !== "dropped").length;
+  const short = removed(after) - removed(before) - replaced;
+  const made = after.length - before.length - short;
+  return `${counted(made, "trip block")} made, ${short} dropped as short, the old track blocks removed`;
 }
 
 /** The block that stands for the selected one after an edit: a new block is selected, otherwise the overlapping block with the edges nearest the old ones, so a removed block around the selected one does not take the selection. */

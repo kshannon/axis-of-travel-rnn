@@ -34,7 +34,8 @@ test("a run is coloured by its path with the path number inside, hatched when th
 });
 
 test("blocks are named by their place in time order, can be picked by it and a removed one is faint", () => {
-  const blocks = scene([block(1, 100, "confirmed"), block(200, 300, "dropped")]).bars.filter((bar) => bar.lane === "blocks");
+  const blocks = scene([block(1, 100, "confirmed"), block(200, 300, "dropped")]).bars.filter((bar) => bar.lane === "blocks").sort((a, b) => a.pick! - b.pick!);
+  expect(blocks.map((bar) => bar.under)).toEqual([false, true]); // the removed one draws first, beneath
   expect(blocks.map((bar) => [bar.text, bar.short, bar.pick, bar.fill])).toEqual([["block 1", "1", 0, "ok"], ["block 2", "2", 1, "muted"]]);
   expect(blocks[1].alpha).toBeLessThan(blocks[0].alpha!);
   expect(blockName(2)).toBe("block 3");

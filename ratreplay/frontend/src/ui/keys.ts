@@ -5,14 +5,16 @@ export const KEYS: readonly { keys: string; action: string }[] = [
   { keys: "shift with left, right", action: "one second back or forward" },
   { keys: "[ and ]", action: "previous and next run" },
   { keys: "enter", action: "confirm the selected block" },
+  { keys: "a", action: "accept the selected block" },
+  { keys: "r", action: "reject the selected block, again to restore it" },
   { keys: "escape", action: "clear the marks, then the selection" },
   { keys: "z", action: "undo the last edit" },
 ];
 
-export type Command = "play" | "back" | "forward" | "back-second" | "forward-second" | "previous-run" | "next-run" | "confirm" | "clear" | "undo";
+export type Command = "play" | "back" | "forward" | "back-second" | "forward-second" | "previous-run" | "next-run" | "confirm" | "accept" | "reject" | "clear" | "undo";
 
 const COMMANDS: Record<string, Command> = {
-  " ": "play", ArrowLeft: "back", ArrowRight: "forward", "[": "previous-run", "]": "next-run", Enter: "confirm", Escape: "clear", z: "undo",
+  " ": "play", ArrowLeft: "back", ArrowRight: "forward", "[": "previous-run", "]": "next-run", Enter: "confirm", a: "accept", r: "reject", Escape: "clear", z: "undo",
 };
 const SECOND_WITH_SHIFT: Partial<Record<Command, Command>> = { back: "back-second", forward: "forward-second" };
 const TEXT_FIELDS = ["INPUT", "TEXTAREA", "SELECT"];
