@@ -23,8 +23,6 @@ path = "src/axis_of_travel_rnn/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = [
   "src/axis_of_travel_rnn",
-  "src/environments",
-  "src/proj_helpers",
   "src/transform_lab_data",
 ]
 

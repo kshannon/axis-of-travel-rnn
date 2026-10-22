@@ -19,7 +19,7 @@ its one-line docstring.
 Each file reads as imports, one block of named values, then functions. Imports flow one way: `readers` and
 `output` import nothing of ours, `convert` imports `readers`, `checks` both, `orchestrator` all four, `__main__`
 the orchestrator and `readers`. A definition lives in the file that uses it; there is no schema file or class.
-`src/proj_helpers/lab_data_access.py` keeps its own reader until the notebooks switch (tasks.md).
+The old `lab_data_access.py` helper kept its own reader until the notebooks switch (tasks.md).
 
 ## Data flow
 

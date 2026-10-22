@@ -7,10 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
-from proj_helpers.paths import local_config, repo_root
-
 from .blocks import io
 from .blocks.blueprint import read_blueprint
+from .config import REPO_ROOT, local_path
 
 # The configs/local.yaml key of the folder the builds go under, and the three data roots this package never writes to.
 PROCESSED_KEY = "PROCESSED_LAB_DATA"
@@ -34,13 +33,7 @@ def built_folder(name, config=None):
     The built folder of a blueprint, its built key relative to the repository when set, else PROCESSED_LAB_DATA/<name>/, refused when it has no manifest.
     """
     built = read_blueprint(name).built
-    if built is not None:
-        folder = repo_root() / built
-    else:
-        config = local_config() if config is None else config
-        if not config.get(PROCESSED_KEY):
-            raise LabDataError(f"{PROCESSED_KEY} is missing from configs/local.yaml")
-        folder = Path(str(config[PROCESSED_KEY])).expanduser() / name
+    folder = REPO_ROOT / built if built is not None else local_path(PROCESSED_KEY, config) / name
     if not (folder / MANIFEST).is_file():
         raise LabDataError(f"no {MANIFEST} in {folder}, build it with pixi run build-blocks --blueprint {name}")
     return folder
@@ -90,8 +83,8 @@ def guard(path, config):
     for key in DATA_ROOT_KEYS:
         if config.get(key) and overlaps(path, config[key]):
             raise LabDataError(f"{path} overlaps {key} {config[key]}, which is never written to")
-    if overlaps(path, repo_root()):
-        raise LabDataError(f"{path} overlaps the repository {repo_root()}, checkpoints stay outside git")
+    if overlaps(path, REPO_ROOT):
+        raise LabDataError(f"{path} overlaps the repository {REPO_ROOT}, checkpoints stay outside git")
     return Path(path)
 
 

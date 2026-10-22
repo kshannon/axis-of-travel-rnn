@@ -9,13 +9,11 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from proj_helpers.paths import local_config, repo_root
-
 from . import viz
 from .analysis import YAML, axis_selectivity, frame_directions, load_thresholds, pca_scores, scale
 from .analysis import measures as run_measures
 from .blocks.geometry import geometry
-from .config import ExperimentConfig, load_config, resolved
+from .config import REPO_ROOT, ExperimentConfig, load_config, local_config, resolved
 from .data import SPLITS, block_rows, built_folder, data_id, guard, read_block, resample, split_by_date
 from .dataset import TARGETS, WindowDataset, fit_scaler
 from .dataset import make_windows as windows_of
@@ -37,7 +35,7 @@ def thresholds_of(analysis):
     if not source.endswith(YAML):
         return load_thresholds(source)
     path = Path(source)
-    return load_thresholds(path if path.is_absolute() else repo_root() / path)
+    return load_thresholds(path if path.is_absolute() else REPO_ROOT / path)
 
 
 def load_blocks(data, folder=None, config=None):

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from axis_of_travel_rnn import data
-from proj_helpers.paths import repo_root
+from axis_of_travel_rnn.config import REPO_ROOT
 
 from .handmade import LAB_RATE_HZ, TRAINING_RATE_HZ, wandering
 
@@ -45,7 +45,7 @@ def test_resampling_takes_every_third_frame_and_keeps_the_time_axis():
 def test_the_guard_refuses_a_data_root_and_the_repository(tmp_path):
     config = {"PROCESSED_LAB_DATA": str(tmp_path / "processed"), "LAB_DATA": str(tmp_path / "lab")}
     assert data.guard(tmp_path / "runs", config) == tmp_path / "runs"
-    for path in (tmp_path / "processed" / "blocks_v1" / "runs", tmp_path, repo_root() / "runs"):
+    for path in (tmp_path / "processed" / "blocks_v1" / "runs", tmp_path, REPO_ROOT / "runs"):
         with pytest.raises(data.LabDataError):
             data.guard(path, config)
 

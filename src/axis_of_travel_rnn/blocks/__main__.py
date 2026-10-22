@@ -14,9 +14,8 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from axis_of_travel_rnn import __version__
-from proj_helpers import paths
-from proj_helpers.paths import repo_root
 
+from ..config import REPO_ROOT, local_config, local_path
 from . import VERSION, BlockEngine, io
 from .blueprint import ALL_REVIEWED, Blueprint, blueprint_section, blueprint_sha256
 from .geometry import geometries
@@ -49,7 +48,7 @@ def git_commit():
     The short commit of the repository with +dirty when a tracked file has uncommitted changes, unknown when git cannot say.
     """
     def git(*arguments):
-        return subprocess.run(["git", "-C", str(repo_root()), *arguments], capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(["git", "-C", str(REPO_ROOT), *arguments], capture_output=True, text=True, check=True).stdout.strip()
     try:
         commit, changes = git("rev-parse", "--short", "HEAD"), git("status", "--porcelain", "--untracked-files=no")
     except (OSError, subprocess.CalledProcessError):
@@ -175,14 +174,13 @@ def folders(blueprint, config):
     """
     The transformed folder, the reviews folder (the blueprint's, else PROCESSED_LAB_DATA/review) and the build's folder, or exit 2 naming what is wrong.
     """
-    for key in (blueprint.transformed, PROCESSED_KEY):
-        if not config.get(key):
-            refuse(f"{paths.LOCAL_CONFIG} has no {key}")
-    transformed = Path(str(config[blueprint.transformed])).expanduser().resolve()
-    processed = Path(str(config[PROCESSED_KEY])).expanduser().resolve()
+    try:
+        transformed, processed = (local_path(key, config).resolve() for key in (blueprint.transformed, PROCESSED_KEY))
+    except KeyError as error:
+        refuse(error.args[0])
     out = processed / blueprint.name
-    reviews = processed / REVIEW_DIR if blueprint.reviews is None else (repo_root() / Path(blueprint.reviews).expanduser()).resolve()
-    repo = repo_root().resolve()
+    reviews = processed / REVIEW_DIR if blueprint.reviews is None else (REPO_ROOT / Path(blueprint.reviews).expanduser()).resolve()
+    repo = REPO_ROOT.resolve()
     if not transformed.is_dir():
         refuse(f"{blueprint.transformed} {transformed} is not a folder")
     if not reviews.is_dir():
@@ -207,7 +205,7 @@ def main(argv=None, config=None, project=None):
         blueprint = Blueprint.model_validate(raw)
     except ValidationError as error:
         refuse(f"{args.blueprint}: {error}")
-    transformed, reviews, out = folders(blueprint, paths.local_config() if config is None else config)
+    transformed, reviews, out = folders(blueprint, local_config() if config is None else config)
     if out.exists() and not args.replace:
         refuse(f"{out} exists, pass --replace to build it again")
     staging = out.with_name(out.name + BUILDING)

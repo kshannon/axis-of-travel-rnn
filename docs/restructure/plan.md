@@ -33,7 +33,7 @@ results, not precomputed.
 
 Self contained experiments and drift, the answer to the question
 
-- An experiment is one folder, experiments/2026-10-22_window-60s/, holding config.yaml, the notebook,
+- An experiment is one folder, notebooks/experiments/2026-10-22_window-60s/ (experiments/ until 2026-10-22), holding config.yaml, the notebook,
   and after the run its results (metrics.csv, summary.json, figures/, the executed notebook with outputs
   as an html export). The folder is the record. It is never edited after the run, a new idea is a new
   folder, so the history reads as a lab notebook of experiments.
@@ -112,7 +112,7 @@ the data id, which hashes the blocks, is unchanged. The paths named above are as
    persistence baseline, hidden_states), analysis.py and viz.py into src/axis_of_travel_rnn, drop
    worlds.py, sweep.py, decision.py, study.py. Merge src/lab_rnn/blocks.py (split by date, data id, read
    only guard) into the package, delete its duplicate schema. Fix every import.
-3. Drop src/cli and store.py (keep notebook new as a pixi task), src/proj_helpers/lab_data_access.py.
+3. Drop src/cli and store.py (keep notebook new as a pixi task), the old lab_data_access.py helper.
    Keep paths.py and notebooks.py. Keep src/transform_lab_data only if the converter stays (question 4).
 4. Configs: configs/local.example.yaml keeps TRANSFORMED_LAB_DATA, PROCESSED_LAB_DATA, adds RUNS. Drop
    STORE and SYNTHETIC_DATA. Window settings and thresholds become yaml under configs/.
@@ -355,7 +355,7 @@ Open follow ups
 - `summary.json` can hold NaN, which `json.dumps` writes as the bare token `NaN`. Python reads it, strict JSON readers do not.
 - `format_version` is recorded in the manifest and never checked against the reviews or the blocks.
 - `offset_warn_deg` is a rule that no code reads.
-- Three of the four EDA notebooks in `notebooks/eda/` import `proj_helpers.lab_data_access`, deleted at step 4, so they no longer run.
+- Three of the four EDA notebooks in `notebooks/eda/` import the old `lab_data_access` helper, deleted at step 4, so they no longer run.
 - The three EDA notebooks Kyle named, E1 block creation issues, E2 angular velocity, E3 head direction and its interpolation,
   come first after the cleanup (tasks.md).
 

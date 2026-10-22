@@ -8,8 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from proj_helpers.project import section
-
+from ..config import section
 from . import RULES, SETTINGS
 
 # Blueprints live in the blueprints section of configs/project.yaml, keyed by name.

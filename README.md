@@ -15,9 +15,9 @@ Three steps, each a function of its inputs. Paths come from `configs/local.yaml`
 1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
 2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/project.yaml` become blocks.
    `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
-3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `experiments/` (`--config biological` copies another
-   config than the baseline). Run its notebook, then
-   `pixi run export-experiment experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
+3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `notebooks/experiments/` (`pixi run new-experiment
+   "<title>" biological` copies another config than the baseline). Run its notebook, then
+   `pixi run export-experiment notebooks/experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
 
 The review files, a person's cuts and flags per session, are written by RatTrack, the review tool (no link yet).
 
@@ -48,8 +48,8 @@ pixi run test    # the tests, and pixi run test-cov for coverage
 
 ## Start an experiment
 
-`pixi run new-experiment "window 60 s"` makes `experiments/YYYY-MM-DD_window-60-s/`. The folder holds `config.yaml` (a copy of
-`configs/experiments/baseline.yaml`, or of `configs/experiments/<name>.yaml` with `--config <name>`) and `notebook.ipynb` (from
+`pixi run new-experiment "window 60 s"` makes `notebooks/experiments/YYYY-MM-DD_window-60-s/`. The folder holds `config.yaml` (a
+copy of `configs/experiments/baseline.yaml`, or of `configs/experiments/<name>.yaml` with `pixi run new-experiment "<title>" <name>`) and `notebook.ipynb` (from
 `templates/notebook-experiment.ipynb`), whose first cells hold the purpose and notes and whose last cell holds the outcome. Fill
 in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`,
 `results_dir`, `checkpoint_dir`), so papermill can rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
@@ -59,7 +59,7 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 
 - Committed: `config.yaml`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
   `summary.json` holds the git commit, package version, blueprint, data id, resolved config, `pixi.lock` hash, times and metrics.
-- Not committed: everything else in the folder (`experiments/.gitignore`), and the contents of `RUNS`.
+- Not committed: everything else in the folder (`notebooks/experiments/.gitignore`), and the contents of `RUNS`.
 - A folder is never edited after its run. A new idea is a new folder.
 - The notebook calls the library's surface, `help(axis_of_travel_rnn)`, which changes only with a line in `CHANGELOG.md`.
 - To rerun an old one: `git worktree add ../aot-old <git_commit of its summary.json>`, `pixi install` there, run.
@@ -69,7 +69,8 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 `pixi run new-eda "heading gaps"` makes `notebooks/eda/YYYY-MM-DD_heading-gaps.ipynb` from `templates/notebook-eda.ipynb`. Its
 `parameters` cell names the project config and the blueprint, and the next cells load every block of that built folder at the
 lab rate with `load_blocks`, so an exploratory notebook starts with the data in hand. `pixi run new-labnote` writes the day's
-entry under `labnotebook/` from `templates/labnotebook.md`, with optional words for the file name.
+entry under `labnotebook/` from `templates/labnotebook.md`, with optional words for the file name. All three are
+`templates/new.sh`, which fills the title, date and author and refuses an existing file.
 
 ## Layout
 
@@ -77,13 +78,12 @@ entry under `labnotebook/` from `templates/labnotebook.md`, with optional words 
 configs/      project.yaml (environments, blueprints, eda, analysis thresholds), experiments/ (one file per preset),
               local.example.yaml (copy to local.yaml)
 docs/         blocks_schema.md, pilot.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
-experiments/  one folder per experiment: config, notebook and results
 labnotebook/  the authors' dated log, pixi run new-labnote
-notebooks/    working notebooks, eda/ for the exploratory ones
+notebooks/    working notebooks, eda/ for the exploratory ones, experiments/ one folder per experiment (config, notebook, results)
 scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds tests/fixtures/sample)
-src/          axis_of_travel_rnn/ (the library, blocks/ is the block engine), environments/ (maze geometry),
-              proj_helpers/ (paths, new.py for new notebooks, experiments and notes, the smoke), transform_lab_data/ (the converter)
-templates/    notebook-eda.ipynb, notebook-experiment.ipynb and labnotebook.md
+src/          axis_of_travel_rnn/ (the library, config.py for paths and configs, blocks/ the block engine with geometry.py),
+              transform_lab_data/ (the converter)
+templates/    notebook-eda.ipynb, notebook-experiment.ipynb, labnotebook.md and new.sh
 tests/        unit/, integration/ (the smoke) and fixtures/sample/ (a synthetic built folder for the smoke, committed)
 tmp/          uncommitted scratch and planning
 ```
@@ -98,7 +98,7 @@ tmp/          uncommitted scratch and planning
 | review files | `PROCESSED_LAB_DATA/review/` | no |
 | synthetic sample | `tests/fixtures/sample/` | yes, no real recording |
 | checkpoints and tensors | `RUNS` | no |
-| experiment records | `experiments/<folder>/` | yes, the files listed above |
+| experiment records | `notebooks/experiments/<folder>/` | yes, the files listed above |
 
 The rule: the data lives outside the repository, which holds no data folder. Real recordings, transformed frames, review files
 and block parquet files never enter it. Git tracks code, configs, docs, tests (the synthetic sample with them), the experiment

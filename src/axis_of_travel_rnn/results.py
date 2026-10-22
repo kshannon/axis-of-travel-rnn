@@ -8,10 +8,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from proj_helpers.paths import repo_root
-
 from . import __version__
-from .config import resolved
+from .config import REPO_ROOT, resolved
 
 SUMMARY = "summary.json"
 METRICS = "metrics.csv"
@@ -25,7 +23,7 @@ def git_commit():
     """
     The full commit of the repository's HEAD, unknown when git cannot say.
     """
-    done = subprocess.run(["git", "-C", str(repo_root()), "rev-parse", "HEAD"], capture_output=True, text=True)
+    done = subprocess.run(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"], capture_output=True, text=True)
     return done.stdout.strip() if done.returncode == 0 else UNKNOWN
 
 
@@ -33,7 +31,7 @@ def lock_sha256():
     """
     The sha256 of the repository's pixi.lock as hex.
     """
-    return hashlib.sha256((repo_root() / LOCK_FILE).read_bytes()).hexdigest()
+    return hashlib.sha256((REPO_ROOT / LOCK_FILE).read_bytes()).hexdigest()
 
 
 def json_value(value):

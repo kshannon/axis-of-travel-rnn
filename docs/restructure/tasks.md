@@ -82,7 +82,8 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       blueprint and data id, resolved config, pixi.lock sha256, timings, metrics), `metrics.csv`,
       `figures/` and an html export of the executed notebook. Check: a test over a temp folder. (3 h)
 - [ ] 17. The baseline experiment reproducing the 2026-10-19 notebook on blocks_v1, run by Kyle,
-      outputs committed under 5 MB, `docs/experiments.md` index with its row. (Kyle 1 h, agent 1 h)
+      outputs committed under 5 MB, `docs/experiments.md` index with its row. The folder is
+      `notebooks/experiments/<date>_baseline/` since 2026-10-22, `pixi run new-experiment "baseline"`. (Kyle 1 h, agent 1 h)
 - [x] 18. The drift guard: `data/sample/` from a RatReplay synthetic set (three blocks, about 2 MB,
       no real recording) with its own blueprint and `configs/experiments/smoke.yaml`, `pixi run smoke`
       running the template notebook headless with papermill in under a minute, wrapped in a test.

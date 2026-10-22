@@ -89,18 +89,17 @@ settings and dotfiles are never changed by project work.
   manifest files of the block step, columns, keys and defaults.
 - `configs/`: declarative YAML. `project.yaml` holds the environments, the
   blueprints, the EDA defaults and the analysis thresholds, read by
-  `proj_helpers.project.section("blueprints.blocks_v1")` and the like.
+  `axis_of_travel_rnn.config.section("blueprints.blocks_v1")` and the like.
   `experiments/` holds one file per experiment preset. `configs/local.yaml` is
   the one machine-local file: paths only, git-ignored, never hashed.
 - `src/axis_of_travel_rnn/`: `blocks/` (the block builder) and the training
-  library (data, dataset, models, train, analysis, viz).
-  `src/environments/`: environment geometry.
-- `src/proj_helpers/`: paths, new notebooks and lab notes.
+  library (config for paths and configs, data, dataset, models, train, analysis, viz).
+  `blocks/geometry.py`: environment geometry. `templates/new.sh`: new notebooks, experiments and lab notes.
 - `src/transform_lab_data/`: the lab data converter.
 - `tests/`: unit and integration tests, `tests/fixtures/sample/` the synthetic
   sample for the smoke. The data, the review files with it, is outside the
   repository.
-- `experiments/`: one folder per experiment with its config, notebook and
+- `notebooks/experiments/`: one folder per experiment with its config, notebook and
   results, as they land.
 - `notebooks/`: the working notebooks, `notebooks/eda/` for the exploratory
   ones. `templates/`: the notebook and lab note templates.

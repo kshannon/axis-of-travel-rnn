@@ -10,11 +10,11 @@ from pydantic import ValidationError
 
 from axis_of_travel_rnn.analysis import load_thresholds
 from axis_of_travel_rnn.config import ExperimentConfig, InputsConfig, load_config, resolved
+from axis_of_travel_rnn.config import REPO_ROOT
 from axis_of_travel_rnn.dataset import layout
-from proj_helpers.paths import configs_dir
 
-BASELINE = configs_dir() / "experiments" / "baseline.yaml"
-BIOLOGICAL = configs_dir() / "experiments" / "biological.yaml"
+BASELINE = REPO_ROOT / "configs" / "experiments" / "baseline.yaml"
+BIOLOGICAL = REPO_ROOT / "configs" / "experiments" / "biological.yaml"
 
 
 def test_the_baseline_loads_with_position_only_inputs():

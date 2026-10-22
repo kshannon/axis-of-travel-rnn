@@ -8,9 +8,8 @@ import numpy as np
 import yaml
 from scipy import sparse
 
-from proj_helpers.project import section
-
 from .blocks.geometry import geometry
+from .config import MEASURES, THRESHOLDS, section
 
 # A direction is 2 * axis + (1 when the travel runs against the axis), the axis 0 east-west (a corridor at 0 degrees) and
 # 1 north-south (at 90 degrees). So 0 east, 1 west, 2 north, 3 south.
@@ -26,8 +25,6 @@ MIN_SEGMENTS = 2  # an axis or a direction is general only when seen on at least
 
 PCA_COMPONENTS = 3
 RIDGE_ALPHA = 1.0  # penalty of the ridge decoders, small against the number of steps
-MEASURES = ("direction", "axis", "arena", "distances", "decoders")
-THRESHOLDS = "analysis.thresholds"  # the section of configs/project.yaml holding the pre-registered thresholds
 YAML = ".yaml"
 
 

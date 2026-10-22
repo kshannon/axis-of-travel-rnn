@@ -8,11 +8,11 @@ version   = "0.2.0"
 
 ###################### ======== TASKS ======== ######################
 [tasks]
-# New files from templates/: a dated lab note (optional slug words), an EDA notebook under notebooks/eda/, and an
-# experiment folder under experiments/ with the notebook and a copy of configs/experiments/<--config, default baseline>.yaml
-new-labnote    = "python -m proj_helpers.new labnote"
-new-eda        = "python -m proj_helpers.new eda"
-new-experiment = "python -m proj_helpers.new experiment"
+# New files from templates/ (templates/new.sh): a dated lab note, an EDA notebook under notebooks/eda/, and an experiment
+# folder under notebooks/experiments/ with the notebook and a copy of configs/experiments/<config, default baseline>.yaml
+new-labnote    = "bash templates/new.sh labnote"
+new-eda        = "bash templates/new.sh eda"
+new-experiment = "bash templates/new.sh experiment"
 
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
@@ -23,7 +23,7 @@ build-blocks = "python -m axis_of_travel_rnn.blocks"
 # Experiments: the html of a run notebook written beside it
 export-experiment = "jupyter nbconvert --to html"
 # The drift guard: the experiment template notebook run headless on tests/fixtures/sample with configs/experiments/smoke.yaml
-smoke             = "python -m proj_helpers.smoke"
+smoke             = "mkdir -p tmp/smoke && papermill templates/notebook-experiment.ipynb tmp/smoke/notebook.ipynb --cwd tmp/smoke --no-progress-bar -p config_path $PIXI_PROJECT_ROOT/configs/experiments/smoke.yaml -p results_dir ."
 
 # Testing
 test     = "python -m pytest"

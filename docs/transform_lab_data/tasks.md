@@ -38,6 +38,6 @@ Findings are in tables.md 1.4. Nothing was committed.
 - [ ] S12b Second real run into a fresh output folder, then `diff -rq` against the first: only `manifest.json`
   timestamps should differ. By the author, commits nothing. [Running]
 - [ ] Rule 3 AGENTS.md reword, in its own pull request (spec Non-Functional).
-- [ ] S13 Once S12b is clean: the lab-data notebooks and `src/proj_helpers/lab_data_access.py` import `load_mat`
+- [ ] S13 Once S12b is clean: the lab-data notebooks and the old `lab_data_access.py` helper import `load_mat`
   and the catalog from `transform_lab_data` instead of their own copies. Commit: "Import the lab data reader and
   catalog from the converter package in the notebooks". [Non-Functional]

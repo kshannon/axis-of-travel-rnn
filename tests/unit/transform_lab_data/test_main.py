@@ -33,7 +33,7 @@ GUARDS = [
 @pytest.mark.parametrize("lab, out", GUARDS)
 def test_a_bad_setup_exits_2(tmp_path, monkeypatch, lab, out):
     (tmp_path / "lab").mkdir()
-    monkeypatch.setattr(entry, "repo_root", lambda: tmp_path / "repo")
+    monkeypatch.setattr(entry, "REPO_ROOT", tmp_path / "repo")
     pairs = zip(("LAB_DATA", "TRANSFORMED_LAB_DATA"), (lab, out))
     with pytest.raises(SystemExit) as stop:
         entry.main(["--dry-run"], config={key: str(tmp_path / value) for key, value in pairs if value is not None})
