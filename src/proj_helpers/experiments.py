@@ -14,7 +14,6 @@ from .paths import repo_root
 EXPERIMENTS_DIR = "experiments"
 TEMPLATE_DIR = "templates/experiment"
 NOTEBOOK = "notebook.ipynb"
-README = "README.md"
 
 
 def fill(text, fields):
@@ -28,7 +27,7 @@ def fill(text, fields):
 
 def new_experiment(title, *, directory=None, template=None, author=None, today=None):
     """
-    Copy the template folder to <directory>/<today>_<slug>/ with the title, date and author in its notebook and README, and return the folder.
+    Copy the template folder to <directory>/<today>_<slug>/ with the title, date and author in its notebook, and return the folder.
     """
     import nbformat
 
@@ -43,7 +42,6 @@ def new_experiment(title, *, directory=None, template=None, author=None, today=N
         raise FileExistsError(f"{folder} already exists")
     fields = {"{{TITLE}}": title, "{{DATE}}": today.isoformat(), "{{AUTHOR}}": git_user_name() if author is None else author}
     shutil.copytree(template, folder)
-    (folder / README).write_text(fill((folder / README).read_text(), fields))
     notebook = nbformat.read(folder / NOTEBOOK, as_version=4)
     for cell in notebook.cells:
         cell.source = fill(cell.source, fields)

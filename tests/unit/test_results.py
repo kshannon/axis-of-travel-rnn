@@ -41,7 +41,6 @@ def test_new_experiment_copies_the_template_with_the_title_in_place(tmp_path):
     assert folder == tmp_path / "2026-10-22_window-60-s"
     assert sorted(path.name for path in folder.iterdir()) == sorted(path.name for path in template.iterdir())
     assert load_config(folder / "config.yaml") == load_config(BASELINE)
-    assert (folder / "README.md").read_text().startswith("# Window 60 s\n")
     notebook = nbformat.read(folder / "notebook.ipynb", as_version=4)
     assert notebook.cells[0].source.startswith("# Window 60 s\n") and "{{" not in notebook.cells[0].source
     assert any("parameters" in cell.metadata.get("tags", []) for cell in notebook.cells)

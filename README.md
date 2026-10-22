@@ -48,14 +48,14 @@ pixi run test    # the tests, and pixi run test-cov for coverage
 ## Start an experiment
 
 `pixi run new-experiment "window 60 s"` makes `experiments/YYYY-MM-DD_window-60-s/`. The folder holds `config.yaml` (a copy of
-`configs/experiments/baseline.yaml`), `notebook.ipynb` and `README.md`. Fill in the purpose, edit the config, run the notebook
-top to bottom. Its first code cell is tagged `parameters` (`config_path`, `results_dir`, `checkpoint_dir`), so papermill can
+`configs/experiments/baseline.yaml`) and `notebook.ipynb`, whose first cells hold the purpose and notes and whose last cell
+holds the outcome. Fill in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`, `results_dir`, `checkpoint_dir`), so papermill can
 rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
 
 The network's inputs are a config choice (`inputs.columns`, see `docs/data_dictionary.md`): `configs/experiments/baseline.yaml` gives
 position only, the control, and `configs/experiments/biological.yaml` adds speed, head direction and angular velocity.
 
-- Committed: `config.yaml`, `README.md`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
+- Committed: `config.yaml`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
   `summary.json` holds the git commit, package version, blueprint, data id, resolved config, `pixi.lock` hash, times and metrics.
 - Not committed: everything else in the folder (`experiments/.gitignore`), and the contents of `RUNS`.
 - A folder is never edited after its run. A new idea is a new folder.
