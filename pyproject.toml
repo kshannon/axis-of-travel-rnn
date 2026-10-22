@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Kyle Shannon", email = "kyle@kmshannon.com" }, { name = "Jiesen Zhang", email = "jiz147@ucsd.edu" }]
 # Runtime imports of the package itself. The full research environment
-# (PyTorch, RatInABox, plotting, ...) is pinned in pixi.toml / pixi.lock.
+# (PyTorch, plotting, ...) is pinned in pixi.toml / pixi.lock.
 dependencies = [
   "numpy>=1.26",
   "pyyaml>=6",

@@ -1,8 +1,7 @@
 """Environments: parametric geometry loaded from configs/environments/.
 
-    from environments import load_environment, to_ratinabox
+    from environments import load_environment
     spec = load_environment("triple_t")   # configs/environments/triple_t.yaml
-    env = to_ratinabox(spec)              # RatInABox Environment, same frame
 
 Configs hold parameters, never raw geometry. A config may name a ``base``
 config and a ``transform`` (rotation), which is how the rotation control is
@@ -14,13 +13,13 @@ from pathlib import Path
 import yaml
 
 from proj_helpers.paths import environments_dir
-from .common import EnvSpec, rotate_spec, to_ratinabox
+from .common import EnvSpec, rotate_spec
 from .open_field import build_circle
 from .plus_maze import build_plus_maze
 from .triple_t import build_triple_t
 
 __all__ = ["EnvSpec", "BUILDERS", "build_environment", "list_environments",
-           "load_environment", "rotate_spec", "to_ratinabox"]
+           "load_environment", "rotate_spec"]
 
 BUILDERS = {"triple_t": build_triple_t, "circle": build_circle,
             "plus_maze": build_plus_maze}

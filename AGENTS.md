@@ -85,13 +85,11 @@ settings and dotfiles are never changed by project work.
 - `configs/`: declarative YAML. `environments/` today, `blueprints/` and
   `experiments/` as they land. `configs/local.yaml` is the one machine-local
   file: paths only, git-ignored, never hashed.
-- `src/axis_of_travel_rnn/`: the block schema, kinematics, reader and window
-  rules today, then `blocks/` (the block builder), models, dataset, training
-  and analysis as they land. `src/environments/`: environment geometry.
+- `src/axis_of_travel_rnn/`: `blocks/` (the block builder) and the training
+  library (data, dataset, models, train, analysis, viz).
+  `src/environments/`: environment geometry.
 - `src/proj_helpers/`: paths, new notebooks and lab notes.
 - `src/transform_lab_data/`: the lab data converter.
-- `src/lab_rnn/`: the adapter that trained the pilot networks on reviewed
-  blocks, replaced in step 14.
 - `data/`: `reviews/` (the review json files) and `sample/` (the synthetic
   sample), both committed, as they land. The real data is outside the repository.
 - `experiments/`: one folder per experiment with its config, notebook and

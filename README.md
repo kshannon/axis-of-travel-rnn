@@ -93,7 +93,7 @@ under version control. The plan for moving both into this repository is in
 configs/         declarative YAML; environments today, blueprints and experiments as they land
 src/
   axis_of_travel_rnn/  the core package; blocks/ is the block engine and `pixi run build-blocks --blueprint blocks_v1`
-  environments/        parametric geometry (triple-T, open arena), content hashes, RatInABox adapter
+  environments/        parametric geometry (triple-T, open arena), content hashes
   proj_helpers/        machine-local paths, new notebooks and lab notes from the templates
   transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
 data/reviews/    the review json files, one per session, that the block build reads (committed)

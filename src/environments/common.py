@@ -7,7 +7,6 @@ regenerable and traceable to the exact geometry that produced it.
 Shared frame: every environment lives in one room frame, meters, origin
 bottom left, room north = +y, track squared to the room as in the paper.
 
-RatInABox is touched only inside to_ratinabox().
 """
 
 import hashlib
@@ -157,22 +156,3 @@ def rotate_spec(spec: EnvSpec, deg: float, name=None) -> EnvSpec:
         reward_sites={k: rot(p) for k, p in spec.reward_sites.items()},
         params={**spec.params, "rotated_deg": deg},
     )
-
-
-# ---------------------------------------------------------------------------
-# RatInABox adapter, the only place the package is touched
-# ---------------------------------------------------------------------------
-
-def to_ratinabox(spec: EnvSpec):
-    """Build a RatInABox Environment in the shared room frame. Composition
-    only, no subclassing."""
-    from ratinabox import Environment
-
-    if spec.boundary is not None:
-        env = Environment(params={"boundary": spec.boundary})
-    else:
-        env = Environment(params={"scale": spec.room[1],
-                                  "aspect": spec.room[0] / spec.room[1]})
-    for a, b in spec.walls:
-        env.add_wall([a, b])
-    return env
