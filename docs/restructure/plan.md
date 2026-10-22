@@ -69,6 +69,11 @@ Open for Kyle: whether the review files are committed under data/ (my recommenda
 human decisions and small) or stay with the data, and whether the triple_t start offsets move from the
 reviews into the blueprint as one number per session.
 
+Note, 2026-10-22: `data/` was dropped. Kyle's rule is that the data lives elsewhere and the repository
+holds no data folder. The review files stay with the data in `PROCESSED_LAB_DATA/review/`, where the
+review tool writes them and where a blueprint without a `reviews` key reads them, and they travel with
+the processed folder when it is synced. The synthetic sample moved to `tests/fixtures/sample/`.
+
 ## What the survey found, the facts the plans rest on
 
 - The name change is mostly done: the package is axis_of_travel_rnn, pyproject and pixi say

@@ -21,9 +21,10 @@ from . import VERSION, BlockEngine, io
 from .blueprint import ALL_REVIEWED, blueprint_path, read_blueprint
 from .geometry import geometries
 
-# The local.yaml key of the folder the builds go under, the build's own files, and the folder a build is made in before it
-# is renamed into place.
+# The local.yaml key of the folder the builds go under, the folder in it the review tool writes the reviews to, the build's
+# own files, and the folder a build is made in before it is renamed into place.
 PROCESSED_KEY = "PROCESSED_LAB_DATA"
+REVIEW_DIR = "review"
 MANIFEST = "manifest.json"
 BUILDING = ".building"
 
@@ -172,14 +173,15 @@ def parse_args(argv):
 
 def folders(blueprint, config):
     """
-    The transformed folder, the reviews folder and the build's folder, or exit 2 naming what is wrong.
+    The transformed folder, the reviews folder (the blueprint's, else PROCESSED_LAB_DATA/review) and the build's folder, or exit 2 naming what is wrong.
     """
     for key in (blueprint.transformed, PROCESSED_KEY):
         if not config.get(key):
             refuse(f"{paths.LOCAL_CONFIG} has no {key}")
     transformed = Path(str(config[blueprint.transformed])).expanduser().resolve()
-    out = Path(str(config[PROCESSED_KEY])).expanduser().resolve() / blueprint.name
-    reviews = (repo_root() / blueprint.reviews).resolve()
+    processed = Path(str(config[PROCESSED_KEY])).expanduser().resolve()
+    out = processed / blueprint.name
+    reviews = processed / REVIEW_DIR if blueprint.reviews is None else (repo_root() / Path(blueprint.reviews).expanduser()).resolve()
     repo = repo_root().resolve()
     if not transformed.is_dir():
         refuse(f"{blueprint.transformed} {transformed} is not a folder")
@@ -187,6 +189,8 @@ def folders(blueprint, config):
         refuse(f"reviews {reviews} is not a folder")
     if out == repo or repo in out.parents:
         refuse(f"{PROCESSED_KEY} {out.parent} is the repository {repo} or inside it")
+    if out == reviews:
+        refuse(f"the build's folder {out} is the reviews folder")
     return transformed, reviews, out
 
 

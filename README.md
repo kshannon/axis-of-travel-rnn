@@ -13,7 +13,7 @@ computational question is:
 Three steps, each a function of its inputs. Paths come from `configs/local.yaml`.
 
 1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
-2. Build blocks: the tables, the review files in `data/reviews/` and a blueprint in `configs/blueprints/` become blocks.
+2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/blueprints/` become blocks.
    `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
 3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `experiments/`. Run its notebook, then
    `pixi run export-experiment experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
@@ -35,13 +35,13 @@ Fill the four keys in `configs/local.yaml`: `LAB_DATA` (the lab's MATLAB files),
 them), `PROCESSED_LAB_DATA` (the built blocks, one folder per blueprint) and `RUNS` (checkpoints and tensors, outside git).
 
 Get the blocks, one of two ways. Copy a built `blocks_v1/` folder from a collaborator into `PROCESSED_LAB_DATA/` and check its
-data id ("Share blocks"). Or build it: step 1 on the lab files, then step 2. `data/reviews/` must hold the review files, a
-session without one is skipped (the folder is empty until step 12 of `docs/restructure/tasks.md` is done).
+data id ("Share blocks"). Or build it: step 1 on the lab files, then step 2. `PROCESSED_LAB_DATA/review/` must hold the review
+files, where the review tool writes them (a blueprint's `reviews` key may name another folder), a session without one is skipped.
 
 Check the install:
 
 ```bash
-pixi run smoke   # the experiment template on the committed synthetic sample, headless, takes seconds
+pixi run smoke   # the experiment template on the committed synthetic sample in tests/fixtures/sample, headless, takes seconds
 pixi run test    # the tests, and pixi run test-cov for coverage
 ```
 
@@ -66,18 +66,17 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 
 ```text
 configs/      YAML: blueprints/, experiments/, analysis/, environments/, local.example.yaml (copy to local.yaml)
-data/         reviews/ (the review json files) and sample/ (a synthetic built folder for the smoke), both committed
 datasets/     datasets on disk, git-ignored (the pilot writes here)
 docs/         data_dictionary.md, glossary.md, restructure/ and transform_lab_data/
 experiments/  one folder per experiment: config, notebook and results
 labnotebook/  the authors' dated log, pixi run new-labnote
 notebooks/    working notebooks, eda/ for the exploratory ones
 pilot/        the October 2026 pilot kept for later, not imported by the library, its tests not collected
-scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds data/sample)
+scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds tests/fixtures/sample)
 src/          axis_of_travel_rnn/ (the library, blocks/ is the block engine), environments/ (maze geometry),
               proj_helpers/ (paths, new experiments, notebooks, notes), transform_lab_data/ (the converter)
 templates/    experiment/, notebook.ipynb and labnotebook.md
-tests/        unit/ and integration/ (the smoke)
+tests/        unit/, integration/ (the smoke) and fixtures/sample/ (a synthetic built folder for the smoke, committed)
 tmp/          uncommitted scratch and planning
 ```
 
@@ -88,13 +87,14 @@ tmp/          uncommitted scratch and planning
 | the lab's MATLAB files | `LAB_DATA` | no |
 | transformed tables and frames (about 500 MB) | `TRANSFORMED_LAB_DATA` | no |
 | blocks (about 100 MB) | `PROCESSED_LAB_DATA/<blueprint>/` | no |
-| review files | `data/reviews/` | yes |
-| synthetic sample | `data/sample/` | yes, no real recording |
+| review files | `PROCESSED_LAB_DATA/review/` | no |
+| synthetic sample | `tests/fixtures/sample/` | yes, no real recording |
 | checkpoints and tensors | `RUNS` | no |
 | experiment records | `experiments/<folder>/` | yes, the files listed above |
 
-The rule: real recordings, transformed frames and block parquet files never enter the repository. Git tracks code, configs,
-docs, tests, the review files, the sample, the experiment records and `pixi.lock`.
+The rule: the data lives outside the repository, which holds no data folder. Real recordings, transformed frames, review files
+and block parquet files never enter it. Git tracks code, configs, docs, tests (the synthetic sample with them), the experiment
+records and `pixi.lock`.
 
 A result names what made it, all in its `summary.json`: the git commit (code), the `pixi.lock` hash (environment), the blueprint
 and data id (data), the resolved config (configuration) and the seed in it (model).
@@ -103,10 +103,13 @@ and data id (data), the resolved config (configuration) and the seed in it (mode
 
 `rclone` is not a project dependency, install it yourself. The bucket or lab share is not chosen yet (`docs/restructure/plan.md`
 names a Cloudflare R2 bucket), so `remote:bucket` is a placeholder. Use `copy`, not `sync`, so nothing is deleted on either side.
+The review files travel with the processed folder: when `PROCESSED_LAB_DATA` is synced, copy its `review/` folder with it, as
+it holds the human decisions a build reads.
 
 ```bash
 rclone copy /path/to/processed-lab-data/blocks_v1 remote:bucket/blocks_v1 --checksum --progress   # upload
 rclone copy remote:bucket/blocks_v1 /path/to/processed-lab-data/blocks_v1 --checksum --progress   # download
+rclone copy /path/to/processed-lab-data/review remote:bucket/review --checksum --progress         # the review files, both ways alike
 ```
 
 After a download, recompute the data id. It must equal the blueprint's `expected_data_id` and the `data_id` in the folder's

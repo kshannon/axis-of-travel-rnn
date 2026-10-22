@@ -13,7 +13,7 @@ SAMPLE = read_blueprint(blueprint_path("sample"))
 
 def test_the_sample_is_found_without_local_config_and_has_the_blueprints_data_id():
     folder = data.built_folder("sample", config={})
-    assert folder == repo_root() / "data" / "sample"
+    assert folder == repo_root() / "tests" / "fixtures" / "sample"
     assert data.data_id(folder) == entry.data_id(folder) == SAMPLE.expected_data_id  # the manifest's id is the files'
 
 

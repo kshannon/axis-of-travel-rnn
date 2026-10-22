@@ -1,5 +1,5 @@
 """
-Build data/sample/ from the block tests' synthetic fixture sessions with the sample blueprint, run as pixi run python scripts/make_sample.py.
+Build tests/fixtures/sample/ from the block tests' synthetic fixture sessions with the sample blueprint, run as pixi run python scripts/make_sample.py.
 """
 
 import json
@@ -19,7 +19,7 @@ from tests.unit.blocks.fixtures import S1, S4, S6, frames_table, write_transform
 from tests.unit.blocks.test_build import accepted_review  # noqa: E402
 
 BLUEPRINT = "sample"
-SAMPLE = REPO / "data" / "sample"
+SAMPLE = REPO / "tests" / "fixtures" / "sample"  # the one folder in the repository this script writes
 # S4 has no frames in the fixture, so the script writes them, and its track block is dropped in its review because the
 # build refuses it (position not finite on every frame). S1 gives an arena and a track block, S4 an arena block, S6 a track block.
 EXTRA_FRAMES = S4
@@ -39,7 +39,7 @@ def review(transformed, sid):
 
 def main():
     """
-    Write the fixture's transformed folder and reviews to a temporary folder, build the sample there, replace data/sample with it and print its data id.
+    Write the fixture's transformed folder and reviews to a temporary folder, build the sample there, replace tests/fixtures/sample with it and print its data id.
     """
     path = blueprint_path(BLUEPRINT)
     blueprint = read_blueprint(path)

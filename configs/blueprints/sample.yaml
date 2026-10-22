@@ -1,5 +1,5 @@
 # The committed sample for the drift guard (pixi run smoke): three synthetic sessions of the block tests' fixture
-# (tests/unit/blocks/fixtures.py), never a real recording, built by python scripts/make_sample.py into data/sample/.
+# (tests/unit/blocks/fixtures.py), never a real recording, built by python scripts/make_sample.py into tests/fixtures/sample/.
 # That script writes the fixture's transformed folder and accepted reviews to a temporary folder and runs the build on
 # them, so transformed and reviews name nothing here, and pixi run build-blocks does not build this blueprint.
 name: sample
@@ -12,4 +12,4 @@ rules: {}
 settings: {}
 start_offsets: from_reviews
 expected_data_id: bdf45846cfff30ccbe153f98431515938a9c1a3a116723ce347a69e8511bdc37
-built: data/sample   # read by load_blocks from the repository, no configs/local.yaml needed
+built: tests/fixtures/sample   # read by load_blocks from the repository, no configs/local.yaml needed

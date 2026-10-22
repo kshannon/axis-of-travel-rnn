@@ -1,11 +1,11 @@
 # The first block dataset: every reviewed session, built with the engine's rules and window settings as the review tool
 # built them. pixi run build-blocks --blueprint blocks_v1 writes PROCESSED_LAB_DATA/blocks_v1/. Every key is read by
-# axis_of_travel_rnn.blocks.blueprint, which refuses an unknown one.
+# axis_of_travel_rnn.blocks.blueprint, which refuses an unknown one. The reviews are read from PROCESSED_LAB_DATA/review/,
+# where the review tool writes them, as no reviews key names another folder.
 name: blocks_v1
 format_version: 4   # the review tool's format version the review files and blocks follow
 description: Every reviewed session, the engine's default rules and settings, the start offsets from the reviews.
 transformed: TRANSFORMED_LAB_DATA   # the configs/local.yaml key of the transformed folder
-reviews: data/reviews               # the review json files, relative to the repository
 sessions: all_reviewed              # or a list of session ids
 rules: {}                           # overrides over blocks.RULES, none for the defaults
 settings: {}                        # overrides over blocks.SETTINGS, recorded in each session's metadata

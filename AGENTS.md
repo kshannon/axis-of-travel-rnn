@@ -31,10 +31,11 @@ the review tool and the training code live outside it.
    so in its config.
 1. Behavioral generation is validated on its own, against real behavior,
    before it feeds training. The model never shapes how behavior is generated.
-1. Raw recordings, transformed frames and block parquet files never enter the
-   repository. They stay in the folders `configs/local.yaml` names. The review
-   json files (`data/reviews/`) and a small synthetic sample (`data/sample/`,
-   no real recording) do.
+1. The data lives outside the repository, which holds no data folder. Raw
+   recordings, transformed frames, review json files and block parquet files
+   stay in the folders `configs/local.yaml` names (the reviews in
+   `PROCESSED_LAB_DATA/review/`). Only a small synthetic sample
+   (`tests/fixtures/sample/`, no real recording) is committed.
 1. Every trained network is a model animal with a manifest: seed, configs,
    dataset, environment hash, commit, lockfile, checkpoints, metrics. Failures
    are kept. Seeds are never cherry-picked.
@@ -93,8 +94,9 @@ settings and dotfiles are never changed by project work.
   `src/environments/`: environment geometry.
 - `src/proj_helpers/`: paths, new notebooks and lab notes.
 - `src/transform_lab_data/`: the lab data converter.
-- `data/`: `reviews/` (the review json files) and `sample/` (the synthetic
-  sample), both committed, as they land. The real data is outside the repository.
+- `tests/`: unit and integration tests, `tests/fixtures/sample/` the synthetic
+  sample for the smoke. The data, the review files with it, is outside the
+  repository.
 - `experiments/`: one folder per experiment with its config, notebook and
   results, as they land.
 - `notebooks/`: the working notebooks, `notebooks/eda/` for the exploratory

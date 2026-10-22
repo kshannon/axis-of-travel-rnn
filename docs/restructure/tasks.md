@@ -46,11 +46,11 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       `PROCESSED_LAB_DATA/blocks_v1/` with `manifest.json` (data id, blueprint hash, transformed stamp,
       commit, built at). A session without a review is listed and skipped. Check: two fixture sessions
       build with a stable id. (3 h)
-- [ ] 12. Kyle: copy RatReplay's review files into `data/reviews/`, commit them, run `build-blocks`, and
-      compare with RatReplay's blocks (`diff -rq` or the parity script). A difference is a finding
-      first. Write the data id into the blueprint. (Kyle, 1 h)
-      The commands, with P the PROCESSED_LAB_DATA folder RatReplay writes: `/bin/cp "$P"/review/*.json data/reviews/`,
-      then `pixi run build-blocks --blueprint blocks_v1`, then
+- [ ] 12. Kyle: run `build-blocks`, which reads the review files where RatReplay writes them
+      (`PROCESSED_LAB_DATA/review/`, no copy step since 2026-10-22), and compare with RatReplay's blocks
+      (`diff -rq` or the parity script). A difference is a finding first. Write the data id into the
+      blueprint. (Kyle, 1 h)
+      The commands, with P the PROCESSED_LAB_DATA folder: `pixi run build-blocks --blueprint blocks_v1`, then
       `pixi run python scripts/compare_blocks.py "$P" "$P/blocks_v1"`, which compares every block parquet and blocks.csv
       by content (the two lock files carry different pyarrow versions, so `diff -rq "$P/blocks" "$P/blocks_v1/blocks"`
       may differ in file bytes alone) and exits 1 on a difference. The metadata json files differ in code_version and

@@ -21,7 +21,7 @@ FROM_REVIEWS = "from_reviews"
 
 class Blueprint(BaseModel):
     """
-    The blueprint's keys: its name and format version, the local.yaml key of the transformed folder, the reviews folder, the sessions, the rule and setting overrides, the start offsets, the data id a build must give and where the built folder is read from.
+    The blueprint's keys: its name and format version, the local.yaml key of the transformed folder, the reviews folder when not the default, the sessions, the rule and setting overrides, the start offsets, the data id a build must give and where the built folder is read from.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -30,7 +30,7 @@ class Blueprint(BaseModel):
     format_version: int
     description: str = ""
     transformed: str
-    reviews: str
+    reviews: str | None = None  # the reviews folder, none for PROCESSED_LAB_DATA/review where the review tool writes them
     sessions: list[str] | Literal["all_reviewed"]
     rules: dict = {}
     settings: dict = {}

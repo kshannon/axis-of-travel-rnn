@@ -1,7 +1,7 @@
 # The smoke run (pixi run smoke): the template notebook on the committed sample (configs/blueprints/sample.yaml), a tiny
 # network for two epochs, so a library change that breaks the notebook surface fails in seconds. Its numbers mean nothing.
 data:
-  blueprint: sample             # data/sample/, three synthetic sessions on three dates
+  blueprint: sample             # tests/fixtures/sample/, three synthetic sessions on three dates
   rate_hz: 20
   split: [0.34, 0.33, 0.33]     # one date each, seed 0 puts the session with an arena and a track block in test
   seed: 0

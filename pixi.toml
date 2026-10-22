@@ -20,7 +20,7 @@ build-blocks = "python -m axis_of_travel_rnn.blocks"
 # Experiments: a folder from templates/experiment, and the html of its run notebook written beside it
 new-experiment    = "python -m proj_helpers.experiments"
 export-experiment = "jupyter nbconvert --to html"
-# The drift guard: the template notebook run headless on data/sample with configs/experiments/smoke.yaml
+# The drift guard: the template notebook run headless on tests/fixtures/sample with configs/experiments/smoke.yaml
 smoke             = "python -m proj_helpers.smoke"
 
 # Testing

@@ -10,13 +10,13 @@ every row and in every file name. Columns and keys are listed in the order the f
 | folder | named by | written by | holds |
 |---|---|---|---|
 | transformed | `TRANSFORMED_LAB_DATA` in `configs/local.yaml` | `pixi run transform-lab-data` | the lab's data as tables and one frames parquet per session. Read only here. Documented in `docs/transform_lab_data/tables.md` section 2, not repeated |
-| reviews | `reviews` in the blueprint, `data/reviews` | the review tool, by the person | one json file per session, committed |
+| reviews | `PROCESSED_LAB_DATA/review/`, or the blueprint's `reviews` | the review tool, by the person | one json file per session, outside the repository, travels with the processed folder |
 | built | `PROCESSED_LAB_DATA` in `configs/local.yaml` plus the blueprint's name | `pixi run build-blocks --blueprint <name>` | `PROCESSED_LAB_DATA/<blueprint>/`, outside the repository, never committed |
 
 The build reads `sessions.csv`, `epochs.csv`, `runs.csv`, `annotations.csv` (optional), `frames/{sid}.parquet` and the converter's `manifest.json`,
 whose `run.timestamp` is the transformed stamp. The lab's MATLAB files (`LAB_DATA`) feed only the transform.
 
-## Reviews: `data/reviews/{sid}.json`
+## Reviews: `PROCESSED_LAB_DATA/review/{sid}.json`
 
 Written whole by the review tool. A session with no file is listed as skipped. A key an older file lacks takes the default in brackets.
 
@@ -140,7 +140,7 @@ Read by `blocks/blueprint.py`, which refuses an unknown key, an unknown rule or 
 | `format_version` | required | the review tool's format version the reviews and blocks follow. Recorded in the manifest, not checked |
 | `description` | empty | free text |
 | `transformed` | required | the `configs/local.yaml` key of the transformed folder, `TRANSFORMED_LAB_DATA` |
-| `reviews` | required | the reviews folder, relative to the repository |
+| `reviews` | null | another reviews folder (relative to the repository, or absolute), null for `PROCESSED_LAB_DATA/review/` |
 | `sessions` | required | `all_reviewed` (every file in the reviews folder) or a list of session ids |
 | `rules` | `{}` | overrides over the rules below |
 | `settings` | `{}` | overrides over the settings below |

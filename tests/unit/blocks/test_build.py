@@ -1,5 +1,5 @@
 """
-The build: two fixture sessions with their reviews build into a temporary folder with a stable data id, a changed review changes it, a session without a review is skipped, an excluded one writes no blocks, and main exits 1 on an unexpected data id and 2 on an unknown blueprint key.
+The build: two fixture sessions with their reviews build into a temporary folder with a stable data id, a changed review changes it, a session without a review is skipped, an excluded one writes no blocks, main reads the reviews from PROCESSED_LAB_DATA/review by default, and exits 1 on an unexpected data id and 2 on an unknown blueprint key.
 """
 
 import json
@@ -42,10 +42,10 @@ def reviews(tmp_path, transformed):
 
 def write_blueprint(tmp_path, reviews, **changes):
     """
-    The fixture blueprint written as yaml with the changes, its path.
+    The fixture blueprint written as yaml with the changes and no reviews key when reviews is none, its path.
     """
     path = tmp_path / "fixture_v1.yaml"
-    path.write_text(yaml.safe_dump({**BLUEPRINT, "reviews": str(reviews), **changes}))
+    path.write_text(yaml.safe_dump({**BLUEPRINT, **({} if reviews is None else {"reviews": str(reviews)}), **changes}))
     return path
 
 
@@ -91,6 +91,14 @@ def test_main_exits_1_when_the_data_id_is_not_the_expected_one_and_0_when_it_is(
     assert stop.value.code == 2 and "--replace" in capsys.readouterr().err
     path = write_blueprint(tmp_path, reviews, expected_data_id=found)
     assert entry.main(["--blueprint", str(path), "--replace"], config=config) == 0
+
+
+def test_the_reviews_default_to_the_review_folder_beside_the_builds(tmp_path, transformed, reviews):
+    config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(tmp_path / "processed")}
+    (tmp_path / "processed").mkdir()
+    reviews.rename(tmp_path / "processed" / entry.REVIEW_DIR)
+    assert entry.main(["--blueprint", str(write_blueprint(tmp_path, None))], config=config) == 0
+    assert json.loads((tmp_path / "processed" / "fixture_v1" / entry.MANIFEST).read_text())["counts"]["sessions_built"] == 2
 
 
 def test_an_unknown_blueprint_key_or_rule_exits_2(tmp_path, transformed, reviews):
