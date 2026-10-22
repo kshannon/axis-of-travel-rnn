@@ -58,13 +58,18 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 - [ ] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
       blocks.csv, metadata, the blueprint keys, the data id, what stays out of training. It replaces
       the old dictionary and `outgoing_data_schema.txt`. (1 h)
-- [ ] 14. The training library from tmp/pilot into `src/axis_of_travel_rnn/`: `models.py`, `dataset.py`
-      (scaler, windows to tensors, leakage check), `train.py` (Trainer, predict, window_sse, the
-      persistence baseline, hidden_states), `analysis.py` (axis measures, segments from phase, path_id
-      and the triple_t geometry), `viz.py` (loss curves, rate maps, heading tuning, cell heatmap, PCA,
-      every figure with title, caption and data id), `data.py` from `lab_rnn/blocks.py` (split by date,
-      read only guard). Drop worlds, sweep, decision, study, lab_rnn. Tests: shapes, no leakage, the
-      measures on a hand made hidden state. (4 h)
+- [ ] 14a. The pilot work back on disk: restore the pilot package from branch `feature/pilot` into a
+      `pilot/` folder at the root, untouched (tmp/pilot left the disk on 2026-10-21, Kyle keeps the
+      pilot as a separate folder to deal with later). Git ignores nothing there, it is committed as it
+      was, with a README line saying it is the October pilot and not imported by the library. (30 min)
+- [ ] 14. The training library, lifted from `pilot/` into `src/axis_of_travel_rnn/` as copies that
+      leave `pilot/` as it is: `models.py`, `dataset.py` (scaler, windows to tensors, leakage check),
+      `train.py` (Trainer, predict, window_sse, the persistence baseline, hidden_states), `analysis.py`
+      (axis measures, segments from phase, path_id and the triple_t geometry), `viz.py` (loss curves,
+      rate maps, heading tuning, cell heatmap, PCA, every figure with title, caption and data id),
+      `data.py` from `lab_rnn/blocks.py` (split by date, read only guard). Not lifted: worlds, sweep,
+      decision, study. `src/lab_rnn` deleted. Tests: shapes, no leakage, the measures on a hand made
+      hidden state. (4 h)
 - [ ] 15. Config and surface: `ExperimentConfig` as pydantic from yaml (data, windows, model, training,
       analysis, seed), `configs/experiments/baseline.yaml`, `configs/analysis/thresholds.yaml`, every
       library function taking the config or its fields, the public surface in `__init__.py`
@@ -91,3 +96,17 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 About four and a half days of agent time plus Kyle's three steps. Steps 1 to 8 are the cleanup, 9 to
 13 the data step, 14 to 18 the experiment pipeline, 19 and 20 the wrap up. Nothing blocks Plan B
 later: the data id and the experiment folders are what it would build on.
+
+## After the cleanup, first in line
+
+Three EDA notebooks Kyle named on 2026-10-21 as very important, each under `notebooks/eda/`, reading
+the blocks through the library, each figure with its title, caption and data id, scoped with Kyle
+before it starts:
+
+- [ ] E1 Block creation and the issues seen in blocks: a catalogue of what looks wrong in the blocks_v1
+      blocks (short tracking losses, jumps, margins, heading gaps, trips that cross cuts), each with a
+      count, an example figure and the rule or check that would catch it, feeding the blueprint.
+- [ ] E2 Angular velocity: its derivation from the heading, its distribution by phase and speed, its
+      noise, and what the smoothing does to it.
+- [ ] E3 Head direction and its interpolation: where heading is lost, filled and held, how the fills
+      compare with the measured heading around them, and whether the fill limit is right.
