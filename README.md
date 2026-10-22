@@ -133,9 +133,10 @@ grep -A 20 "^  blocks_v1:" configs/project.yaml | grep expected_data_id
 
 ## The pilot
 
-Before touching real data, an October 2026 pilot proved that axis of travel tuning could be made to appear in a constrained
-artificial setting: a vanilla RNN trained on simulated RatInABox worlds, a square loop and an open field, with thresholds fixed
-before any network was trained. The library's models, trainer and analysis measures were lifted from it. Its code, tests and
+Before touching real data, an October 2026 pilot tried to make axis of travel tuning appear in a constrained artificial
+setting: a vanilla RNN trained on simulated RatInABox worlds, a square loop and an open field, with thresholds fixed before any
+network was trained. Its pre registered decision came out no-go, with the comparison arms never run, so it stands as a trial of
+the method rather than a proof. The library's models, trainer and analysis measures were lifted from it. Its code, tests and
 notebook are kept on branch `pilot`, see `docs/pilot.md` for what it was and what it found.
 
 ## Docs
