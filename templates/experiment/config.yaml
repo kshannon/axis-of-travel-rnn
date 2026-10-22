@@ -1,0 +1,35 @@
+# This experiment's config, a copy of configs/experiments/baseline.yaml when the folder was made. Its name and purpose are in
+# README.md, since the config model refuses an unknown key. Edit it before the run, never after.
+# The baseline experiment: the pilot's settings as the 2026-10-19 lab-rnn notebook used them (LAB in src/lab_rnn/config.py, deleted in step 14,
+# over PILOT in pilot/pilot/config.py), in seconds where the pilot counted 0.05 s steps. Read by axis_of_travel_rnn.config,
+# which refuses an unknown key. What differs from that notebook: the network is given position (x, y) and predicts the
+# position a horizon ahead, where the pilot gave and predicted 100 place cells, there is no input noise, training windows
+# start every stride_s in the arena too (lab_rnn used 1.25 s there), and the split shuffles recording dates where lab_rnn
+# took sessions in date order.
+data:
+  blueprint: blocks_v1      # the built folder PROCESSED_LAB_DATA/blocks_v1/
+  rate_hz: 20               # every third lab frame, the pilot's dt of 0.05 s
+  split: [0.67, 0.11, 0.22] # train, validation, test fractions of recording dates, lab_rnn's 6, 1 and 2 sessions of 9
+  seed: 0                   # shuffles the dates before the cut
+windows:
+  window_s: 20.0            # 400 steps
+  stride_s: 5.0             # 100 steps
+  burn_in_s: 1.0            # the 20 steps without loss
+  horizon_s: 0.5            # 10 steps
+  min_heading_measured: 0.0 # the notebook checked no block, blocks.SETTINGS has 0.8
+  min_complete_trips: 0     # the notebook checked no block, blocks.SETTINGS has 1
+inputs:
+  columns: [x, y]           # position only (AGENTS.md rule 1), speed may be added
+model:
+  kind: rnn                 # a vanilla tanh RNN, or memoryless for the MLP baseline
+  hidden_size: 128
+training:
+  epochs: 100               # the most, early stopping ends it before
+  batch_size: 64
+  learning_rate: 0.001
+  patience: 10              # epochs without a better validation loss before stopping
+  device: cpu
+analysis:
+  thresholds: configs/analysis/thresholds.yaml   # the pilot's pre-registered numbers, copied unchanged
+  measures: [direction, axis, arena, distances, decoders]
+seed: 0                     # the weights, the batch order and the nulls, the pilot's first trained seed

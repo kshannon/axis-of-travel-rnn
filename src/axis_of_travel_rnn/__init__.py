@@ -19,6 +19,7 @@ from .config import ExperimentConfig, load_config, resolved
 from .data import SPLITS, block_rows, built_folder, data_id, guard, read_block, resample, split_by_date
 from .dataset import TARGETS, WindowDataset, fit_scaler
 from .dataset import make_windows as windows_of
+from .results import save_results
 from .training import Trainer, hidden_states, make_model, model_loss, persistence_loss
 
 __all__ = ["ExperimentConfig", "load_config", "resolved", "load_blocks", "make_windows", "make_dataset", "train",
@@ -139,9 +140,3 @@ def figures(config, loaded, rows, evaluation, found):
             "signature.", data),
     }
 
-
-def save_results():
-    """
-    A stub: writing an experiment's summary, metrics and figures arrives with step 16 of docs/restructure/tasks.md.
-    """
-    raise NotImplementedError("save_results arrives with step 16 of docs/restructure/tasks.md")
