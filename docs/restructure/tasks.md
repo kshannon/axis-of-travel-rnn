@@ -17,20 +17,20 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       to `docs/restructure/plan.md`. Check: `git status` clean. (1 h)
 - [ ] 2. Kyle: confirm the RatReplay copy in its own repository (branch `agents/synthetic` at 4b22a06 or
       later), rename the GitHub repository to axis-of-travel-rnn, `git remote set-url origin`. (Kyle)
-- [ ] 3. Remove RatReplay here: `ratreplay/`, its pixi feature, environment and tasks, its pyproject
+- [x] 3. Remove RatReplay here: `ratreplay/`, its pixi feature, environment and tasks, its pyproject
       entries. Check: `pixi run test` green, `git grep -i ratreplay` names only docs. (1 h)
-- [ ] 4. Remove the CLI, the artifact store, `__main__.py`, `lab_data_access.py` and their tests, keep
+- [x] 4. Remove the CLI, the artifact store, `__main__.py`, `lab_data_access.py` and their tests, keep
       `paths.py`, `notebooks.py` and the two notebook tasks. Check: `pixi run new-jupyter-nb --help`. (1 h)
-- [ ] 5. Dependencies: drop fastapi, uvicorn, nodejs, pymc, arviz, nutpie, pynwb, dandi, zarr, xarray,
+- [x] 5. Dependencies: drop fastapi, uvicorn, nodejs, pymc, arviz, nutpie, pynwb, dandi, zarr, xarray,
       ratinabox, einops, pynapple, add tqdm and pandas, lock regenerated. Check: tests green,
       `pixi run python -c "import torch, pyarrow, scipy, matplotlib, pandas, tqdm"`. (1 h)
-- [ ] 6. Docs and configs: delete `docs/cli`, `docs/notebooks`, `docs/process_lab_data`,
+- [x] 6. Docs and configs: delete `docs/cli`, `docs/notebooks`, `docs/process_lab_data`,
       `docs/ratreplay`, the plus maze and rotated environment yamls, strip RatReplay wording from
       `trajectory.py`, `windows.py` and `triple_t.yaml`. Keep `docs/transform_lab_data`. Check:
       `git grep -i ratreplay` empty outside docs/restructure. (1 h)
-- [ ] 7. Notebooks to the top level: `notebooks/eda/` for the four October EDA notebooks, `notebooks/`
+- [x] 7. Notebooks to the top level: `notebooks/eda/` for the four October EDA notebooks, `notebooks/`
       for the rest, the template and `new-jupyter-nb` follow, nbstripout stays. (30 min)
-- [ ] 8. AGENTS.md and the rule on data: the pipeline is transform, build blocks, experiment. Raw
+- [x] 8. AGENTS.md and the rule on data: the pipeline is transform, build blocks, experiment. Raw
       recordings, transformed frames and block parquet never enter the repository, the review json
       files and a synthetic sample do. Check: Kyle reads it. (30 min)
 - [ ] 9. The block engine back in: `src/axis_of_travel_rnn/blocks/` from
