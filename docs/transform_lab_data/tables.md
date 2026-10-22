@@ -2,7 +2,7 @@
 
 The technical reference for the lab's MATLAB files (section 1), the tables the converter writes (section 2) and the
 rules left to stage 2 (section 3.1). The spec, the plan and the converter's code cite it by section number. The
-plain-English terms are in `docs/glossary.md` and the files built from these tables in `docs/data_dictionary.md`. Conventions throughout: seconds for time, pixels in the camera frame until stage 2
+plain-English terms are in `DATA_DICTIONARY.md` and the files built from these tables in `docs/blocks_schema.md`. Conventions throughout: seconds for time, pixels in the camera frame until stage 2
 converts to metres in the room frame, angles in radians, one key (`session_id`) tying every table together.
 
 ## 1. Lab data (MATLAB files, outside the repository, read only)

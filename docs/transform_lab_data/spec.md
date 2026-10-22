@@ -20,8 +20,8 @@ not a loader branch), and the lab's segmentation and labels are copied, never in
 
 It is the package `src/transform_lab_data/`, run with `pixi run transform-lab-data`, not part of the
 CLI. `LAB_DATA` and `TRANSFORMED_LAB_DATA` come from `configs/local.yaml`, never from arguments.
-Columns and the quirks of the lab's files are in `tables.md`, the plain-English terms in `docs/glossary.md`, the files built
-from them in `docs/data_dictionary.md`, the structure, checks and decisions in `plan.md`.
+Columns and the quirks of the lab's files are in `tables.md`, the plain-English terms in `DATA_DICTIONARY.md`, the files built
+from them in `docs/blocks_schema.md`, the structure, checks and decisions in `plan.md`.
 
 ## Functional Requirements
 

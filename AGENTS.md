@@ -84,8 +84,9 @@ settings and dotfiles are never changed by project work.
 - `README.md`: what this is, how to run it, versioning layers, layout.
 - `docs/restructure/`: the plan and the twenty steps from the repository as it
   was to the pipeline above. `docs/transform_lab_data/`: the lab data
-  converter's spec, plan and tasks. `docs/data_dictionary.md`: the review,
-  block and manifest files of the block step, columns, keys and the data id.
+  converter's spec, plan and tasks. `DATA_DICTIONARY.md` (root): what every
+  attribute and term means. `docs/blocks_schema.md`: the review, block and
+  manifest files of the block step, columns, keys and defaults.
 - `configs/`: declarative YAML. `environments/` today, `blueprints/` and
   `experiments/` as they land. `configs/local.yaml` is the one machine-local
   file: paths only, git-ignored, never hashed.
@@ -101,5 +102,4 @@ settings and dotfiles are never changed by project work.
   results, as they land.
 - `notebooks/`: the working notebooks, `notebooks/eda/` for the exploratory
   ones. `templates/`: the notebook and lab note templates.
-- `datasets/`: datasets on disk, git-ignored.
 - `tmp/planning/`: the full project overview and working notes, never committed.

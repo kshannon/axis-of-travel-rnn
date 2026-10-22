@@ -52,7 +52,7 @@ pixi run test    # the tests, and pixi run test-cov for coverage
 holds the outcome. Fill in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`, `results_dir`, `checkpoint_dir`), so papermill can
 rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
 
-The network's inputs are a config choice (`inputs.columns`, see `docs/data_dictionary.md`): `configs/experiments/baseline.yaml` gives
+The network's inputs are a config choice (`inputs.columns`, see inputs in `DATA_DICTIONARY.md`): `configs/experiments/baseline.yaml` gives
 position only, the control, and `configs/experiments/biological.yaml` adds speed, head direction and angular velocity.
 
 - Committed: `config.yaml`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
@@ -66,8 +66,7 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 
 ```text
 configs/      YAML: blueprints/, experiments/, analysis/, environments/, local.example.yaml (copy to local.yaml)
-datasets/     datasets on disk, git-ignored (the pilot writes here)
-docs/         data_dictionary.md, glossary.md, restructure/ and transform_lab_data/
+docs/         blocks_schema.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
 experiments/  one folder per experiment: config, notebook and results
 labnotebook/  the authors' dated log, pixi run new-labnote
 notebooks/    working notebooks, eda/ for the exploratory ones
@@ -125,8 +124,8 @@ grep expected_data_id configs/blueprints/blocks_v1.yaml
 
 ## Docs
 
-- `docs/data_dictionary.md`: the review, block and manifest files, their columns and keys, the data id, the blueprint.
-- `docs/glossary.md`: the terms (clean run, pause, heading offset and the rest).
+- `DATA_DICTIONARY.md`: what every attribute and term means, raw, transformed and built blocks, with units and sources.
+- `docs/blocks_schema.md`: the review, block and manifest files, their columns and keys in order, the blueprint keys and defaults.
 - `docs/restructure/`: the plan, the tasks and the debrief of the restructure that made this pipeline.
 - `docs/transform_lab_data/`: the converter's spec, plan, tasks and `tables.md` (the lab's files and the transformed tables).
 
