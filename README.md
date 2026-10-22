@@ -95,7 +95,7 @@ src/
   environments/        parametric geometry (triple-T, open arena), content hashes, RatInABox adapter
   proj_helpers/        machine-local paths, new notebooks and lab notes from the templates
   transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
-  notebooks/           the working Jupyter notebooks
+notebooks/       the working Jupyter notebooks, notebooks/eda/ for the exploratory ones
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored
 tests/           unit tests

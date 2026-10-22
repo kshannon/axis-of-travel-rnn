@@ -48,6 +48,14 @@ def test_new_notebook_fills_the_template_and_refuses_to_overwrite(tmp_path: Path
         new_notebook("!!!", **options)
 
 
+def test_new_notebooks_go_under_notebooks_at_the_top_level(tmp_path: Path, monkeypatch):
+    (tmp_path / "templates").mkdir()
+    nbformat.write(nbformat.v4.new_notebook(), tmp_path / "templates" / "notebook.ipynb")
+    monkeypatch.setattr("proj_helpers.notebooks.repo_root", lambda: tmp_path)
+    path = new_notebook("scratch", author="Test Author", today=date(2026, 10, 21))
+    assert path == tmp_path / "notebooks" / "2026-10-21_scratch.ipynb"
+
+
 def test_the_command_line_writes_a_dated_notebook(tmp_path: Path, capsys):
     assert main(["notebook", "cli", "check", "--dir", str(tmp_path)]) == 0
     written = Path(capsys.readouterr().out.strip())

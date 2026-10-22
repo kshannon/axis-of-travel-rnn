@@ -43,7 +43,7 @@ def new_notebook(name: str, *, title: str | None = None, author: str | None = No
     if not slug:
         raise ValueError("notebook name has no letters or digits")
     if directory is None:
-        directory = repo_root() / "src" / "notebooks"
+        directory = repo_root() / "notebooks"
     if template is None:
         template = repo_root() / "templates" / "notebook.ipynb"
     if today is None:
@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     nb.add_argument("name", nargs="+", help="notebook name, slugified, e.g. matlab axis analysis")
     nb.add_argument("--title", help="header title (default: the name with spaces)")
     nb.add_argument("--author", help="header author (default: git's user.name)")
-    nb.add_argument("--dir", type=Path, help="directory to write into (default: src/notebooks/)")
+    nb.add_argument("--dir", type=Path, help="directory to write into (default: notebooks/)")
     note = kinds.add_parser("labnote", help="create a lab notebook entry from templates/labnotebook.md")
     note.add_argument("slug", nargs="*", help="optional words for the file name, e.g. axis analysis")
     note.add_argument("--dir", type=Path, help="directory to write into (default: labnotebook/)")
