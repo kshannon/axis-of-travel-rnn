@@ -82,8 +82,9 @@ delete the output folder. Details are in [docs/transform_lab_data/](docs/transfo
 
 ## Blocks and training
 
-The step that turns the converted tables into training ready blocks is done by a separate review tool for now, and
-the training code is still being brought under version control. The plan for moving both into this repository is in
+The step that turns the converted tables into training ready blocks is `pixi run build-blocks --blueprint blocks_v1`,
+from the review files a separate review tool writes into `data/reviews/`, and the training code is still being brought
+under version control. The plan for moving both into this repository is in
 [docs/restructure/](docs/restructure/). No recorded animal data lives in this repository.
 
 ## Layout
@@ -91,10 +92,11 @@ the training code is still being brought under version control. The plan for mov
 ```
 configs/         declarative YAML; environments today, blueprints and experiments as they land
 src/
-  axis_of_travel_rnn/  the core package: the block schema, kinematics, the block reader and the window rules
+  axis_of_travel_rnn/  the core package; blocks/ is the block engine and `pixi run build-blocks --blueprint blocks_v1`
   environments/        parametric geometry (triple-T, open arena), content hashes, RatInABox adapter
   proj_helpers/        machine-local paths, new notebooks and lab notes from the templates
   transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
+data/reviews/    the review json files, one per session, that the block build reads (committed)
 notebooks/       the working Jupyter notebooks, notebooks/eda/ for the exploratory ones
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored

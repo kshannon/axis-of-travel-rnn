@@ -14,6 +14,9 @@ new-labnote = "python -m proj_helpers.notebooks labnote"
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
 
+# Block step (configs/blueprints/): transformed folder and review files to PROCESSED_LAB_DATA/<blueprint>/
+build-blocks = "python -m axis_of_travel_rnn.blocks"
+
 # Testing
 test     = "python -m pytest"
 test-cov = "python -m pytest --cov=src --cov-report=term-missing"
