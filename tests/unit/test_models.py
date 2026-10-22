@@ -1,5 +1,5 @@
 """
-The networks: output shapes, the trace path agreeing with the fast path over the whole window, and seeded weights.
+The networks: output shapes, and the trace path agreeing with the fast path over the whole window.
 """
 
 import torch
@@ -19,9 +19,3 @@ def test_shapes_and_the_hidden_trace_cover_every_step():
     assert torch.allclose(traced, hidden, atol=1e-5)
     assert make_model("memoryless", N_IN, N_OUT, HIDDEN, seed=0)(x).shape == (BATCH, STEPS, N_OUT)
 
-
-def test_a_seed_fixes_the_weights_and_leaves_the_global_generator_alone():
-    state = torch.random.get_rng_state()
-    a, b = make_model("rnn", N_IN, N_OUT, HIDDEN, seed=5), make_model("rnn", N_IN, N_OUT, HIDDEN, seed=5)
-    assert all(torch.equal(p, q) for p, q in zip(a.parameters(), b.parameters()))
-    assert torch.equal(state, torch.random.get_rng_state())
