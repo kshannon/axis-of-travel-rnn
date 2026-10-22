@@ -1,0 +1,8 @@
+# An experiment folder keeps its record and nothing else. Checkpoints and tensors go to RUNS from configs/local.yaml.
+/*/*
+!/*/config.yaml
+!/*/notebook.ipynb
+!/*/notebook.html
+!/*/summary.json
+!/*/metrics.csv
+!/*/figures/

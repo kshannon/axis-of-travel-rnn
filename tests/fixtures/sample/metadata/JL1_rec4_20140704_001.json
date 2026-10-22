@@ -1,0 +1,122 @@
+{
+  "built_at": "2026-10-22T09:31:06+00:00",
+  "code_version": "blocks 2 ba977eb+dirty",
+  "excluded": false,
+  "failed": [],
+  "frame": {
+    "arena": {
+      "arena_extent_ratio": 2.0930649778652466,
+      "flip": true,
+      "led_separation_m": 0.06282294866877218,
+      "offset_m": [
+        0.37780190071562436,
+        3.0772996768271037
+      ],
+      "rotation_concentration": 1.0839353290686882e-16,
+      "rotation_rad": -0.7396204590818272,
+      "scale_px_per_m": 159.17750140516353
+    },
+    "goals_px": [
+      NaN,
+      NaN
+    ],
+    "led_offset_n": 5400,
+    "led_offset_r": 4.753588817312013e-06,
+    "led_offset_rad": 3.1052931496573883,
+    "start_px": [
+      NaN,
+      NaN
+    ],
+    "track": {
+      "flip": true,
+      "led_separation_m": 0.06853412582047873,
+      "offset_m": [
+        NaN,
+        NaN
+      ],
+      "rotation_concentration": 1.0839353290686882e-16,
+      "rotation_rad": -0.7396204590818272,
+      "scale_px_per_m": 145.91270962139993,
+      "scale_x_px_per_m": 126.92778457772339,
+      "scale_y_px_per_m": 164.89763466507648,
+      "start_offset_measured_m": NaN
+    }
+  },
+  "review_stamp": {
+    "converter_manifest_timestamp": "2026-10-13T10:00:00+00:00",
+    "reviewed_at": "2026-10-13T10:00:00+00:00"
+  },
+  "rules": {
+    "arena_height_m": 0.4,
+    "axis_agree": 0.05,
+    "camera_height_m": 2.6,
+    "condition": "baseline",
+    "epochs": [
+      "arena",
+      "track"
+    ],
+    "extent_percentiles": [
+      1,
+      99
+    ],
+    "gap_lights": "both",
+    "heading_fill_s": 3.0,
+    "histogram_bin_px": 2.0,
+    "jump_px": 40.0,
+    "kinematics_version": 1,
+    "led_separation_m": [
+      0.04,
+      0.08
+    ],
+    "min_block_s": 10.0,
+    "nominal_led_separation_m": 0.05,
+    "offset_warn_deg": 30.0,
+    "outbound_paths": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "pause_margin_s": 5.0,
+    "pause_min_s": 1.0,
+    "pause_step_s": 0.1,
+    "peak_prominence": 0.1,
+    "peak_smooth_bins": 5,
+    "return_paths": [
+      9,
+      10
+    ],
+    "running_floor_m_per_s": 0.03,
+    "running_px_per_s": 20.0,
+    "smooth_order": 2,
+    "smooth_window_s": 0.15,
+    "snap_s": 1.0,
+    "speed_smooth_frames": 6,
+    "t_step_tolerance_s": 1e-06,
+    "track_height_m": 0.2
+  },
+  "settings": {
+    "burn_in_s": 1.0,
+    "horizon_s": 0.5,
+    "min_complete_trips": 1,
+    "min_heading_measured": 0.8,
+    "rate_hz": 20,
+    "stride_s": 10.0,
+    "window_s": 40.0
+  },
+  "start_offset_m": null,
+  "warnings": [
+    "JL1_rec4_20140704_001 track scale x and y differ by 26 percent, over 5: an outer corridor peak missed?"
+  ],
+  "windows": {
+    "JL1_rec4_20140704_001_arena_01": {
+      "count": 0,
+      "verdict": {
+        "ok": false,
+        "reasons": [
+          "no window of 40 s plus 0.5 s horizon fits in this 20 s block"
+        ]
+      }
+    }
+  }
+}

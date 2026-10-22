@@ -1,10 +1,30 @@
 """
-The finding half of readers: the lab's file names become sessions, with skips and selection.
+The readers: the lab's file names become sessions with skips and selection, and each MATLAB file kind, classic and v7.3, reads to the same values, a missing variable named, a cell array dereferenced.
 """
 
-from transform_lab_data.transform_helpers.readers import catalog, select
+from datetime import date
 
-from .synthetic_mat import session_names
+import numpy as np
+import pytest
+
+from transform_lab_data.transform_helpers import checks
+from transform_lab_data.transform_helpers.orchestrator import Record
+from transform_lab_data.transform_helpers.readers import Session, catalog, read, select
+
+from .synthetic_mat import example_session, session_names, write_session
+
+FORMATS = ("classic", "v7.3")
+
+
+def written(folder, variables, fmt):
+    """
+    The record of the variables written to folder as one session's file pair in this MATLAB format, read.
+    """
+    dvt, rmaps = session_names("NS14", 27, "021915", "001")
+    write_session(folder, variables, (dvt, rmaps), fmt)
+    session = Session(session_id="NS14_rec27_20150219_001", subject_id="NS14", group="NS14Data", session="001", rec=27,
+                      date=date(2015, 2, 19), tag=None, tag_raw=None, dvt_path=folder / dvt, rmaps_path=folder / rmaps)
+    return read(Record(session))
 
 
 def test_names_become_sessions_with_skips_and_selection(tmp_path):
@@ -43,3 +63,24 @@ def test_names_become_sessions_with_skips_and_selection(tmp_path):
     assert chosen("NS14", None) == ids[1:]
     assert chosen(None, 1) == ids[:2]
     assert chosen("NS14", 2) == ids[1:3]
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_a_missing_variable_is_named_by_the_input_check(tmp_path, fmt):
+    variables = example_session()
+    del variables["HDRadians"]
+    record = checks.check_inputs(written(tmp_path, variables, fmt))
+    assert checks.failed(record.results) == ["variables_present"]
+    assert record.results["variables_present"]["detail"]["missing"] == ["HDRadians"]
+
+
+def test_the_transposed_v73_layout_reads_the_same_as_the_classic_one_with_its_cells_dereferenced(tmp_path):
+    classic, v73 = (written(tmp_path / fmt, example_session(), fmt) for fmt in FORMATS)
+    assert v73.trk["processedDVT"].shape == classic.trk["processedDVT"].shape == (900, 10)  # not the (10, 900) on disk
+    markers = v73.ana["runPosMarkers"]
+    assert all(isinstance(x, np.ndarray) and x.dtype == float for pair in markers for x in pair)  # no h5py reference left
+    for got in ("trk", "ana"):
+        a, b = getattr(classic, got), getattr(v73, got)
+        assert set(a) == set(b)
+        for name in a:
+            np.testing.assert_equal(b[name], a[name], err_msg=name)

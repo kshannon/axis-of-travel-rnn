@@ -10,17 +10,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Kyle Shannon", email = "kyle@kmshannon.com" }, { name = "Jiesen Zhang", email = "jiz147@ucsd.edu" }]
 # Runtime imports of the package itself. The full research environment
-# (PyTorch, RatInABox, plotting, ...) is pinned in pixi.toml / pixi.lock.
+# (PyTorch, plotting, ...) is pinned in pixi.toml / pixi.lock.
 dependencies = [
   "numpy>=1.26",
   "pyyaml>=6",
   "pydantic>=2.5",
-  "xarray>=2023.6",
-  "zarr>=3,<4",
 ]
-
-[project.scripts]
-axis-of-travel-rnn = "cli:main"
 
 [tool.hatch.version]
 path = "src/axis_of_travel_rnn/__init__.py"
@@ -28,14 +23,10 @@ path = "src/axis_of_travel_rnn/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = [
   "src/axis_of_travel_rnn",
-  "src/cli",
-  "src/environments",
-  "src/proj_helpers",
   "src/transform_lab_data",
-  "ratreplay/backend/ratreplay_api",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-pythonpath = ["src", "ratreplay/backend"]  # tests import the packages from src/ and ratreplay/backend/ without an install
+pythonpath = ["src"]  # tests import the packages from src/ without an install

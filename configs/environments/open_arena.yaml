@@ -1,7 +1,0 @@
-# Open arena analog: 0.6 m circle centered in the same room frame,
-# mirroring the arena placed above the track center in the paper.
-type: circle
-room: {extent: [1.8, 1.8]}
-params:
-  diameter: 0.6
-  n_vertices: 32

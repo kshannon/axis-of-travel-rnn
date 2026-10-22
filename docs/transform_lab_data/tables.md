@@ -2,7 +2,7 @@
 
 The technical reference for the lab's MATLAB files (section 1), the tables the converter writes (section 2) and the
 rules left to stage 2 (section 3.1). The spec, the plan and the converter's code cite it by section number. The
-plain-English terms live in `DATA_DICTIONARY.md`. Conventions throughout: seconds for time, pixels in the camera frame until stage 2
+plain-English terms are in `DATA_DICTIONARY.md` and the files built from these tables in `docs/blocks_schema.md`. Conventions throughout: seconds for time, pixels in the camera frame until stage 2
 converts to metres in the room frame, angles in radians, one key (`session_id`) tying every table together.
 
 ## 1. Lab data (MATLAB files, outside the repository, read only)
@@ -141,9 +141,8 @@ Counts are over the 109 sessions unless a line says otherwise.
 Written under the transformed lab data root, the `TRANSFORMED_LAB_DATA` key in `configs/local.yaml`;
 the lab data root is the `LAB_DATA` key in the same file, and the converter exits 2 naming the key
 when either is missing. Native rate, pixels, camera frame; a conversion only: no row dropped, no
-value edited, nothing resampled, registered or smoothed. None of it enters the artifact store,
-which holds synthetic datasets, models and experiments only; the same holds for the stage 2 and
-stage 3 products made from it.
+value edited, nothing resampled, registered or smoothed. None of it enters the repository, and neither
+do the block parquet files made from it.
 
 ```
 <root>/
@@ -264,10 +263,10 @@ Every allowed value, one row each, fixed in `convert.py`. The converter refuses 
 
 | value | meaning |
 |---|---|
-| `open_arena` | the 0.6 m circular arena, `configs/environments/open_arena.yaml` |
-| `triple_t` | the standard track, `configs/environments/triple_t.yaml` |
+| `open_arena` | the 0.6 m circular arena, `environments.open_arena` in `configs/project.yaml` |
+| `triple_t` | the standard track, `environments.triple_t` in `configs/project.yaml` |
 | `triple_t_rot45` | the standard geometry rotated 45 degrees about the room center; config to add |
-| `triple_t_rot90` | the standard geometry rotated 90 degrees, `configs/environments/triple_t_rot90.yaml` |
+| `triple_t_rot90` | the standard geometry rotated 90 degrees about the room center; config to add |
 
 `condition`, the experimental manipulation in force during an epoch
 

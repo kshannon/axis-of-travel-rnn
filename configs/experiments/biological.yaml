@@ -1,0 +1,34 @@
+# The biological input experiment, a more biological model of subiculum inputs: the network is given position (x, y), speed,
+# head direction (heading, as its sine and cosine, so two inputs) and angular velocity (turn_rate), six inputs in all, and
+# predicts the position a horizon ahead as baseline.yaml does. baseline.yaml, the network given position only, is the
+# control and every other setting here is the same as there. Heading and turn_rate are measured signals and not axis
+# labels, and nothing that labels axis of travel is an input (AGENTS.md rule 1). A window with a frame where heading or
+# turn_rate is missing is dropped and counted. turn_rate is missing wherever heading is lost, filled or held, so this
+# config can train on fewer windows than the control, and the count dropped is the dataset's skipped.
+data:
+  blueprint: blocks_v1      # the built folder PROCESSED_LAB_DATA/blocks_v1/
+  rate_hz: 20               # every third lab frame, the pilot's dt of 0.05 s
+  split: [0.67, 0.11, 0.22] # train, validation, test fractions of recording dates, lab_rnn's 6, 1 and 2 sessions of 9
+  seed: 0                   # shuffles the dates before the cut
+windows:
+  window_s: 20.0            # 400 steps
+  stride_s: 5.0             # 100 steps
+  burn_in_s: 1.0            # the 20 steps without loss
+  horizon_s: 0.5            # 10 steps
+  min_heading_measured: 0.0 # the notebook checked no block, blocks.SETTINGS has 0.8
+  min_complete_trips: 0     # the notebook checked no block, blocks.SETTINGS has 1
+inputs:
+  columns: [x, y, speed, heading, turn_rate]  # 6 network inputs, heading giving heading_sin and heading_cos
+model:
+  kind: rnn                 # a vanilla tanh RNN, or memoryless for the MLP baseline
+  hidden_size: 128
+training:
+  epochs: 100               # the most, early stopping ends it before
+  batch_size: 64
+  learning_rate: 0.001
+  patience: 10              # epochs without a better validation loss before stopping
+  device: cpu
+analysis:
+  thresholds: analysis.thresholds   # the pilot's pre-registered numbers in configs/project.yaml, copied unchanged
+  measures: [direction, axis, arena, distances, decoders]
+seed: 0                     # the weights, the batch order and the nulls, the pilot's first trained seed

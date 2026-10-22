@@ -4,7 +4,8 @@ Fixtures for the converter tests: a lab root holding the synthetic session in bo
 
 import pytest
 
-import proj_helpers.paths
+import axis_of_travel_rnn.config
+import transform_lab_data.__main__ as entry
 
 from .synthetic_mat import example_session, session_names, write_session
 
@@ -16,7 +17,8 @@ def no_local_config(monkeypatch):
     """
     def refuse(*args, **kwargs):
         raise AssertionError("a test read configs/local.yaml; pass config instead")
-    monkeypatch.setattr(proj_helpers.paths, "local_config", refuse)
+    monkeypatch.setattr(axis_of_travel_rnn.config, "local_config", refuse)
+    monkeypatch.setattr(entry, "local_config", refuse)
 
 
 @pytest.fixture

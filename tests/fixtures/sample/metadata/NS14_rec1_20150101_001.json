@@ -1,0 +1,131 @@
+{
+  "built_at": "2026-10-22T09:31:06+00:00",
+  "code_version": "blocks 2 ba977eb+dirty",
+  "excluded": false,
+  "failed": [],
+  "frame": {
+    "arena": {
+      "arena_extent_ratio": 2.091552283349805,
+      "flip": true,
+      "led_separation_m": 0.06277754542955118,
+      "offset_m": [
+        -0.950988270405765,
+        2.1569500168165816
+      ],
+      "rotation_concentration": 0.009408335564563946,
+      "rotation_rad": -0.0007556771113748084,
+      "scale_px_per_m": 159.2926249596996
+    },
+    "goals_px": [
+      269.9999999999999,
+      156.69872981077785
+    ],
+    "led_offset_n": 5280,
+    "led_offset_r": 0.02182309175194224,
+    "led_offset_rad": 3.0699729433209866,
+    "start_px": [
+      245.0000000000002,
+      200.00000000000006
+    ],
+    "track": {
+      "flip": true,
+      "led_separation_m": 0.06848459501405584,
+      "offset_m": [
+        -0.776837054051421,
+        1.6859594389835018
+      ],
+      "rotation_concentration": 0.009408335564563946,
+      "rotation_rad": -0.0007556771113748084,
+      "scale_px_per_m": 146.0182395463913,
+      "scale_x_px_per_m": 127.01958384332924,
+      "scale_y_px_per_m": 165.01689524945334,
+      "start_offset_measured_m": 0.661373807275819
+    }
+  },
+  "review_stamp": {
+    "converter_manifest_timestamp": "2026-10-13T10:00:00+00:00",
+    "reviewed_at": "2026-10-13T10:00:00+00:00"
+  },
+  "rules": {
+    "arena_height_m": 0.4,
+    "axis_agree": 0.05,
+    "camera_height_m": 2.6,
+    "condition": "baseline",
+    "epochs": [
+      "arena",
+      "track"
+    ],
+    "extent_percentiles": [
+      1,
+      99
+    ],
+    "gap_lights": "both",
+    "heading_fill_s": 3.0,
+    "histogram_bin_px": 2.0,
+    "jump_px": 40.0,
+    "kinematics_version": 1,
+    "led_separation_m": [
+      0.04,
+      0.08
+    ],
+    "min_block_s": 10.0,
+    "nominal_led_separation_m": 0.05,
+    "offset_warn_deg": 30.0,
+    "outbound_paths": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "pause_margin_s": 5.0,
+    "pause_min_s": 1.0,
+    "pause_step_s": 0.1,
+    "peak_prominence": 0.1,
+    "peak_smooth_bins": 5,
+    "return_paths": [
+      9,
+      10
+    ],
+    "running_floor_m_per_s": 0.03,
+    "running_px_per_s": 20.0,
+    "smooth_order": 2,
+    "smooth_window_s": 0.15,
+    "snap_s": 1.0,
+    "speed_smooth_frames": 6,
+    "t_step_tolerance_s": 1e-06,
+    "track_height_m": 0.2
+  },
+  "settings": {
+    "burn_in_s": 1.0,
+    "horizon_s": 0.5,
+    "min_complete_trips": 1,
+    "min_heading_measured": 0.8,
+    "rate_hz": 20,
+    "stride_s": 10.0,
+    "window_s": 40.0
+  },
+  "start_offset_m": null,
+  "warnings": [
+    "NS14_rec1_20150101_001 track scale x and y differ by 26 percent, over 5: an outer corridor peak missed?"
+  ],
+  "windows": {
+    "NS14_rec1_20150101_001_arena_01": {
+      "count": 0,
+      "verdict": {
+        "ok": false,
+        "reasons": [
+          "no window of 40 s plus 0.5 s horizon fits in this 20 s block"
+        ]
+      }
+    },
+    "NS14_rec1_20150101_001_track_01": {
+      "count": 0,
+      "verdict": {
+        "ok": false,
+        "reasons": [
+          "no window of 40 s plus 0.5 s horizon fits in this 20 s block"
+        ]
+      }
+    }
+  }
+}

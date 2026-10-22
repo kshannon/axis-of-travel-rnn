@@ -1,4 +1,0 @@
-# Rotation-control analog: identical geometry rotated 90 deg about room center.
-# The room frame (and HD cells) never rotates. Validation-only environment.
-base: triple_t
-transform: {rotate_deg: 90}

@@ -1,0 +1,29 @@
+# The smoke run (pixi run smoke): the template notebook on the committed sample (blueprints.sample in configs/project.yaml), a tiny
+# network for two epochs, so a library change that breaks the notebook surface fails in seconds. Its numbers mean nothing.
+data:
+  blueprint: sample             # tests/fixtures/sample/, three synthetic sessions on three dates
+  rate_hz: 20
+  split: [0.34, 0.33, 0.33]     # one date each, seed 0 puts the session with an arena and a track block in test
+  seed: 0
+windows:
+  window_s: 5.0                 # 20 s blocks give 8 windows each
+  stride_s: 2.0
+  burn_in_s: 1.0
+  horizon_s: 0.5
+  min_heading_measured: 0.0     # checks off
+  min_complete_trips: 0
+inputs:
+  columns: [x, y]
+model:
+  kind: rnn
+  hidden_size: 16
+training:
+  epochs: 2
+  batch_size: 16
+  learning_rate: 0.001
+  patience: 2
+  device: cpu
+analysis:
+  thresholds: analysis.thresholds
+  measures: [direction, axis, arena, distances, decoders]
+seed: 0

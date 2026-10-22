@@ -1,271 +1,188 @@
 # Data dictionary
 
-Exact shapes and columns for the lab's variables and our tables are in docs/transform_lab_data/tables.md.
-
-**60 Hz:** The camera takes 60 frames every second, so one frame lasts 1/60 of a second, about 17 ms.
-
-**ACSF:** Artificial cerebrospinal fluid, the infusion with no drug in it. It is the comparison for muscimol, 5 sessions. The files only say ACSF.
-
-**Agent:** A simulated rat. Its config sets its speed, how long it dwells at goals, which goal it picks next and how it moves. It holds nothing about neurons or the axis.
-
-**Analysis file:** The file with rmaps in its name, one per session. It holds the lab's neural results plus their own labels, the segment stamps, the event list and the run markers. We read only the lab's labels from it, never the neural results. The event list gives every run, and the segment stamps give the epochs.
-
-**Angles:** In the camera picture y points down, so positive angles turn clockwise on screen. Angles wrap into minus 180 to plus 180 degrees, so 179 and minus 179 are only 2 degrees apart.
-
-**Annotations table:** A hand-written table, one row per session, that the converter never touches. It holds the reward rule, free notes and an exclude switch that leaves a session out of every statistic. We are still unsure what should set it.
-
-**Artifact:** A saved result of the pipeline, which is a synthetic dataset, a trained model or an experiment. It is written once, named by an id and a content hash, and never changed in place.
-
-**Artifact store:** The folder outside git that holds every artifact, marked by a store.yaml file. Lab data and the tables made from it never go in.
-
-**Average and mashup light:** Two extra lights the lab added. The average light is the rounded midpoint and is missing when either light is missing. The mashup light is the average, or the one good light when only one is missing.
-
-**Axis of travel:** The line the rat is moving along, where both directions on the line count as the same axis. Heading north and heading south are one axis. A cell tuned to it has two preferred directions about 180 degrees apart.
-
-**Axis-of-travel tuning:** How much a unit's activity depends on the axis of travel. We look for a hidden unit with two direction peaks about 180 degrees apart that hold steady across places and sessions.
-
-**Ballistic Runs:** A ballistic run goes from start to reward without stopping or backtracking. Whether the recorded sessions still include some learning is an open question.
-
-**Baseline:** No manipulation, just a trained rat in an ordinary session. 76 sessions have no variant tag and are baseline. The arena and track parts of a rotation session carry the condition baseline too, but the session is not in the baseline set of 76. We fit statistics on the baseline set by default, so drugs, darkness and rotated tracks do not mix into the behavior we model.
-
-**Bilateral and left:** The first part of the infusion tags. Bilat means both sides of the brain and left means the left side only.
-
-**Camera frame and pixels:** Lab positions are camera pixels in a 640 by 480 picture, with y pointing down. Speeds are in pixels per second. We only have a rough scale of about 3.3 px per cm.
-
-**Circular mean:** The average of a set of angles that handles the wrap, so 359 and 1 degrees average to 0, not 180. R, its length, is near 1 when the angles agree and near 0 when they spread all around.
-
-**Circular standard deviation:** How spread out a set of angles is, in degrees, worked out from R. We call it the typical difference. With a sharp peak and long tails it overstates the spread.
-
-**Clean and dirty run:** The labeler's judgment of a run, stored as the sign of its label. In the hand labeling tool TTPosTracker a person presses Clean Run or Dirty Run. In the automatic tool TTAutoPosTracker a run is marked dirty when the light's speed drops below 10 px/s inside it. So what clean means depends on which tool made the run. Nearly every indecision point sits inside a dirty run. About 27 percent of runs are dirty. We fit statistics on clean track runs, and dirty runs stay in the tables for comparison with real behavior.
-
-**Click order:** The event list is in the order the labeler clicked, not in time order. 100 of 108 sessions are out of order as stored. We number runs by start frame instead.
-
-**Condition:** What was being done during a part of a session, read from the file name. The values are baseline, rot45, rot90, dark and one for each infusion. It is a label, not a measurement. Every epoch carries one. The files do not say which parts were under a drug or in the dark, so a bilatmusc tag, for example, marks the arena, the track and the variant alike.
-
-**Config:** A small YAML settings file under configs. The local config, configs/local.yaml, is the one file of paths for this machine and is never committed or hashed.
-
-**Control experiment:** An experiment that tests another explanation, such as training in the open arena or shuffling data. If a control feeds the network something like heading, its config must say so.
-
-**Dark:** A session run in the dark, with the tag `dark`. There is one, NS14_rec23. Its third part is the same maze, and the whole session counts as dark.
-
-**Direction of travel:** The way the rat is actually moving, from the direction the midpoint of the lights moves between 3 frames before and 3 frames after, 6 frames or 0.1 s. It is not heading. It gets shaky when the rat is slow. Two opposite directions of travel make one axis of travel, so this is the quantity the axis is built from. Like heading, it never reaches training and is used only to analyze behavior and the network.
-
-**Duplicate run:** A run labeled twice, with the same label and nearly the same frames. There are 5, probably from the automatic tool starting a run at every gate crossing.
-
-**dvtFileName and dvtPathName:** The name of the tracker's original file that the lab started from, and the folder it sat in on the lab's computer. We do not read them as data. We only copy them into our record of the run, see Manifest (transformer).
-
-**Environment:** A maze or arena described only by its shape, in a small config file. We have open_arena, triple_t, triple_t_rot90 and plus_maze, and triple_t_rot45 is still to come. It never means the software environment. Each one gets a short fingerprint of its shape, so a dataset can be traced to its exact geometry.
-
-**Epoch:** A labeled part of a session, named by its role as arena, track or variant. It comes from one stamped segment, and it also carries an environment and a condition. Not to be confused with a training epoch, which is one pass over the training data. Epochs keep the arena and the track apart, which matters because the arena has no runs and can only give foraging statistics. The transformer keeps every epoch, and stage 2 drops any under 10 seconds, see The 10 second rule.
-
-**Epochs table:** One row per epoch, with its environment, condition and where it starts and ends. Every stamp pair is kept, even a short one. It tells us which frames are arena, track or variant, so statistics can be fit on one environment at a time.
-
-**Event:** One row of the event list. It has a frame row, a time and a label that says what it is. The labeling tool writes a run's start and end together as two adjacent rows, while indecision and reward marks are rows of their own. The time follows the tracking clock and jumps at a pause, so we place every event by its frame row.
-
-**Events table:** Every row of the lab's event list as stored, in click order, with what kind of event it is and which run it belongs to. It lets us check every run against the rows it came from, including the indecision and reward rows that belong to no run.
-
-**Experiment:** A population of model animals trained from one config, changing only one or two things at a time. Populations answer the question, single networks do not.
-
-**Footprint and overlap:** A footprint is the set of 20 pixel squares the front light sat in for at least half a second during a segment. Overlap is how much two footprints share, from 0 to 1. Two halves of the same track session overlap 0.68 to 0.95, while the track against its rotated layout overlaps only 0.14 to 0.23. These are ranges we measured, not fixed cutoffs.
-
-**Frame:** One camera picture, which is one row of the tracking file. Frames are numbered from 1 with no gaps, so a frame number is our clock. Run edges, epochs and events are all placed by frame number, never by time, because the time column jumps at a pause, see Pause.
-
-**Frames table:** One file per session with one row per frame. It holds the light positions, heading, missing-sample flags, the painted label and the epoch. Missing positions are blank. It is the one Parquet file per session that the transformer writes, and stage 2 measures speed, direction of travel and the heading offset from it.
-
-**Frozen model:** A trained network whose weights are fixed. We test it and record its hidden states without changing it.
-
-**Goal:** One of the four reward sites where a route ends. Each side has an inner goal and an outer goal.
-
-**Group:** The top folder a rat's files sit in, such as NS14Data or JL1HPCData. One folder is one rat.
-
-**HDRadians:** The lab's heading, one value per frame, see Heading. We read it as stored and do not work it out again.
-
-**Head-direction model:** A possible add-on that would give the simulated rat a head that can point away from travel, fitted from real data. It is not needed for the first milestone.
-
-**Heading:** The angle of the line from the back light to the front light, in radians. It is where the light bar points, which may not always be where the nose points, see Heading offset. It is missing when either light is missing. The head is not exactly lined up with the bar, so heading has to be corrected before we compare it with travel. It stays in the data for validation and analysis and never reaches training.
-
-**Heading offset:** The fixed angle at which the light bar sits on the head, found per recording. It is the circular mean of heading minus direction of travel over running frames. In JL1_rec23 it is about 105 degrees, so the bar sits nearly sideways. We subtract it from heading to get where the head points relative to travel, see Residual. It comes from the tracking alone, in the arena as well as on the track.
-
-**Hidden state and hidden unit:** The hidden state is the set of numbers the network carries from step to step, and each number is a hidden unit. We treat a hidden unit like a recorded neuron, as an analogy only.
-
-**Indecision point:** A spot where the rat seemed to hesitate, clicked by the labeler as its own event. There are 929, and almost all fall inside dirty runs.
-
-**Infusion:** A session where fluid was put into the brain, either muscimol or ACSF. There are 12, all in NS14. The whole session counts as under the infusion, because the gap between the track and the third part is only 35 to 65 seconds. The files do not mark when the drug acted, so every epoch of an infusion session carries its condition, a label read from the file name and not a measurement.
-
-**JL1HPC:** The folder name for rat JL1. HPC means hippocampus.
-
-**Key counts:** 109 sessions from 4 rats. 76 baseline, 20 rotation, 12 infusion and 1 dark. 32 sessions have pauses, 6 have no stamps.
-
-**Lab data:** The lab's MATLAB files from the Olson 2017 experiments. The lab data is transformed into, what we are calling, raw data.
-
-**Lab filename protocol:** It reads rat, rec and the recording number, a date as month day year, three session digits, the kind of file and any tags. The tags come before or after the kind. We do not yet know what session digits other than 001 mean.
-
-**Lab notebook:** The labnotebook folder, our own dated log. Coding agents never write in it.
-
-**Label:** The number on an event. 1 to 98 starts a run on that path, the end is the same number plus 100, 0 is an indecision point and 777 is a reward. A minus sign means a dirty run. For example, 3 starts a clean run on path 3 and 103 ends it, while -3 and -103 mark a dirty run on the same path. The transformer pairs each start with its end by this number to build the runs.
-
-**Labeling tools:** TTPosTracker is the lab's MATLAB tool for marking runs by hand with clicks for start, end, path, clean or dirty and reward. TTAutoPosTracker finds runs automatically, and a person then edits them. The segment stamps were clicked there too.
-
-**LED:** One of two small lights on a rigid bar on the rat's head, which the camera follows. LED1 is the front light and LED2 is the back light. They sit about 17 to 20 pixels apart, so a pixel of jitter can swing the heading a few degrees.
-
-**Lost, filled and unfilled samples:** A lost sample is a frame where the tracker lost a light. The lab filled gaps up to 30 frames, half a second, by interpolation and called those filled. Longer gaps stay unfilled, so a lost sample is filled or unfilled, never both. Filled samples are the lab's guesses, not measurements, so their flags stay in the frames table to tell them apart. In JL1_rec23 the front light is unfilled in about 8 percent of frames and the back light in about 24 percent.
-
-**Manifest:** The record inside every artifact of how it was made, with seeds, configs, commit and lockfile. The converter keeps its own, see Manifest (transformer).
-
-**Manifest (transformer):** The transformer's record of what it did, with versions, settings, the commit and a fingerprint of every lab file it read.
-
-**masterTemplate and PathTemplate:** The lab's drawing of the track in camera pixels. masterTemplate is probably the outline the lab clicked, and PathTemplate probably holds one point per centimeter along each path, see True north. We do not read them, and stage 2 will use them to place the track, see Registration.
-
-**maxGap:** The longest gap the lab filled by interpolation, 30 frames or half a second, see Lost, filled and unfilled samples. We read it into the sessions table and warn when it is not 30.
-
-**Midpoint of the lights:** The point halfway between the front and back lights. We use it to measure direction of travel, speed and the heading offset. Which single point the network gets is still open. It sits a few centimeters ahead of the body.
-
-**Missing stamps:** Six sessions have no timeStamps, five from JL1 plus NS14_rec14, so the converter gives them no epochs. Stage 2 may fall back on long tracked stretches, but NS14_rec14 has no safe fallback.
-
-**Model animal:** One trained network, treated like one animal in an experiment. It has its own seed, manifest and checkpoints, saved copies from points in training. Failures are kept, because failures are results too.
-
-**Muscimol:** A GABAA receptor agonist drug infused to reduce the activity of somatic action potentials. It shows up as musc in the tags bilatmusc and leftmusc, 7 sessions. We convert them but keep them out of the baseline set.
-
-**Notebooks:** A Jupyter notebook in notebooks, one question each, made from a template and committed without outputs.
-
-**nRealLights:** How many lights the tracker followed, which is 2, see LED. We read it only to check that it is 2.
-
-**nRuns:** The lab's count of clean runs on each path, in the order of pathList, see Run markers. We read it only to check our clean runs against it, and it matched in all 108 sessions where starts and ends alternate.
-
-**Occupancy and coverage:** Occupancy is how much time the rat spends in each small square of the room. Coverage is the share of squares it visited.
-
-**Open arena:** A round platform, 60 cm across, set 20 cm above the middle of the track. Rats forage there for crumbs and no runs are labeled in it.
-
-**Overlapping runs:** Neighbor runs that overlap by 1 to 6 frames. There are 11, in JL1_rec35, JL1_rec36 and NS15_rec15. Stage 2 will cut the earlier one so it ends a frame before the next starts.
-
-**Painted label:** The lab's run label written onto every frame of a run, kept in the analysis file. A frame in no run gets 99. It matches the event rows to within 2 frames, median 0, in the four sessions we checked, which is how we know the rows are right.
-
-**Path and path id:** A path is one numbered kind of run in the lab's labels, and the path id is its number. A session uses only some paths, for example 1 to 4, 9 and 10. How path ids map onto our four routes is still an open question.
-
-**pathList:** The path ids used in one session, which differ from session to session, see Path and path id. We read it only to line up nRuns and runPosMarkers with their paths.
-
-**Pause:** A spot where the camera stopped and restarted. The time column jumps by more than 0.1 s, sometimes by many minutes, while the frame numbers keep counting. 32 of the 109 tracking files have one, and we never treat the two sides as continuous. We never sample a trajectory across a pause, and a run with a pause inside it gets a flag, see Run flags.
-
-**Perturbation experiment:** Switching off or adding noise to the axis-like units and seeing how much worse prediction gets, compared with other units. It shows whether they matter to the network, not to the brain.
-
-**Phase:** A label on each frame or time step for what the rat is doing. For lab data it is run, between or forage. For synthetic data it is run, dwell, return or forage, where dwell is waiting at a goal or the start.
-
-**pixelDvt:** A copy of the lab's cleaned tracking, one row per frame, with one more value on each row, the run label the lab painted on, see Painted label. We read only that painted label from it, and only when its frames and times match the tracking file.
-
-**Plus maze:** A small plus-shaped maze with four 0.5 m arms, only for debugging. It is not in the paper.
-
-**processedDVT:** The lab's cleaned tracking, one row per frame, with the frame number, the time and the positions of the lights, see Tracking file. We read it, taking the frame, the time, both lights and the extra lights, see Average and mashup light. A light the lab could not fill is stored as 1, see Sentinel value.
-
-**Protocol:** A label for the whole session from its tag. It is standard, rotation, infusion, dark or other, where other means a tag we have not seen. It says what the session was meant to be, not what we measured. We use it to pick sessions, for example the baseline set is every session whose protocol is standard.
-
-**Rat:** There are four, JL1, NS14, NS15 and NS16, with 14, 32, 33 and 30 sessions. The files also call it the subject. The paper names three rats, NS14, NS15 and NS16.
-
-**Rat training:** Before recording, rats learned the track for 3 to 4 weeks until 80 percent of runs were ballistic.
-
-**Rate map:** A map of how fast a neuron fires at each place. The analysis file is full of them.
-
-**RatInABox:** The Python library we use to simulate agents. Its agent is a single point with no body, and its head direction is just its travel direction smoothed over 0.15 s.
-
-**rawDVT:** The tracker's original output before the lab cleaned it, on the tracker's own number scale with 0 for a lost light, not in pixels, see Whole-number positions. The lab turned it into processedDVT. We do not read it.
-
-**Registration:** Putting camera pixels onto the room frame with a scale, a shift, a rotation and maybe a flip, using the track itself as the target. Pooling sessions needs it. Stage 2 will do it.
-
-**Resample:** Taking the 60 Hz tracking down to our time step, planned at 0.05 s, which is still not settled. Real and synthetic data go through the same function.
-
-**Residual:** Heading minus direction of travel, after the heading offset is taken off. Zero means the head points where the rat goes. It averages to zero by design, so never use it to test whether the head follows travel. In our data the residual is within 30 degrees for about 70 percent of running frames on the maze, but only about a third in the arena. That is why we cannot treat head direction as equal to travel direction when we build synthetic trajectories.
-
-**Return:** The trip from the goal back to the start around the outside edge of the track. Our drawing of the return corridors is inferred from the paper's figure.
-
-**Reward:** Half a piece of Cheerio at a goal. In the arena the treat is a quarter Cheerio or crumbs.
-
-**Reward rule:** Which goals pay out. NS14 got all-but-repeats, any goal except the one just visited. NS15 and NS16 got visit-all, where every goal pays once and it resets after all four.
-
-**Room frame:** Our shared map for every environment, in meters, with the origin at the bottom left and north along y. All our environments sit in a 1.8 by 1.8 m room.
-
-**Rotation:** A session whose third part uses the track turned 45 or 90 degrees about the room center. The tags plus45 mean 45 and plusquarter mean 90. There are 20, and the angle rests on the tag names until we register the track.
-
-**Rotation control:** The triple-T turned 90 degrees about the room center. The room does not turn, so the same corridors now run along different axes. We keep it for validation, not training.
-
-**Route:** One of the four ways from the start to a goal. We name it with two letters, the turn at the first T and the turn at the last junction, so ee, ew, ww and we. The middle turn is forced, so two letters are enough.
-
-**Row 0 placeholder:** An event at frame 0 and time 0, which is not a real click. There are four, in NS16_rec31 and NS16_rec6, probably from relabeling with nothing selected. NS16_rec6 also has a dirty start with no end.
-
-**Run:** One trip along the track from a start event to its matching end event, on one path. The lab labeled about 180 per session on average, clean and dirty together, 19,604 starts over 109 sessions. The paper's figure of about 80 counts rewarded runs only. The word also gets used for a training run, which is not this. It is the unit of behavior we model. Its edges come from frame numbers, never from times. The transformer keeps every run and only adds flags, and stage 2 drops duplicates and cuts small overlaps.
-
-**Run flags:** Marks on a run that point out a problem and change nothing. They say if a run is a duplicate, how many frames it overlaps the previous run and if a pause falls inside it.
-
-**Run markers:** The lab's own count of runs per path and the start and end of each run. They cover clean runs only. We use them to check our runs, not to build them.
-
-**Running floor:** The speed above which a frame counts as running. The lab used 10 px/s, about 3 cm/s. We use 30 px/s for the heading offset, and the offset moves less than 2.3 degrees between the two.
-
-**runPosMarkers:** The lab's start and end frame of each clean run, path by path, see Run markers. We read it only to check our clean runs against it. Its twin runTimeMarkers holds the same runs as times in seconds, and we do not read that one.
-
-**Runs between stamps:** NS15_rec20 has about 37 runs in the 13,745 frames between its arena and track stamps. Maybe false starts, maybe a stamp problem. Those runs belong to no epoch.
-
-**Runs table:** One row per paired run, numbered by start frame, with its path id and clean or dirty mark. Dirty runs are in it, and nothing is dropped at this stage. It is the starting point for the run statistics the generator needs, such as which path follows which. Its flags mark duplicates, overlaps and pauses, and stage 2 acts on them.
-
-**sampleRate:** The camera's frames per second, which is 60, see 60 Hz. We read it into the sessions table and warn when it is not 60. The lab worked it out from the times at 2 rows near the start, so a pause there would make it wrong, see Pause.
-
-**samplesLost, samplesFilled and samplesUnfilled:** The lab's flags for each light on each frame, saying it was lost, filled or left unfilled, see Lost, filled and unfilled samples. We read the filled and unfilled flags into the frames table and use the unfilled ones to blank the stand-in positions, see Sentinel value. We do not read samplesLost, since it is just the other two together.
-
-**Seed:** The number that fixes random choices so a result can be repeated. Seeds are always explicit and never cherry-picked.
-
-**Segment:** One stretch of a session that the lab marked with a start and an end. Segment 1 is the arena, 2 is the track and 3 is the variant part when there is one. No session has a fourth. Each segment becomes an epoch in our tables, see Epoch. Frames outside every segment belong to no epoch.
-
-**Sentinel value:** A fake number that stands in for a missing one. An unfilled light is stored at position (1, 1). We trust the unfilled flag and turn those positions into blanks, never reading the pixel value. For example, a front light stored at (1, 1) with its unfilled flag set becomes a blank in the frames table. Read as a real position, it would put the rat in the top left corner of the picture.
-
-**Session:** One recording of one rat on one day. A standard session is about 45 minutes, a few minutes in the open arena and then the track, where the paper counts about 80 rewarded runs. The lab labeled about 180 runs per session on average, clean and dirty together. We have 109 sessions. It is one tracking file plus one analysis file, and its session id ties every table row back to it.
-
-**Session (lab):** In the lab's notes on timeStamps, segment 2 is called the first session and segment 3 the second session. For us a session is the whole recording.
-
-**Session id:** The key on every row of every table, built from rat, recording, date and session digits, like NS16_rec32_20151103_001. We write the date year, month, day so it cannot be misread.
-
-**Sessions table:** One row per session, with file facts and counts such as frames, pauses, events and runs. It is the first place to look before using a session, for example to see that it has a pause or no stamps.
-
-**Shifted event times:** In 33 sessions some event times do not match their frame row. Almost all of it is just pauses, since event times follow the tracking clock. Only JL1_rec35 and JL1_rec36 have starts off by 0.5 and 0.3 s with no pause to explain it.
-
-**Short arena:** In NS14_rec1, NS14_rec19 and NS16_rec10 the arena segment is only a few frames long. Stage 2 drops anything under 10 seconds, so those sessions have no arena.
-
-**Spec, plan and tasks:** The three documents for each feature, in that order. The spec says what, the plan says how with no code, and the tasks are small steps of about one commit each. This follows (SDD) spec driven development when using AI agents to help develop code, create tests, etc.
-
-**Speed:** How fast the midpoint moves, in pixels per second, over the same 6 frame step. For synthetic data it is in meters per second.
-
-**spiral_events:** The lab's event list, one row for each click the labeler made. Every run we have comes from it.
-
-**Split:** Dividing a dataset into train, validation and test parts. The validation part here watches training and stops it early, which has nothing to do with behavioral validation. One trajectory is never spread across parts.
-
-**Subiculum:** A brain region. The Olson 2017 paper found neurons there that map the current axis of travel, and that is why this project exists. We do not simulate subiculum cells, only behavior and the network.
-
-**Swapped field names:** In the lab's isRunningAnalysis output, the field called angVel holds speed and the field called vel holds turning rate. Read it by content, not by name.
-
-**Synthetic dataset:** A saved set of synthetic trajectories built from one environment, some agents and a seed. A synthetic session is one simulated rat's block of runs, not a lab recording.
-
-**Synthetic trajectory:** A made-up path of a simulated rat through an environment, at a fixed time step. The network trains on these.
-
-**Tag:** The word in a file name that says what was special about the session, such as dark, bilatmusc or plus45. Capital letters vary, so we match without case. No tag, or just tt, means a standard session.
-
-**The 10 second rule:** 600 frames. A segment shorter than this is not an epoch, and a tracking gap must be longer than this to count.
-
-**timeStamps:** The lab's list of where each segment starts and ends, as start then end pairs. Despite the name they are frame numbers, not times. A baseline session has 4 numbers and a variant session has 6.
-
-**Tracking file:** The file ending in ProcessedDVT, one per session. It holds where the rat's two head lights were in every camera frame, the lab's heading and flags for missing samples. It has no neural data. Every frame and every position we use comes from it, and the transformer turns it into the frames table.
-
-**Tracking gap:** A stretch of more than 10 seconds where both lights are unfilled. Gaps often fall between segments, but some sit inside a segment, so they cannot mark edges on their own.
-
-**Trajectory generator:** The code that makes synthetic trajectories, fit to real statistics such as speed, dwell and choices. Track runs can be fit by path, but the arena can only be fit as free foraging.
-
-**Triple-T track:** The maze from the paper. Corridors are 8 cm wide and the whole track fits in a 1.60 by 1.25 m box. The rat starts at the middle of one long edge, runs up the stem, makes three turns and reaches one of four goals, a 1.40 m trip with turns at 0.51, 0.87 and 1.18 m.
-
-**True north:** The lab's own fix for the light bar's mounting angle, worked out per recording from the north leg of two paths. It also contains the track's angle to the camera, so it is not the same quantity as our heading offset. We keep it only as a cross-check on the offset.
-
-**Turning rate:** How fast the direction of travel changes. The lab calls it angular velocity, but it is about the direction of motion, not the head.
-
-**Turning slope:** How the residual changes with turning rate near zero turning. A negative slope means the head lags behind the turn. It may be just geometry, since the midpoint sits ahead of the body, and we have not tested that.
-
-**Units:** Stage 1 keeps the lab's units, pixels, seconds and radians. Synthetic data uses meters, seconds and radians.
-
-**Variant:** A non-standard session, marked by a tag in the file name. Its third part comes after the arena and the track and is either the track under a drug or darkness, or a rotated track. 33 of the 109 sessions are variants.
-
-**vel and acc:** The lab's own speed and direction of motion for each light, measured over 6 frames or 0.1 s, and acc is the same thing differenced once more. We do not read either, because stage 2 works out speed and direction of travel again from the positions, see Speed and Direction of travel. This vel is not the field called vel in Swapped field names.
-
-**Whole-number positions:** The tracker's original output, rawDVT, used its own number scale with 0 for lost. The lab rescaled it to pixels and rounded every sample, so all tracking positions are whole numbers. We do not read rawDVT, see rawDVT.
+What every attribute and term of the data means, in pipeline order: what the lab recorded (raw), what the converter makes of it
+(transformed) and what the block step makes of that (built blocks). It defines meanings only. The files, their columns in order,
+types and keys are in `docs/blocks_schema.md` for the block step and in `docs/transform_lab_data/tables.md` for the lab's files and
+the transformed tables. Units are given with each entry: seconds (s), camera pixels (px) until registration, metres (m) in the room
+frame after it, radians (rad) for angles unless an entry says degrees. A column name is written as code, a term in plain words.
+
+## Raw: what the lab recorded
+
+The Nitz lab's MATLAB files from the Olson 2017 experiments, read only, outside the repository (`LAB_DATA`).
+
+| name | meaning, unit | from |
+|---|---|---|
+| lab data | The lab's MATLAB files, one tracking file and one analysis file per recording, 109 recordings from 4 rats. | the lab |
+| tracking file | The file ending in `ProcessedDVT`: where the two head lights were in every camera frame, the lab's heading and the flags for missing samples. No neural data. | the lab |
+| analysis file | The file with `rmaps` in its name: the segment stamps, the event list, the run markers, the painted run labels and the lab's neural results, which are never read. | the lab |
+| rat, subject | One of four rats, JL1, NS14, NS15 and NS16, with 14, 32, 33 and 30 sessions. The paper names NS14, NS15 and NS16. | file name |
+| group | The folder a rat's files sit in, such as `NS14Data` or `JL1HPCData` (HPC is hippocampus). One folder is one rat. | folder name |
+| file name protocol | `<subject>_rec<N>_<MMDDYY><sss>[_tags]<kind>.mat`: rat, recording number, date month day year, three session digits, the kind of file and any tags before or after the kind. What session digits other than 001 mean is unknown. | file name |
+| tag | A word in the file name saying what was special about the recording (`dark`, `bilatmusc`, `plus45` and so on), matched without case. None, or `tt` alone, is a standard recording. `turn` is only a naming suffix. | file name |
+| variant | A recording with a tag. Its third segment is the track under a drug or in the dark, or a rotated track. 33 of the 109. | file name |
+| rotation | A variant whose third segment is the track turned 45 degrees (`plus45`) or 90 degrees (`plusquarter`) about the room centre, 20 recordings. The angle rests on the tag names. | file name |
+| infusion | A variant where fluid was infused into the brain, muscimol or ACSF, 12 recordings, all NS14. The whole recording counts as under the infusion, the files do not say when the drug acted. | file name |
+| muscimol | A GABA-A receptor agonist infused to silence the region, tags `bilatmusc` and `leftmusc`, 7 recordings. | file name |
+| ACSF | Artificial cerebrospinal fluid, the infusion with no drug, the control for muscimol, 5 recordings. | file name |
+| bilateral, left | The first part of an infusion tag: both sides of the brain, or the left side only. | file name |
+| dark | A recording made in the dark, tag `dark`, one recording (NS14_rec23). | file name |
+| triple-T track | The paper's maze: 8 cm corridors in a 1.60 by 1.25 m envelope. The rat runs up the stem from the start, turns three times and reaches one of four goals, a 1.40 m run with turns at 0.51, 0.87 and 1.18 m. Geometry in `environments.triple_t` of `configs/project.yaml`. | the paper |
+| open arena | A round platform 0.6 m across, 0.2 m above the middle of the track, where the rat forages for crumbs. No runs are labelled in it. The lab calls it the platform. | the paper |
+| goal | One of the four reward sites a run ends at, an inner and an outer one on each side. | the paper |
+| route | One of the four ways from the start to a goal, named by the turn at the first T and the turn at the last junction: ee, ew, ww, we. How the lab's path ids map onto routes is open. | this project |
+| return | The way back from a goal to the start around the outside edge of the track. Its corridors are inferred from the paper's figure. | the paper |
+| reward | Half a Cheerio at a goal, a quarter or crumbs in the arena. | the paper |
+| reward rule | Which goals pay. NS14 all but repeats (any goal but the one just visited), NS15 and NS16 visit all (each goal once, reset after all four). | the paper |
+| rat training, ballistic run | Before recording the rats learned the track for 3 to 4 weeks until 80 percent of runs were ballistic, start to reward without stopping or backtracking. Whether some learning remains in the recordings is open. | the paper |
+| LED, front and back light | The two lights on a rigid bar on the rat's head that the camera follows. LED1 is the front light and LED2 the back, about 17 to 20 px apart, so one pixel of jitter swings the heading a few degrees. | tracking file |
+| `nRealLights` | Number of lights tracked, 2. | tracking file |
+| `sampleRate` | Camera frames per second, 60, so one frame is 1/60 s (about 17 ms). The lab computes it from the times at rows 99 and 100, so a pause there would corrupt it. | tracking file |
+| camera frame, pixels | Lab positions are pixels in a 640 by 480 picture with y pointing down. Speeds are px/s. The rough scale is about 3.3 px per cm until registration. | tracking file |
+| camera angles | In the camera picture y points down, so a positive angle turns clockwise on screen. Angles wrap into minus pi to pi. | tracking file |
+| `rawDVT` | The tracker's original output, on its own integer scale (0 lost, up to 1023), not pixels. The lab rescaled it to pixels and rounded every sample, so all positions are whole numbers. Not read. | tracking file |
+| `processedDVT` | The lab's cleaned tracking, one row per frame: frame number, time, both lights, and the average and mashup lights. A light the lab could not fill is stored as 1. | tracking file |
+| `HDRadians`, head direction | The lab's heading per frame, rad, camera convention: the angle of the vector from the back light to the front light. NaN exactly where either light is unfilled. | tracking file |
+| `samplesLost`, `samplesFilled`, `samplesUnfilled` | Per light and frame: the tracker lost it, the lab filled it by interpolation (gaps up to `maxGap`), or left it unfilled (longer gaps). Lost is filled or unfilled, never both. | tracking file |
+| `maxGap` | The longest gap the lab filled by interpolation, frames, 30 (half a second). | tracking file |
+| sentinel value | The stand-in an unfilled light is stored at, position (1, 1). Read as a position it would put the rat in the top left corner. | tracking file |
+| average light, mashup light | Two lights the lab added. The average is the rounded midpoint, missing when either light is. The mashup is the average, or the one good light when only one is missing, missing when both are. px. | tracking file |
+| `vel`, `acc` | The lab's speed (px/s) and direction of motion (rad) per light over 6 frames (0.1 s), and the same differenced once more. Not read, the block step derives its own. | tracking file |
+| `timeStamps`, segment | Start and end rows of each recorded segment, as pairs, frame rows despite the name. Segment 1 is the arena, 2 the track, 3 the variant when present. Clicked by hand. Absent in 6 recordings (5 JL1 and NS14_rec14). | analysis file |
+| session (lab) | In the lab's notes segment 2 is the first session and segment 3 the second. Here a session is the whole recording. | analysis file |
+| `spiral_events`, event | The labeller's click record, one row per click: tracking row, time (s, following the tracking clock) and label. In click order, not time order. | analysis file |
+| label | The number on an event. 1 to 98 starts a run on that path, the end is the start plus 100, 0 is an indecision point, 777 a reward click, 99 unlabelled (painted column only). A minus sign marks a dirty run. | analysis file |
+| clean, dirty | The labeller's judgment of a run, the sign of its label. In TTPosTracker a person presses Clean Run or Dirty Run, in TTAutoPosTracker a run is dirty when the light's speed drops under 10 px/s inside it, so what clean means depends on the tool. About 27 percent of runs are dirty. | analysis file |
+| path id | The lab's number for a kind of run. In the first track segment 1 to 4 are the outbound paths (start to a goal) and 9 and 10 the returns, the second segment adds 10 (11 to 14, 19, 20). A recording uses only some paths. | analysis file |
+| `pathList`, `nRuns`, run markers | The path ids a recording uses, the clean runs per path, and the start and end rows (`runPosMarkers`) and times (`runTimeMarkers`) of the clean runs. Used only as a check. | analysis file |
+| `pixelDvt`, painted label | The processed tracking with one more column, the run label painted onto every frame of a run (the later run where two overlap), 99 outside runs. | analysis file |
+| indecision point | A hesitation the labeller clicked as its own event, label 0, 929 in all, nearly all inside dirty runs. | analysis file |
+| reward click | Label 777, in only 5 of 109 recordings, the tool's reward code being commented out. Not used. | analysis file |
+| labelling tools | TTPosTracker marks runs by hand. TTAutoPosTracker finds gate crossings inside the two track segments and a person edits them. The segment stamps were clicked there too. | the lab's MATLAB |
+| `masterTemplate`, `PathTemplate` | The lab's drawing of the track in pixels, likely the clicked outline and one point per cm along each path. Not read. | analysis file |
+| lab true north | Per recording, the mean raw heading on the north leg of paths 9 and 10 (template bins 90 to 100), rad. It contains the track's angle to the camera as well as the light bar's angle. | `ratTrueNorthCalculator` |
+| lab running rule | Smoothed speed over 10 px/s (about 3 cm/s) and turning rate under 20 rad/s, both over 6 frames. Its output stores speed under `angVel` and turning rate under `vel`, read by content. | `isRunningAnalysis` |
+| lab angular velocity | The turning rate of the direction of motion, rad/s, not of the head. | `isRunningAnalysis` |
+| rate map | A neuron's firing rate by place. Never read. | analysis file |
+| row 0 placeholder | An event at row 0 and time 0, not a real click, four in NS16_rec31 and NS16_rec6. NS16_rec6 also has a dirty start with no end. | analysis file |
+| shifted event times | Event times that differ from their row's time, 33 recordings, nearly all from pauses. Only JL1_rec35 and JL1_rec36 have starts off by 0.5 and 0.3 s that no pause explains. | analysis file |
+
+## Transformed: what the converter makes
+
+`pixi run transform-lab-data` writes the lab's data as tables at the native rate in pixels, a conversion only (`TRANSFORMED_LAB_DATA`).
+
+| name | meaning, unit | from |
+|---|---|---|
+| `session_id`, session | One recording of one rat on one day, about 45 minutes, a few in the arena then the track. The id joins subject, rec, date (year month day) and session digits, like `NS16_rec32_20151103_001`, and is on every row. | file name |
+| `subject_id`, `rec`, `date` | The rat, the recording number, and the recording date as YYYY-MM-DD. | file name |
+| `dvt_file`, `rmaps_file` | The tracking and analysis file names. | file names |
+| `protocol` | The whole recording's label from its tag: `standard`, `rotation`, `infusion`, `dark` or `other` (an unseen tag). The baseline set is every `standard` recording, 76. | tag |
+| `condition` | The manipulation in force during an epoch: `baseline`, `rot45`, `rot90`, `musc_bilateral`, `acsf_bilateral`, `musc_left`, `acsf_left`, `dark`, or an unknown tag verbatim. A label from the file name, not a measurement, so an infusion tag marks every epoch. | tag |
+| baseline | No manipulation, a trained rat in an ordinary session. The arena and track of a rotation recording are `baseline` too, though the recording is not in the baseline set. | tag |
+| `epoch` | A labelled part of a session from one stamped segment: `arena`, `track` or `variant`. Not a training epoch. Frames outside every epoch are dead time. | `timeStamps` |
+| `environment` | The geometry an epoch maps to: `open_arena`, `triple_t`, `triple_t_rot45` or `triple_t_rot90` (the last two still to add). Never the software environment. | tag |
+| `rate_hz` | The lab's `sampleRate` rounded, Hz, 60. | `sampleRate` |
+| `max_gap` | The lab's `maxGap` rounded, frames, 30. | `maxGap` |
+| `n_frames` | Frames in the recording, `n_frames / rate_hz` its recorded time. | tracking file |
+| pause | Where the camera stopped and restarted: a step in `t` over 0.1 s, sometimes minutes, while frame numbers keep counting. 32 of 109 recordings have one. Nothing is sampled across it. | tracking `t` |
+| `n_pauses`, `paused_s` | The pauses in a recording and the time they skip, s (each step minus 1/60 s, summed). | tracking `t` |
+| `unfilled_front`, `unfilled_back` (sessions) | Fraction of frames with that light unfilled. | `samplesUnfilled` |
+| `n_events`, `n_runs` | Events and runs of the recording. | `spiral_events` |
+| `frame` | One camera picture, one tracking row, numbered from 1 without gaps. Runs, epochs and events are placed by frame, never by time. | tracking file |
+| `t` | The lab's timestamp, s, as stored, jumping at a pause. | tracking file |
+| `front_x`, `front_y`, `back_x`, `back_y` | LED1 and LED2, px, NaN where unfilled (the sentinel blanked by its flag). | `processedDVT` |
+| `head_dir` | The lab's heading as stored, rad, camera convention. | `HDRadians` |
+| `filled_front`, `filled_back` | The lab interpolated that light on this frame, a guess and not a measurement. | `samplesFilled` |
+| `unfilled_front`, `unfilled_back` (frames) | That light is missing on this frame. | `samplesUnfilled` |
+| `painted_label` | The lab's painted run label of the frame, 99 unlabelled, blank when the file's `pixelDvt` does not match the tracking. | `pixelDvt` |
+| `avg_x`, `avg_y`, `mashup_x`, `mashup_y` | The lab's average and mashup lights, px, NaN where missing. | `processedDVT` |
+| `frame_start`, `frame_end` | First and last frame of an epoch or run, 1-based, inclusive. | `timeStamps`, events |
+| `t_start`, `t_end`, `duration_s` | The tracking times at those frames, s, and the frame count over `rate_hz`, s. | tracking `t` |
+| `run`, run | One trip along the track from a start event to its matching end, on one path, numbered from 1 in start frame order. About 180 per recording, clean and dirty together. The paper's 80 or so counts rewarded runs. Not a training run. | `spiral_events` |
+| `path_id` | The run's path id, the absolute value of its start label. | label |
+| `clean` | The labeller's judgment, the sign of the start label, copied and never computed. | label |
+| `duplicate_of` | An earlier run with the same signed label that this one overlaps by half the shorter or more, a flag. 5 in the data. | events |
+| `overlap_frames` | Frames the previous run reaches into this one, a flag. 11 overlaps of 1 to 6 frames, in JL1_rec35, JL1_rec36 and NS15_rec15. | events |
+| `spans_pause` | A pause falls inside the run, a flag. | `t` |
+| run flags | `duplicate_of`, `overlap_frames` and `spans_pause`: they point out a problem and change nothing. | converter |
+| `event`, `kind` | An event's place in click order, and what its label makes it: `start`, `end`, `indecision`, `reward` or `other`. | `spiral_events` |
+| runs between stamps | NS15_rec20 has about 37 runs in the 13,745 frames between its arena and track stamps, in no epoch. | `timeStamps` |
+| short arena | In NS14_rec1, NS14_rec19 and NS16_rec10 the arena segment is under 10 s. | `timeStamps` |
+| tracking gap | A stretch where both lights are unfilled for long. The transform docs give 10 s for finding segments, the block step cuts at any gap over `max_gap` frames (built blocks, cut point). | `samplesUnfilled` |
+| `reward_rule`, `exclude`, `notes` | Annotations made by hand per recording: the reward rule, leave out of every statistic, free text. | by hand |
+| transformed stamp | The `run.timestamp` of the converter's manifest, the version of the transformed folder a review and a build name. | converter |
+| check status | `pass`, `warn` or `fail` of each check of each recording. | converter |
+| heading offset | The fixed angle of the light bar on the head per recording, rad: the circular mean of heading minus the direction of motion over running frames. About 105 degrees in JL1_rec23, so the bar sits nearly sideways. Computed in the block step as the LED offset. | tracking file |
+| true north | The lab's per recording fix for the bar's angle (raw, lab true north). It also holds the track's angle to the camera, so it is only a cross-check on the heading offset. | analysis file |
+| circular mean, R | The mean of angles that respects the wrap (359 and 1 degrees average to 0), and its length R, near 1 when the angles agree and near 0 when they spread. | method |
+| circular standard deviation | The spread of angles from R, degrees. With a sharp peak and long tails it overstates the spread. | method |
+| footprint, overlap | The 20 px squares the front light sat in for at least 0.5 s during a segment, and the share two footprints have in common, 0 to 1. Two halves of a track overlap 0.68 to 0.95, a track against its rotated layout 0.14 to 0.23. | validation by hand |
+
+## Built blocks: what the block step makes
+
+`pixi run build-blocks --blueprint <name>` cuts, registers and labels the transformed frames into blocks in the room frame at the
+lab rate (`PROCESSED_LAB_DATA/<name>/`). Rules and settings are named by their key and default.
+
+| name | meaning, unit | from |
+|---|---|---|
+| blueprint | The entry of the project config that says which blocks a build makes: sessions, rule and setting overrides, start offsets, the reviews folder and the expected data id. | `blueprints` in `configs/project.yaml` |
+| format version | The review tool's format version the reviews and blocks follow, recorded, not checked. | blueprint |
+| review | A person's decisions on one session: the kept blocks, cuts, flagged runs, exclusion, start offset and notes. | the review tool |
+| `reviewed_by`, `reviewed_at` | Who saved the review and when, ISO time. | review |
+| review stamp | The review's `reviewed_at` and the transformed stamp it was made against. | review |
+| excluded | The person left the whole session out, it builds no blocks. No rule excludes by tag. | review |
+| flagged run | A run the person left out of the labels, its frames taking run 0. | review |
+| funnel | Which sessions the rules allow (an epoch of the kinds in `epochs` under `condition` baseline, frames present) and why the others are not. | rules |
+| cut point | Where a stretch ends: an epoch start, a pause (step in `t` over `pause_step_s` 0.1 s), a jump (mashup moves over `jump_px` 40 px in one frame) or a tracking gap (`gap_lights` both unfilled for over `max_gap` frames). | transformed frames |
+| stretch | A run of frames in one epoch between cut points, trimmed by the margins. The range a block edge may move within. | rules |
+| margin | Frames trimmed inward from a stretch edge beside a pause, jump or epoch bound, `pause_margin_s` 5 s. | rules |
+| block, `block_id` | A stretch of one epoch of at least `min_block_s` 10 s with no pause, jump or long gap inside, kept by the person. Its id is `{session_id}_{epoch}_{NN}`, NN counting the epoch's blocks from 01 in frame order, dropped ones included. | rules and review |
+| cut | A frame range the person removed from the blocks it touches, a piece left under `min_block_s` dropped. | review |
+| snap | A moved block edge within `snap_s` 1 s of a run's start or end snaps to it. | rules |
+| `status` | A block's state in the review: `auto` (as the rules made it), `confirmed`, `edited` or `dropped`. The build keeps `confirmed` and `edited`. | review |
+| room frame | The shared map, m: a 1.8 by 1.8 m room, origin bottom left, x east, y north. | environment yaml |
+| registration | Taking pixels to the room frame per epoch kind: flip the camera's y, divide by the scale, rotate by the track rotation, shift by the offset. | transformed frames |
+| `scale_px_per_m` | Pixels per metre. The track's is the mean of two axis estimates (`scale_x_px_per_m`, `scale_y_px_per_m`), each the span of the outer occupancy peaks of the running frames over the centreline's extent. The arena's is the track's times the parallax ratio. | registration |
+| parallax ratio | (camera height minus track height) over (camera height minus arena height), from `camera_height_m` 2.6, `track_height_m` 0.2 and `arena_height_m` 0.4. The arena floor is nearer the camera. | rules |
+| `rotation_rad`, rotation concentration | The counterclockwise rotation that lays the track's corridors along the room axes with the start below the goals, rad, used for both kinds, and the four-fold concentration of the running directions, 0 to 1. | registration |
+| flip | The camera's y negated, always true. | registration |
+| `offset_m` | The shift that lands the anchor, m: the start site on the track, the arena's median position at the room centre. | registration |
+| start site, goals | The median position at the outbound runs' first frames and at their last frames, px. | registration |
+| start offset, `start_offset_m` | How far up the stem the start site sits above the bottom return corridor, m. The person tunes it in the review, a blueprint may set it per session, null means the environment yaml's (0). | review, blueprint |
+| start offset measured | The same distance read from the running frames, m, a check. | registration |
+| LED separation | The distance between the two lights in metres at the kind's scale, warned when outside `led_separation_m` 0.04 to 0.08. `nominal_led_separation_m` 0.05 is the paper's, used for the still floor. | registration |
+| LED offset, `led_offset_rad` | The heading offset of the session, rad, with its concentration `led_offset_r` and the running frames used `led_offset_n`. | transformed frames |
+| arena extent ratio | The arena's occupancy extent between `extent_percentiles` 1 and 99, in metres, over the arena's size, 1 when the rat covers it. | registration |
+| `x`, `y` | The mashup light in the room frame, m. | registration |
+| direction of travel | The direction the mashup moves over `speed_smooth_frames` 6 frames (0.1 s), rad. Not heading. Shaky when the rat is slow. Never reaches training. | transformed frames |
+| axis of travel | The line the rat moves along, both directions on it the same axis, so north and south are one axis. A unit tuned to it has two preferred directions 180 degrees apart. The quantity the project looks for and never gives the network. | direction of travel |
+| running | A frame whose speed exceeds a floor. Open: the engine's rules say `running_px_per_s` 20 px/s (LED offset and registration), the transform docs say 30 px/s for the heading offset, and the lab used 10 px/s. The offset moved under 2.3 degrees between 10 and 30 px/s. | rules |
+| still | A frame whose steady speed is under `running_floor_m_per_s` 0.03 m/s at the nominal scale. Used for held heading and pauses. | rules |
+| `heading` | The head direction in the room frame, rad, counterclockwise from east (north is pi over 2), wrapped to minus pi up to pi: the lab's heading negated, minus the LED offset, plus the track rotation. Where the head points, not where the rat goes. NaN where lost. | `head_dir` |
+| `heading_filled` | Heading filled along the shortest arc across a gap of up to `heading_fill_s` 3 s. | rules |
+| `heading_held` | Heading held at its last measured value across a longer gap while the rat is still throughout. | rules |
+| heading lost | Heading missing after fills, a gap that touches an end of the recording, holds a pause, or is too long while the rat moves. | rules |
+| residual | Heading minus direction of travel after the LED offset, rad. Zero mean by construction, so never a test of whether the head follows travel. Within 30 degrees on about 70 percent of running frames on the maze, about a third in the arena. | heading |
+| `speed` | Savitzky-Golay derivative of `x`, `y` over `smooth_window_s` 0.15 s at order `smooth_order` 2, within the block alone, m/s. NaN where position is missing. | `x`, `y` |
+| `turn_rate` | The same derivative of the unwrapped measured heading, counterclockwise positive, rad/s, the head's angular velocity. NaN where heading is not measured (lost, filled, held). | `heading` |
+| turning slope | How the residual changes with turning rate near zero, a negative slope meaning the head lags the turn. Possibly geometry alone, untested. | analysis |
+| `kinematics_version` | The version of the speed and turn rate derivation, 1. | rules |
+| `n_lights` | Lights not left unfilled on the frame, 2, 1 or 0. | unfilled flags |
+| `filled_front`, `filled_back` (blocks) | The transformed flags, copied. | transformed frames |
+| `phase` | One label per frame, the first that applies: `forage` on every arena frame, `pause` in a run where speed stays under the still floor for over `pause_min_s` 1 s, `outbound` or `return` in a run whose path id is in `outbound_paths` (1, 2, 3, 4) or `return_paths` (9, 10), `dwell` on every other track frame. Replaces the transform docs' run and between. | runs, speed |
+| `trip` | An outbound run, the dwell at the goal, the return and the dwell at the start, from one outbound start to the next or the block end. Positive and numbered when complete, negative when partial, 0 in the arena. | runs |
+| `run` (blocks) | The transformed run number owning the frame, 0 outside runs. The later run owns overlapping frames, duplicates and flagged runs are left out. | runs |
+| `path_id` (blocks) | The owning run's path id, 0 outside runs. | runs |
+| `clean` (blocks) | The owning run's `clean`, false outside runs. | runs |
+| `n_runs`, `n_clean_runs`, `n_trips`, `n_complete_trips` | Counts per block of runs, clean runs, trips (partial included) and complete trips. | labels |
+| `heading_lost_s`, `heading_filled_s`, `heading_held_s` | Time per block with heading lost, filled and held, s. | heading |
+| `kind` | The block's epoch kind, `track` or `arena`. | epoch |
+| warning, failed, skipped, error | A warning flags a session (scales that disagree, LED separation out of range, reviewed under other rules). A failed block is not written (position not finite, irregular steps in `t` beyond `t_step_tolerance_s`). A skipped session had no review or is outside the funnel. An error is a session whose build raised. | build |
+| code version, engine version | `blocks <engine version> <short commit>` with `+dirty` for uncommitted changes, and the engine's own version, 2. | build |
+| data id | The sha256 over `blocks.csv` and every block parquet in block id order, each file's path and its bytes' sha256. Same blocks, same id, on any day. It hashes bytes, so a different pyarrow can change it while values stay equal. | build |
+| expected data id | The data id a build of the blueprint must give, written in after the first build. | blueprint |
+| window, `window_s` | A stretch of a block the network sees, 40 s by default (settings). | settings |
+| `stride_s`, `burn_in_s`, `horizon_s` | The step between window starts (10 s), the steps at a window's start not scored (1 s) and how far ahead the position is predicted (0.5 s). | settings |
+| `rate_hz` (settings), resample | The rate training takes every k-th frame to, 20 Hz (0.05 s), recorded only by the build. | settings |
+| verdict | Whether a block gives windows at the settings, and the reasons when not: no window fits, heading measured under `min_heading_measured` 0.8, complete trips under `min_complete_trips` 1. | settings |
+| split | Train, validation and test by whole recording dates, shuffled by the seed. Validation stops training early, unrelated to behavioural validation. | experiment config |
+| inputs | The block columns an experiment gives the network (`inputs.columns`): `x`, `y` (the control), and optionally `speed`, `heading` (as its sine and cosine) and `turn_rate`. Standardised by the training blocks' mean and sd except the sine and cosine. The target is always future `x`, `y`. `phase`, `trip`, `run`, `path_id`, `clean` and any axis label never reach training. | experiment config |

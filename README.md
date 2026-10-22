@@ -1,232 +1,156 @@
 # axis-of-travel-rnn
 
-This repository contains a computational neuroscience research project investigating whether axis-of-travel-like representations can emerge spontaneously in a simple recurrent neural network (RNN) trained to predict an animal's future position during spatial navigation. The biological motivation is the literature describing axis-of-travel representations in the subiculum. The computational question is:
+Does an axis-of-travel-like representation emerge in a vanilla RNN trained only to predict future position? The biological
+motivation is the literature describing axis-of-travel representations in the subiculum. We train recurrent networks on rat
+position in a triple-T maze and look for hidden units tuned to the axis of travel. A negative result is a valid outcome. The
+computational question is:
 > If a simple recurrent network is trained only to predict future position from behavioral
 > trajectory information, without being given an explicit axis-of-travel variable, does an
 > axis-of-travel representation emerge in its hidden state?
 
+## The pipeline
+
+Three steps, each a function of its inputs. Paths come from `configs/local.yaml`.
+
+1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
+2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/project.yaml` become blocks.
+   `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
+   With P the `PROCESSED_LAB_DATA` folder, `pixi run build-blocks --blueprint blocks_v1 --compare "$P"` also compares the
+   built blocks and `blocks.csv` by content with the review tool's in `$P`, prints the blocks that differ and exits 1 if any does.
+3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `notebooks/experiments/` (`pixi run new-experiment
+   "<title>" biological` copies another config than the baseline). Run its notebook, then
+   `pixi run export-experiment notebooks/experiments/<folder>/notebook.ipynb` writes `notebook.html` beside it.
+
+The review files, a person's cuts and flags per session, are written by RatTrack, the review tool (no link yet).
 
 ## Quick start
 
 ```bash
-# 1. Install pixi (one-time)
-curl -fsSL https://pixi.sh/install.sh | bash
-
-# 2. Clone
-git clone git@github.com:kshannon/subiculum-rnn.git
+curl -fsSL https://pixi.sh/install.sh | bash            # pixi, once per machine
+git clone git@github.com:kshannon/subiculum-rnn.git     # the repository is still named subiculum-rnn on GitHub
 cd subiculum-rnn
-
-# 3. Install environment, dependencies and the project package (editable)
 pixi install
-pixi run nbstripout-install   # once per clone: notebooks are committed without outputs
-
-# 4. Check it works
-pixi run test
-pixi run axis-of-travel-rnn env list
-
-# 5. Choose where artifacts live: artifacts/ in this checkout by default,
-#    or a directory elsewhere, for example on an external drive. Machine-local
-#    paths go in configs/local.yaml (git-ignored); copy the example and edit it,
-#    see "Machine-local paths" below.
-cp configs/local.example.yaml configs/local.yaml
-pixi run axis-of-travel-rnn store init     # creates the store named in local.yaml
-pixi run axis-of-travel-rnn store inspect
+pixi run nbstripout-install                             # once per clone: notebooks are committed without outputs
+cp configs/local.example.yaml configs/local.yaml        # git-ignored, paths only, never hashed
 ```
 
-## Using the project
+Fill the four keys in `configs/local.yaml`: `LAB_DATA` (the lab's MATLAB files), `TRANSFORMED_LAB_DATA` (the tables made from
+them), `PROCESSED_LAB_DATA` (the built blocks, one folder per blueprint) and `RUNS` (checkpoints and tensors, outside git).
 
-- The `axis-of-travel-rnn` command orchestrates everything
-- Commands are grouped by layer, and every group and command has `--help` with what it reads, what it writes and an example.
+Get the blocks, one of two ways. Copy a built `blocks_v1/` folder from a collaborator into `PROCESSED_LAB_DATA/` and check its
+data id ("Share blocks"). Or build it: step 1 on the lab files, then step 2. `PROCESSED_LAB_DATA/review/` must hold the review
+files, where the review tool writes them (a blueprint's `reviews` key may name another folder), a session without one is skipped.
+
+Check the install:
 
 ```bash
-pixi run axis-of-travel-rnn --help                      # the groups: store, env, agent, data, model, analysis, experiment, notebook, labnote
-pixi run axis-of-travel-rnn store inspect               # where artifacts go, marker, counts
-pixi run axis-of-travel-rnn env list                    # environment configs and geometry hashes
-pixi run axis-of-travel-rnn env inspect triple_t --json # one environment; the JSON is exactly what gets hashed
-pixi run axis-of-travel-rnn data list                   # registered datasets in the store
-pixi run axis-of-travel-rnn model list                  # registered models (model animals)
-pixi run axis-of-travel-rnn experiment list             # registered experiments (populations)
-pixi run new-labnote [slug words]                       # new lab notebook entry
-pixi run new-jupyter-nb <name>                          # new Jupyter notebook from the template, named by date and slug
+pixi run smoke   # the experiment template on the committed synthetic sample in tests/fixtures/sample, headless, takes seconds
+pixi run test    # the tests
 ```
 
-`pixi run test-cov` runs the tests with coverage. `python -m axis_of_travel_rnn` is the same as the
-`axis-of-travel-rnn` command, and `store inspect`, `env list` and `env inspect` take `--json`.
+## Start an experiment
 
-Artifacts (datasets, models, experiments) are written only by this command,
-into a store outside git: `--store DIR` for one run, the `SUBICULUM_RNN_STORE`
-variable, the `STORE` key in `configs/local.yaml`, or `artifacts/` in the
-checkout by default. A store is a
-directory with a `store.yaml` marker; commands refuse anything else, which
-catches an unplugged drive. Each artifact carries a manifest recording the
-configs and hashes, seeds, git commit and lockfile that produced it, so it is
-regenerable and never modified in place.
+`pixi run new-experiment "window 60 s"` makes `notebooks/experiments/YYYY-MM-DD_window-60-s/`. The folder holds `config.yaml` (a
+copy of `configs/experiments/baseline.yaml`, or of `configs/experiments/<name>.yaml` with `pixi run new-experiment "<title>" <name>`) and `notebook.ipynb` (from
+`templates/notebook-experiment.ipynb`), whose first cells hold the purpose and notes and whose last cell holds the outcome. Fill
+in the purpose, edit the config, run the notebook top to bottom. Its first code cell is tagged `parameters` (`config_path`,
+`results_dir`, `checkpoint_dir`), so papermill can rerun it with other values, as `pixi run smoke` does. Point `checkpoint_dir` at a folder under `RUNS` to keep the weights per epoch.
 
-New notebooks come from `templates/notebook.ipynb` and draw their figures in
-the SciencePlots<sup>4</sup> style; git stores every notebook without its
-outputs, so `pixi run nbstripout-install` belongs in every clone.
+The network's inputs are a config choice (`inputs.columns`, see inputs in `DATA_DICTIONARY.md`): `configs/experiments/baseline.yaml` gives
+position only, the control, and `configs/experiments/biological.yaml` adds speed, head direction and angular velocity.
 
-## Machine-local paths
+- Committed: `config.yaml`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
+  `summary.json` holds the git commit, package version, blueprint, data id, resolved config, `pixi.lock` hash, times and metrics.
+- Not committed: everything else in the folder (`notebooks/experiments/.gitignore`), and the contents of `RUNS`.
+- A folder is never edited after its run. A new idea is a new folder.
+- The notebook calls the library's surface, `help(axis_of_travel_rnn)`, which changes only with a line in `CHANGELOG.md`.
+- To rerun an old one: `git worktree add ../aot-old <git_commit of its summary.json>`, `pixi install` there, run.
 
-`configs/local.yaml` holds the paths that depend on the machine, nothing else:
-`STORE` for the artifact store, `LAB_DATA` for the lab's recordings,
-`TRANSFORMED_LAB_DATA` for the tables made from them, `PROCESSED_LAB_DATA` for
-the reviews and blocks RatReplay builds and `SYNTHETIC_DATA` for the synthetic sets
-RatReplay generates. `LAB_DATA` is read by the converter alone, RatReplay reads the other three. It is git-ignored. Copy
-`configs/local.example.yaml` and edit. The first three paths are resolved in one
-order: the command-line flag, then the environment variable (`SUBICULUM_RNN_STORE`,
-`SUBICULUM_RNN_LAB`, `SUBICULUM_RNN_TRANSFORMED_LAB`), then this file, then the
-built-in default. RatReplay reads its keys from this file only. Nothing in it is
-ever hashed into a manifest, so two machines with different drives produce
-identical artifacts.
+## Notebooks and lab notes
 
-## Converting the lab data
-
-The lab's MATLAB recordings are converted once into plain tables so the rest of
-the work never touches MATLAB: `sessions.csv`, `epochs.csv`, `runs.csv` and
-`events.csv`, one Parquet file of per-frame tracking for each session under
-`frames/`, and `manifest.json` and `checks.json` recording what was written and
-what each check found. The converter reorganizes the lab's own segmentation and
-checks it; it does no analysis. A session that fails a check is reported and the
-others still convert. The recordings and the tables stay outside the repository.
-
-Before running, set both paths in `configs/local.yaml` (see "Machine-local paths"
-above): `LAB_DATA`, the folder of lab MATLAB files, and `TRANSFORMED_LAB_DATA`,
-the folder the tables are written to. The converter reads these two keys from
-that file only, and exits 2 naming the problem if one is missing, `LAB_DATA` is
-not a folder, or the output folder is inside the lab folder or this repository.
-
-```bash
-pixi run transform-lab-data --dry-run      # list sessions, skipped files and the files it would write; writes nothing
-pixi run transform-lab-data                # convert every session
-pixi run transform-lab-data --sample 2     # only the first 2 sessions per subject
-pixi run transform-lab-data --only NS14    # only sessions whose id starts with NS14
-```
-
-Do the dry run first. A real run exits 0 when every selected session was
-written and 1 when any failed. Each run rewrites the tables, so a run with
-`--only` or `--sample` leaves tables for just those sessions; to start clean,
-delete the output folder. Details are in [docs/transform_lab_data/](docs/transform_lab_data/).
-
-## RatReplay
-
-RatReplay, in `ratreplay/`, is the tool that turns the converted tables into training ready blocks, a localhost app with
-its own backend and frontend. A person replays each session in the browser and confirms or edits its blocks, and saving
-builds them in metres with trip and phase labels into the folder `PROCESSED_LAB_DATA` names, beside the `windows.json` of
-the window settings selected for export, which the RNN training reads as files.
-
-- The real slice is built and in daily use for making the processed data: reviews, blocks and windows. Block building has
-  moved from the old processor into RatReplay, and the old processor and the old Dash tool are gone. The lab data
-  converter above stays the one script.
-- The synthetic slice is built as a first pass and parked for a later EDA: a recipe of statistics measured on the real
-  blocks, a generator (version 3) that writes a synthetic session into the folder `SYNTHETIC_DATA` names, a Synthetic page
-  to generate and compare, and a Real or synthetic page to tell them apart by eye. It is not yet validated against real
-  behavior, so nothing synthetic feeds training.
-
-Run it after the converter has written `TRANSFORMED_LAB_DATA` and the three RatReplay keys are in `configs/local.yaml`:
-
-```bash
-pixi run ratreplay-install                 # once per clone: the frontend's npm packages
-pixi run ratreplay-build                   # once after a pull: type checks and builds the frontend
-pixi run -e ratreplay ratreplay-api        # or: pixi run ratreplay. The page is at http://127.0.0.1:8060
-```
-
-The API listens on localhost only. From another machine, forward the port and open the same address on the laptop:
-
-```bash
-ssh -N -L 8060:127.0.0.1:8060 <host>       # on the laptop, then http://127.0.0.1:8060 in its browser
-```
-
-How to use it, the pages, the files it writes and its tests are in [ratreplay/README.md](ratreplay/README.md).
-
-## How synthetic data is generated
-
-No recorded animal data lives in this repository or its store. Behavior is synthetic. A first generator is built, inside
-RatReplay (above): a recipe of aggregate statistics measured on the built real blocks (speed, turning, pauses, runs per
-path, dwells, spread about the centreline, heading against speed) drives a seeded generator that writes a session in the
-transformed schema, so it goes through the same registration, cuts, labels and windows as a real one. Each set under
-`SYNTHETIC_DATA` keeps its provenance: sources, seed, camera, rules, generator version and both recipes. It has had a first
-check by eye and by recipe, not the validation against real behavior that comes before it feeds training.
-
-The command line route is still planned, not built. An environment config
-(triple-T track, open arena) fixes the geometry, an agent config will fix a
-behavioral profile, meaning speed, turning and dwell statistics and a goal
-policy, and a dataset config will name an environment, agents, sessions and
-trials, seeds, and a split policy. `data generate` will turn that into
-trajectories of position and heading, store velocity, speed and angular
-velocity derived from them beside the raw arrays, and record every config hash
-and seed in the dataset's manifest. `data validate` will compare the dataset's
-behavioral statistics against an aggregate reference-statistics file and write
-the report into the dataset. Only position will reach the RNN during training.
-Heading and kinematics exist for validation and controls. Today those commands
-are stubs that exit 3, and the contract is [docs/cli/spec.md](docs/cli/spec.md).
+`pixi run new-eda "heading gaps"` makes `notebooks/eda/YYYY-MM-DD_heading-gaps.ipynb` from `templates/notebook-eda.ipynb`. Its
+`parameters` cell names the project config and the blueprint, and the next cells load every block of that built folder at the
+lab rate with `load_blocks`, so an exploratory notebook starts with the data in hand. `pixi run new-labnote` writes the day's
+entry under `labnotebook/` from `templates/labnotebook.md`, with optional words for the file name. All three are
+`templates/new.sh`, which fills the title, date and author and refuses an existing file.
 
 ## Layout
 
-```
-configs/         declarative YAML; environments today, datasets, models, training and experiments later
-src/
-  axis_of_travel_rnn/  the core package; store.py is the artifact store: resolution order, marker, layout, manifest scan
-  cli/                 the command line entry point: groups, stub table, real commands
-  environments/        parametric geometry (triple-T, open arena, plus maze), content hashes, RatInABox adapter
-  proj_helpers/        machine-local paths, lab data access, new notebooks and lab notes from the templates
-  transform_lab_data/  the lab data converter (docs/transform_lab_data/), `pixi run transform-lab-data`
-  notebooks/           the working Jupyter notebooks
-ratreplay/       RatReplay, the review tool: backend, frontend and docs (ratreplay/README.md)
-templates/       the notebook and lab notebook templates
-datasets/        datasets on disk, git-ignored; synthetic/
-tests/           unit tests for the store and the CLI
-docs/            per-feature spec, plan and tasks (cli/, transform_lab_data/, process_lab_data/, notebooks/)
-artifacts/       the default store: datasets, models, experiments (git-ignored, regenerable)
-labnotebook/     dated entries, `pixi run new-labnote`
+```text
+configs/      project.yaml (environments, blueprints, eda, analysis thresholds), experiments/ (one file per preset),
+              local.example.yaml (copy to local.yaml)
+docs/         blocks_schema.md, pilot.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
+labnotebook/  the authors' dated log, pixi run new-labnote
+notebooks/    working notebooks, eda/ for the exploratory ones, experiments/ one folder per experiment (config, notebook, results)
+src/          axis_of_travel_rnn/ (the library, config.py for paths and configs, blocks/ the block engine with geometry.py),
+              transform_lab_data/ (the converter)
+templates/    notebook-eda.ipynb, notebook-experiment.ipynb, labnotebook.md and new.sh
+tests/        unit/, integration/ (the smoke) and fixtures/ (sample/, a synthetic built folder for the smoke, committed,
+              and make_sample.py, which rebuilds it)
+tmp/          uncommitted scratch and planning
 ```
 
-## Replicability and Reproducibility
+## Where the data lives
 
-There is a complex history of these tertms and what they mean within different fields, especially with the rise of computation being essential to most research. Here I will use the National Academies<sup>1</sup> definition of these terms, which the Association for Computing Machinery<sup>2</sup> also agrees:
+| what | where | in git |
+| --- | --- | --- |
+| the lab's MATLAB files | `LAB_DATA` | no |
+| transformed tables and frames (about 500 MB) | `TRANSFORMED_LAB_DATA` | no |
+| blocks (about 100 MB) | `PROCESSED_LAB_DATA/<blueprint>/` | no |
+| review files | `PROCESSED_LAB_DATA/review/` | no |
+| synthetic sample | `tests/fixtures/sample/` | yes, no real recording |
+| checkpoints and tensors | `RUNS` | no |
+| experiment records | `notebooks/experiments/<folder>/` | yes, the files listed above |
 
-- **Replicability**: An attempt by a second researcher to replicate a previous study is an effort to determine whether applying the same methods to the same scientific question produces similar results.
-- **Reproducibility**: obtaining consistent results using the same input data, computational methods, and conditions of analysis.
+The rule: the data lives outside the repository, which holds no data folder. Real recordings, transformed frames, review files
+and block parquet files never enter it. Git tracks code, configs, docs, tests (the synthetic sample with them), the experiment
+records and `pixi.lock`.
 
+A result names what made it, all in its `summary.json`: the git commit (code), the `pixi.lock` hash (environment), the blueprint
+and data id (data), the resolved config (configuration) and the seed in it (model).
 
-Synthetic data (so far from RatReplay's seeded generator, with the RatInABox python library<sup>3</sup> planned for the command line route), and open source data results should be reproducible. Results using your own collected recording data should be replicable to within some stated percision. Given the stochastic nature of machine learning methods, from data cleaning to pipeline construction to training and validation, it can be daunting to provide near 100% reproducibility, but it is a standard to strive for nonetheless.
+## Share blocks
 
-To that end, this README provides all instructions needed to reproduce our synthetic data results. Instructions for reproducing results with open-source data and our own recorded data are provided in the project wiki.
+`rclone` is not a project dependency, install it yourself. The bucket or lab share is not chosen yet (`docs/restructure/plan.md`
+names a Cloudflare R2 bucket), so `remote:bucket` is a placeholder. Use `copy`, not `sync`, so nothing is deleted on either side.
+The review files travel with the processed folder: when `PROCESSED_LAB_DATA` is synced, copy its `review/` folder with it, as
+it holds the human decisions a build reads.
 
+```bash
+rclone copy /path/to/processed-lab-data/blocks_v1 remote:bucket/blocks_v1 --checksum --progress   # upload
+rclone copy remote:bucket/blocks_v1 /path/to/processed-lab-data/blocks_v1 --checksum --progress   # download
+rclone copy /path/to/processed-lab-data/review remote:bucket/review --checksum --progress         # the review files, both ways alike
+```
 
-| Requirement                            | How it's met                                                                                                                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Exact software versions**            | `pixi.lock` pins every Python package, and its transitive dependencies, to a specific version                                                 |
-| **Versioned data provenance**          | Each synthetic dataset has a manifest with all generation parameters, seeds, the environment geometry hash and an ID                          |
-| **Logged and versioned training runs** | Every dataset, model and experiment is a directory under `artifacts/` with a `manifest.yaml` recording config, seed, code commit and lockfile |
-| **Cross-platform**                     | `pixi.toml` targets `linux-64`, `osx-arm64`                                                                                                   |
+After a download, recompute the data id. It must equal the blueprint's `expected_data_id` and the `data_id` in the folder's
+`manifest.json`.
 
-These versioning layers are recorded separately and never conflated:
+```bash
+pixi run python -c "
+from pathlib import Path
+from axis_of_travel_rnn.blocks.__main__ import data_id
+print(data_id(Path('/path/to/processed-lab-data/blocks_v1')))"
+grep -A 20 "^  blocks_v1:" configs/project.yaml | grep expected_data_id
+```
 
-| layer                  | identified by                       |
-| ---------------------- | ----------------------------------- |
-| code                   | git commit                          |
-| environment (software) | `pixi.lock`                         |
-| environment (geometry) | config name plus `EnvSpec.hash`     |
-| dataset                | dataset id and manifest             |
-| model configuration    | config file under `configs/models/` |
-| model instance         | model id, seed, checkpoint          |
-| analysis               | analysis config plus code commit    |
+## The pilot
 
-Git tracks code, configs, docs, tests, the lab notebook and `pixi.lock`. It does not track the store
-(`artifacts/` or wherever `SUBICULUM_RNN_STORE` points), `figures/`, checkpoints, or anything regenerable from
-configs, code and seeds.
+Before touching real data, an October 2026 pilot tried to make axis of travel tuning appear in a constrained artificial
+setting: a vanilla RNN trained on simulated RatInABox worlds, a square loop and an open field, with thresholds fixed before any
+network was trained. Its pre registered decision came out no-go, with the comparison arms never run, so it stands as a trial of
+the method rather than a proof. The library's models, trainer and analysis measures were lifted from it. Its code, tests and
+notebook are kept on branch `pilot`, see `docs/pilot.md` for what it was and what it found.
 
+## Docs
+
+- `DATA_DICTIONARY.md`: what every attribute and term means, raw, transformed and built blocks, with units and sources.
+- `docs/blocks_schema.md`: the review, block and manifest files, their columns and keys in order, the blueprint keys and defaults.
+- `docs/pilot.md`: the October 2026 pilot on simulated worlds, what it found and where its code lives.
+- `docs/restructure/`: the plan, the tasks and the debrief of the restructure that made this pipeline.
+- `docs/transform_lab_data/`: the converter's spec, plan, tasks and `tables.md` (the lab's files and the transformed tables).
 
 ## Citation
 
 If you use this code, please cite the relevant papers (see project wiki for full reference list of papers and open source citable libraries).
 
 **Cite this project**: `¯\_(ツ)_/¯` One Day!
-
----
-
-1. National Academies of Sciences, Engineering, and Medicine. 2019. Reproducibility and Replicability in Science. Washington, DC: The National Academies Press. https://doi.org/10.17226/25303.
-2. https://www.acm.org/publications/policies/artifact-review-and-badging-current
-3. Tom M George, Mehul Rastogi, William de Cothi, Claudia Clopath, Kimberly Stachenfeld, Caswell Barry. "RatInABox, a toolkit for modelling locomotion and neuronal activity in continuous environments" (2024), eLife, https://doi.org/10.7554/eLife.85274 .
-4. John D. Garrett. "garrettj403/SciencePlots", Zenodo, https://doi.org/10.5281/zenodo.4106649 .

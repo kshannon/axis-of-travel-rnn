@@ -5,10 +5,8 @@ Convert the lab's MATLAB files into CSV tables and Parquet frames, run as pixi r
 import argparse
 import sys
 from collections import Counter
-from pathlib import Path
 
-from proj_helpers import paths
-from proj_helpers.paths import repo_root
+from axis_of_travel_rnn.config import REPO_ROOT, local_config, local_path
 
 from .transform_helpers import readers
 from .transform_helpers.orchestrator import Orchestrator
@@ -42,18 +40,17 @@ def roots(config):
     """
     The resolved lab data folder and the Orchestrator on the resolved output folder, or exit 2 naming what is wrong.
     """
-    for key in ("LAB_DATA", "TRANSFORMED_LAB_DATA"):
-        if not config.get(key):
-            refuse(f"{paths.LOCAL_CONFIG} has no {key}")
-    lab = Path(str(config["LAB_DATA"])).expanduser().resolve()
-    root = Path(str(config["TRANSFORMED_LAB_DATA"])).expanduser().resolve()
+    try:
+        lab, root = (local_path(key, config).resolve() for key in ("LAB_DATA", "TRANSFORMED_LAB_DATA"))
+    except KeyError as error:
+        refuse(error.args[0])
     if not lab.is_dir():
         refuse(f"LAB_DATA {lab} is not a folder")
     if root == lab or lab in root.parents:
         refuse(f"TRANSFORMED_LAB_DATA {root} is the lab data or inside it")
     if root in lab.parents:
         refuse(f"TRANSFORMED_LAB_DATA {root} contains the lab data {lab}")
-    repo = repo_root().resolve()
+    repo = REPO_ROOT.resolve()
     if root == repo or repo in root.parents:
         refuse(f"TRANSFORMED_LAB_DATA {root} is the repository {repo} or inside it")
     return lab, Orchestrator(root)
@@ -95,7 +92,7 @@ def main(argv=None, config=None):
     Run the converter: 0 when every selected session was written, 1 when any failed, SystemExit 2 for a bad setup.
     """
     args = parse_args(argv)
-    lab, orchestrator = roots(paths.local_config() if config is None else config)
+    lab, orchestrator = roots(local_config() if config is None else config)
     found, skipped = readers.catalog(lab)
     sessions = readers.select(found, args.only, args.sample)
     if args.dry_run:
