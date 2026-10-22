@@ -267,7 +267,7 @@ Every allowed value, one row each, fixed in `convert.py`. The converter refuses 
 | `open_arena` | the 0.6 m circular arena, `configs/environments/open_arena.yaml` |
 | `triple_t` | the standard track, `configs/environments/triple_t.yaml` |
 | `triple_t_rot45` | the standard geometry rotated 45 degrees about the room center; config to add |
-| `triple_t_rot90` | the standard geometry rotated 90 degrees, `configs/environments/triple_t_rot90.yaml` |
+| `triple_t_rot90` | the standard geometry rotated 90 degrees about the room center; config to add |
 
 `condition`, the experimental manipulation in force during an epoch
 

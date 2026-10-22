@@ -1,5 +1,5 @@
 """
-The trajectory schema, the one versioned derivation of speed and turn rate, and the reader of a processed dataset, shared by the lab data processor, the synthetic generator, the training pipeline and RatReplay.
+The trajectory schema, the one versioned derivation of speed and turn rate, and the reader of a processed dataset, shared by the block builder and the training pipeline.
 """
 
 import json
@@ -18,7 +18,7 @@ KINEMATICS_VERSION = 1
 SMOOTH_WINDOW_S = 0.15
 SMOOTH_ORDER = 2
 
-# One row per frame of a block, real or synthetic (docs/process_lab_data/spec.md Outputs): time in seconds, position in
+# One row per frame of a block, real or synthetic (docs/restructure for now, the data dictionary later): time in seconds, position in
 # metres, heading in radians (0 along +x, counterclockwise), speed in m/s, turn rate in rad/s, how many LEDs the
 # position came from, how the heading was filled, which LEDs the lab interpolated, then the labels.
 COLUMNS = {
@@ -28,7 +28,7 @@ COLUMNS = {
 }
 PHASES = ("outbound", "dwell", "return", "pause", "forage")
 
-# A processed dataset (docs/process_lab_data/spec.md Outputs): under its root one folder per epoch kind holding the
+# A processed dataset (docs/restructure for now, the data dictionary later): under its root one folder per epoch kind holding the
 # blocks csv and a blocks folder of one parquet per block, named by block id, and the manifest. A block parquet holds
 # the lab frame number first, then COLUMNS. The csv's date column is read as text, as it is written.
 KINDS = ("track", "arena")

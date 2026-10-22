@@ -1,7 +1,0 @@
-# v0 debugging environment: two axes, four segments, enough for the
-# classifier to bite. All pipeline development happens here first.
-type: plus_maze
-room: {extent: [1.8, 1.8]}
-params:
-  corridor_width: 0.08
-  arm_length: 0.5

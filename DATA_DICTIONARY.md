@@ -54,7 +54,7 @@ Exact shapes and columns for the lab's variables and our tables are in docs/tran
 
 **dvtFileName and dvtPathName:** The name of the tracker's original file that the lab started from, and the folder it sat in on the lab's computer. We do not read them as data. We only copy them into our record of the run, see Manifest (transformer).
 
-**Environment:** A maze or arena described only by its shape, in a small config file. We have open_arena, triple_t, triple_t_rot90 and plus_maze, and triple_t_rot45 is still to come. It never means the software environment. Each one gets a short fingerprint of its shape, so a dataset can be traced to its exact geometry.
+**Environment:** A maze or arena described only by its shape, in a small config file. We have open_arena and triple_t, and triple_t_rot45 and triple_t_rot90 are still to come as configs. It never means the software environment. Each one gets a short fingerprint of its shape, so a dataset can be traced to its exact geometry.
 
 **Epoch:** A labeled part of a session, named by its role as arena, track or variant. It comes from one stamped segment, and it also carries an environment and a condition. Not to be confused with a training epoch, which is one pass over the training data. Epochs keep the arena and the track apart, which matters because the arena has no runs and can only give foraging statistics. The transformer keeps every epoch, and stage 2 drops any under 10 seconds, see The 10 second rule.
 

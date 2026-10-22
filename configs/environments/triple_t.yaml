@@ -1,12 +1,12 @@
 # Faithful recreation of the Olson 2017 triple-T within the paper's constraints.
 # PAPER-PINNED: envelope, corridor_width, run_segments (turns at 0.51/0.87/1.18).
-# INFERRED: east-west goal approaches, perimeter return topology (see src/envs.py).
+# INFERRED: east-west goal approaches, perimeter return topology (see src/environments/triple_t.py).
 # Replace params with Doug's measurements when available: everything else derives.
 # OPTIONAL start_offset (metres, default 0, not set yet): the paper's start site sits up the stem above the bottom
 # return corridor, and the paper gives no number. With 0 the start is on the bottom corridor. A positive value
 # continues the stem below the start to meet the bottom corridor, moves the start and the maze body up by it and
-# keeps the envelope. Set it from the data: read "Start above bottom corridor, m" on the Environments page over a few
-# built sessions, put their median under params, then Rebuild all.
+# keeps the envelope. Set it from the data: take the median start offset over a few built sessions, put it under
+# params, then rebuild the blocks (the offsets move into the blueprint, see docs/restructure).
 type: triple_t
 room: {extent: [1.8, 1.8]}
 params:
