@@ -33,14 +33,14 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 - [x] 8. AGENTS.md and the rule on data: the pipeline is transform, build blocks, experiment. Raw
       recordings, transformed frames and block parquet never enter the repository, the review json
       files and a synthetic sample do. Check: Kyle reads it. (30 min)
-- [ ] 9. The block engine back in: `src/axis_of_travel_rnn/blocks/` from
+- [x] 9. The block engine back in: `src/axis_of_travel_rnn/blocks/` from
       `git show agents/synthetic:ratreplay/backend/ratreplay_api/engines/trajectory/*` (cuts, heading,
       frame, room, kinematics, labels, session, edits, build, funnel, windows), RULES as the defaults,
       the engine's unit tests and frozen record with it. Check: tests green with the new count. (3 h)
-- [ ] 10. The reader and writer: `blocks/io.py` from RatReplay's transformed reader and processed
+- [x] 10. The reader and writer: `blocks/io.py` from RatReplay's transformed reader and processed
       writer (blocks.csv, block parquet, metadata json, written whole). Check: unit tests over a temp
       folder. (2 h)
-- [ ] 11. The blueprint and the build: `configs/blueprints/blocks_v1.yaml` (name, format version,
+- [x] 11. The blueprint and the build: `configs/blueprints/blocks_v1.yaml` (name, format version,
       sessions, rule overrides, start offsets, review folder, expected data id), `data/reviews/` for the
       review json files, `pixi run build-blocks --blueprint blocks_v1` writing
       `PROCESSED_LAB_DATA/blocks_v1/` with `manifest.json` (data id, blueprint hash, transformed stamp,
@@ -49,6 +49,12 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 - [ ] 12. Kyle: copy RatReplay's review files into `data/reviews/`, commit them, run `build-blocks`, and
       compare with RatReplay's blocks (`diff -rq` or the parity script). A difference is a finding
       first. Write the data id into the blueprint. (Kyle, 1 h)
+      The commands, with P the PROCESSED_LAB_DATA folder RatReplay writes: `/bin/cp "$P"/review/*.json data/reviews/`,
+      then `pixi run build-blocks --blueprint blocks_v1`, then
+      `pixi run python scripts/compare_blocks.py "$P" "$P/blocks_v1"`, which compares every block parquet and blocks.csv
+      by content (the two lock files carry different pyarrow versions, so `diff -rq "$P/blocks" "$P/blocks_v1/blocks"`
+      may differ in file bytes alone) and exits 1 on a difference. The metadata json files differ in code_version and
+      built_at by design. On the fixtures the parquet files and blocks.csv came out byte identical to the review tool's.
 - [ ] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
       blocks.csv, metadata, the blueprint keys, the data id, what stays out of training. It replaces
       the old dictionary and `outgoing_data_schema.txt`. (1 h)
