@@ -15,8 +15,6 @@ dependencies = [
   "numpy>=1.26",
   "pyyaml>=6",
   "pydantic>=2.5",
-  "xarray>=2023.6",
-  "zarr>=3,<4",
 ]
 
 [tool.hatch.version]
