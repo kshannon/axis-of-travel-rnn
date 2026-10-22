@@ -4,7 +4,7 @@ The networks: output shapes, the trace path agreeing with the fast path over the
 
 import torch
 
-from axis_of_travel_rnn.train import make_model
+from axis_of_travel_rnn.training import make_model
 
 BATCH, STEPS, N_IN, HIDDEN, N_OUT = 3, 17, 2, 8, 2
 

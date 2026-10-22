@@ -19,7 +19,7 @@ from .config import ExperimentConfig, load_config, resolved
 from .data import SPLITS, block_rows, built_folder, data_id, guard, read_block, resample, split_by_date
 from .dataset import TARGETS, WindowDataset, fit_scaler
 from .dataset import make_windows as windows_of
-from .train import Trainer, hidden_states, make_model, model_loss, persistence_loss
+from .training import Trainer, hidden_states, make_model, model_loss, persistence_loss
 
 __all__ = ["ExperimentConfig", "load_config", "resolved", "load_blocks", "make_windows", "make_dataset", "train",
            "evaluate", "measures", "figures", "save_results"]

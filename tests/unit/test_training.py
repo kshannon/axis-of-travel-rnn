@@ -6,7 +6,7 @@ import numpy as np
 
 from axis_of_travel_rnn import data
 from axis_of_travel_rnn.dataset import DEFAULT_INPUTS, WindowDataset, fit_scaler, make_windows
-from axis_of_travel_rnn.train import CHECKPOINT, Trainer, hidden_states, make_model, model_loss, persistence_loss
+from axis_of_travel_rnn.training import CHECKPOINT, Trainer, hidden_states, make_model, model_loss, persistence_loss
 
 from .handmade import TRAINING_RATE_HZ, wandering
 

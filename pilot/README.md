@@ -12,5 +12,5 @@ and `pixi run test` does not collect its tests (pytest only looks in `tests/`).
 - `notebooks/2026-10-13_pilot.ipynb` is the pilot notebook
 
 To run its tests, if someone must: `PYTHONPATH=pilot pixi run python -m pytest pilot/tests`
-It needs `proj_helpers`, `ratinabox` and `tqdm`, which the pixi environment has. The tests write to temp folders.
+It needs `proj_helpers`, `tqdm` and `ratinabox`, and ratinabox is no longer in the pixi environment, so its world tests need `pixi add --pypi ratinabox` first or are skipped. The tests write to temp folders.
 Run outside the tests, the pilot reads and writes `datasets/pilot/`.
