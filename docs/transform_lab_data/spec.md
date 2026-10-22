@@ -20,8 +20,8 @@ not a loader branch), and the lab's segmentation and labels are copied, never in
 
 It is the package `src/transform_lab_data/`, run with `pixi run transform-lab-data`, not part of the
 CLI. `LAB_DATA` and `TRANSFORMED_LAB_DATA` come from `configs/local.yaml`, never from arguments.
-Columns and the quirks of the lab's files are in `tables.md`, the files built from them in
-`docs/data_dictionary.md`, the structure, checks and decisions in `plan.md`.
+Columns and the quirks of the lab's files are in `tables.md`, the plain-English terms in `docs/glossary.md`, the files built
+from them in `docs/data_dictionary.md`, the structure, checks and decisions in `plan.md`.
 
 ## Functional Requirements
 
@@ -112,7 +112,7 @@ frame) is not checked; stage 2 filters on those columns. The lists are in `plan.
 - Tests use small synthetic `.mat` files in both formats and cover the run-once invariants listed
   in `plan.md`. No real data in the repository, ever.
 - AGENTS.md rule 3 is reworded in its own pull request: the recordings and the per-frame, per-run
-  and per-event tables made from them never enter the repository, the artifact store or the CLI;
+  and per-event tables made from them never enter the repository;
   the code that converts them lives in `src/transform_lab_data/` and reads and writes outside the
   repository; only aggregate statistics files reach the tool.
 
