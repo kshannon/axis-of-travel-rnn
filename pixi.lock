@@ -403,7 +403,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.3-hceb46e0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
+      - pypi: https://files.pythonhosted.org/packages/a8/9c/5e49f71504351107bd38eee99cc39db4b81b63f3d4f5b04af49555b3fd88/ratinabox-1.15.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5d/ff/6469a5cabf230ebc94f927246874136098dde1aacc9328bc40dceb24ba13/scienceplots-2.2.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/ad/87/6842e4c996914a47b6bfd3ef14a543e67e993f86a9ea5679c34efc9314ab/shapely-2.2.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
       - pypi: ./
   default:
     channels:
@@ -780,7 +782,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.3-hceb46e0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
+      - pypi: https://files.pythonhosted.org/packages/a8/9c/5e49f71504351107bd38eee99cc39db4b81b63f3d4f5b04af49555b3fd88/ratinabox-1.15.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5d/ff/6469a5cabf230ebc94f927246874136098dde1aacc9328bc40dceb24ba13/scienceplots-2.2.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/ad/87/6842e4c996914a47b6bfd3ef14a543e67e993f86a9ea5679c34efc9314ab/shapely-2.2.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
       - pypi: ./
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/_openmp_mutex-4.5-7_kmp_llvm.conda
@@ -1097,7 +1101,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.2-h8088a28_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-ng-2.3.3-hed4e4f5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
+      - pypi: https://files.pythonhosted.org/packages/a8/9c/5e49f71504351107bd38eee99cc39db4b81b63f3d4f5b04af49555b3fd88/ratinabox-1.15.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5d/ff/6469a5cabf230ebc94f927246874136098dde1aacc9328bc40dceb24ba13/scienceplots-2.2.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/02/96/5c48977168f32de067bfafce7f584dd04becf152152bf088636cc034828e/shapely-2.2.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: ./
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-7_kmp_llvm.conda
@@ -7889,6 +7895,19 @@ packages:
   purls: []
   size: 60185421
   timestamp: 1780593127053
+- pypi: https://files.pythonhosted.org/packages/a8/9c/5e49f71504351107bd38eee99cc39db4b81b63f3d4f5b04af49555b3fd88/ratinabox-1.15.3-py3-none-any.whl
+  name: ratinabox
+  version: 1.15.3
+  sha256: 5aca9cff82d0391a5f0022d7e3e39a3f610e4b4f6d98b2d347b29b3fbd3cfea4
+  requires_dist:
+  - numpy
+  - matplotlib
+  - scipy
+  - shapely
+  - pettingzoo>=1.23.0 ; extra == 'gymnasium'
+  - pytest ; extra == 'test'
+  - scikit-learn ; extra == 'test'
+  requires_python: '>=3.7'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/rdma-core-63.0-h192683f_1.conda
   sha256: f0931894c751b22be09d7c976343a2957a14a59cfe0db04d916d1b93bd66ffcf
   md5: da47d3251c0f0d16b2801afe5a77b532
@@ -8181,6 +8200,20 @@ packages:
   - pkg:pypi/setuptools?source=hash-mapping
   size: 676888
   timestamp: 1770456470072
+- pypi: https://files.pythonhosted.org/packages/02/96/5c48977168f32de067bfafce7f584dd04becf152152bf088636cc034828e/shapely-2.2.0-cp312-cp312-macosx_11_0_arm64.whl
+  name: shapely
+  version: 2.2.0
+  sha256: c36ccbff5c3374c349c370bfdac22c7676b268b4a707c98e9031f498965aa02d
+  requires_dist:
+  - numpy>=1.26
+  requires_python: '>=3.11'
+- pypi: https://files.pythonhosted.org/packages/ad/87/6842e4c996914a47b6bfd3ef14a543e67e993f86a9ea5679c34efc9314ab/shapely-2.2.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
+  name: shapely
+  version: 2.2.0
+  sha256: 650a5f4d8a8e3c96982079d8c99b6ddbe6602bbd1e34c75c2b95dbc0d28ac997
+  requires_dist:
+  - numpy>=1.26
+  requires_python: '>=3.11'
 - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
   sha256: 458227f759d5e3fcec5d9b7acce54e10c9e1f4f4b7ec978f3bfd54ce4ee9853d
   md5: 3339e3b65d58accf4ca4fb8748ab16b3

@@ -57,6 +57,7 @@ pyyaml = ">=6"
 [pypi-dependencies]
 # The project package itself, editable so src/ edits are live.
 axis-of-travel-rnn = { path = ".", editable = true }
+ratinabox = ">=1"
 
 ###################### ======== DEV / CUDA FEATURES ======== ######################
 [feature.dev.dependencies]
