@@ -1,0 +1,33 @@
+# Pilot thresholds, fixed before any pilot network is trained or analysed. Provisional in the sense that the authors may
+# revise them later, but never after seeing an axis result. Each value is a plain number read once by the notebook.
+
+# Which steps and cells count (brief 8)
+moving_speed_m_s: 0.03          # steps slower than this have no direction of travel
+heading_tolerance_deg: 45       # heading this close to a corridor direction counts as travelling that way
+activity_floor: 0.05            # mean normalised activity (E+W)/2 of a unit on a segment below this: no index, not eligible
+
+# Direction test 8.1 and axis test 8.2
+direction_index_min: 0.33       # abs(E - W) / (E + W) on both parallel segments, same preferred direction
+axis_selectivity_min: 0.33      # (mean of the four E-W cells - mean of the four N-S cells) / their sum
+balance_index_max: 0.33         # abs(E - W) / (E + W) on each of the two segments of the axis must stay below this
+place_general_min: 0.5          # the weaker of the two parallel segments is at least this fraction of the stronger
+null_percentile: 99             # a unit must beat this percentile of the null
+n_permutations: 1000            # pass-level label permutations in the loop (replaces circular shifts there, issue 21)
+
+# Arena test 8.3 (open field, circular shifts)
+n_shifts: 200
+min_shift_s: 20
+arena_bins: 36                  # heading bins for the tuning curve
+persist_majority: 0.5           # "axis units mostly persist in the arena": more than this fraction of them
+
+# Section 2 training checks
+beat_persistence_ratio: 0.8     # trained test loss at horizon 10 at most this times the persistence loss
+beat_memoryless_ratio: 0.9      # place_only: trained test loss at most this times the memoryless loss
+position_r2_min: 0.5            # ridge decoder from hidden state to position, test sessions
+
+# Section 4 bar and decision table
+min_unit_fraction: 0.05         # released axis units, as a fraction of all hidden units
+untrained_percentile: 95        # and above this percentile of the 20 untrained draws of the same input set
+seeds_required: all             # every trained seed of the arm must meet both
+diet_match_ratio: 0.8           # arena-only diet "matches" loop-and-arena when its released-axis fraction is at least this
+                                # fraction of the loop-and-arena one (in the mean over seeds)
