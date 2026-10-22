@@ -18,7 +18,7 @@ from proj_helpers import paths
 from proj_helpers.paths import repo_root
 
 from . import VERSION, BlockEngine, io
-from .blueprint import ALL_REVIEWED, blueprint_path, read_blueprint
+from .blueprint import ALL_REVIEWED, Blueprint, blueprint_section, blueprint_sha256
 from .geometry import geometries
 
 # The local.yaml key of the folder the builds go under, the folder in it the review tool writes the reviews to, the build's
@@ -163,10 +163,10 @@ def refuse(message):
 
 def parse_args(argv):
     """
-    The command line: --blueprint NAME (a file under configs/blueprints, or a path to a yaml) and --replace.
+    The command line: --blueprint NAME (an entry of the blueprints section of configs/project.yaml) and --replace.
     """
     parser = argparse.ArgumentParser(prog="build-blocks", description="Build the blocks a blueprint names into PROCESSED_LAB_DATA/<name>/.")
-    parser.add_argument("--blueprint", required=True, metavar="NAME", help="a blueprint under configs/blueprints, or a path to its yaml")
+    parser.add_argument("--blueprint", required=True, metavar="NAME", help="a blueprint in the blueprints section of configs/project.yaml")
     parser.add_argument("--replace", action="store_true", help="replace an earlier build of this blueprint")
     return parser.parse_args(argv)
 
@@ -194,25 +194,27 @@ def folders(blueprint, config):
     return transformed, reviews, out
 
 
-def main(argv=None, config=None):
+def main(argv=None, config=None, project=None):
     """
-    Read the blueprint and local.yaml, build into a temporary folder beside the build's folder and rename it into place, print the summary, exit 1 when the data id is not the expected one and 2 on a configuration problem.
+    Read the blueprint from the project config (or the yaml at project) and local.yaml, build into a temporary folder beside the build's folder and rename it into place, print the summary, exit 1 when the data id is not the expected one and 2 on a configuration problem.
     """
     args = parse_args(argv)
-    path = blueprint_path(args.blueprint)
-    if not path.is_file():
-        refuse(f"no blueprint {path}")
     try:
-        blueprint = read_blueprint(path)
+        raw = blueprint_section(args.blueprint, project)
+    except KeyError as error:
+        refuse(error.args[0])
+    try:
+        blueprint = Blueprint.model_validate(raw)
     except ValidationError as error:
-        refuse(f"{path.name}: {error}")
+        refuse(f"{args.blueprint}: {error}")
     transformed, reviews, out = folders(blueprint, paths.local_config() if config is None else config)
     if out.exists() and not args.replace:
         refuse(f"{out} exists, pass --replace to build it again")
     staging = out.with_name(out.name + BUILDING)
     if staging.exists():
         shutil.rmtree(staging)
-    manifest = build(blueprint, sha256_of(path), transformed, reviews, staging)
+    # The manifest records the sha256 of the blueprint's own section in canonical json, not of the project file's bytes.
+    manifest = build(blueprint, blueprint_sha256(raw), transformed, reviews, staging)
     if out.exists():
         shutil.rmtree(out)
     staging.rename(out)

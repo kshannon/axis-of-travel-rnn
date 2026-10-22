@@ -28,6 +28,6 @@ training:
   patience: 10              # epochs without a better validation loss before stopping
   device: cpu
 analysis:
-  thresholds: configs/analysis/thresholds.yaml   # the pilot's pre-registered numbers, copied unchanged
+  thresholds: analysis.thresholds   # the pilot's pre-registered numbers in configs/project.yaml, copied unchanged
   measures: [direction, axis, arena, distances, decoders]
 seed: 0                     # the weights, the batch order and the nulls, the pilot's first trained seed

@@ -8,6 +8,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from axis_of_travel_rnn.analysis import load_thresholds
 from axis_of_travel_rnn.config import ExperimentConfig, InputsConfig, load_config, resolved
 from axis_of_travel_rnn.dataset import layout
 from proj_helpers.paths import configs_dir
@@ -19,7 +20,7 @@ BIOLOGICAL = configs_dir() / "experiments" / "biological.yaml"
 def test_the_baseline_loads_with_position_only_inputs():
     config = load_config(BASELINE)
     assert config.inputs.columns == ("x", "y") and config.data.blueprint == "blocks_v1"
-    assert (configs_dir().parent / config.analysis.thresholds).is_file()
+    assert config.analysis.thresholds == "analysis.thresholds" and "min_unit_fraction" in load_thresholds(config.analysis.thresholds)
 
 
 @pytest.mark.parametrize("change", [

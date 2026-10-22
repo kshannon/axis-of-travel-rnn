@@ -3,6 +3,12 @@
 The library's public surface (`axis_of_travel_rnn`: load_config, load_blocks, make_windows, make_dataset, train, evaluate,
 measures, figures, save_results) changes only with a version bump and an entry here. Private modules change freely.
 
+## Unreleased
+
+The configs collapsed to `configs/project.yaml` plus `configs/experiments/`. An experiment config's `analysis.thresholds` names a
+section of the project config, `analysis.thresholds` by default, and a yaml path still works. A build's manifest records the
+sha256 of the blueprint's own section in canonical json. No version bump yet.
+
 ## 0.2.0, 2026-10-21
 
 The restructure (docs/restructure/tasks.md). The web review tool, the CLI and the write-once store left the repository, the block

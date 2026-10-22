@@ -13,7 +13,7 @@ computational question is:
 Three steps, each a function of its inputs. Paths come from `configs/local.yaml`.
 
 1. Transform: the lab's MATLAB files become plain tables. `pixi run transform-lab-data --dry-run`, then without the flag.
-2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/blueprints/` become blocks.
+2. Build blocks: the tables, the review files in `PROCESSED_LAB_DATA/review/` and a blueprint in `configs/project.yaml` become blocks.
    `pixi run build-blocks --blueprint blocks_v1` writes `PROCESSED_LAB_DATA/blocks_v1/` with a `manifest.json` and a data id.
 3. Experiment: `pixi run new-experiment "<title>"` makes a folder under `experiments/` (`--config biological` copies another
    config than the baseline). Run its notebook, then
@@ -74,7 +74,8 @@ entry under `labnotebook/` from `templates/labnotebook.md`, with optional words 
 ## Layout
 
 ```text
-configs/      YAML: blueprints/, experiments/, analysis/, environments/, local.example.yaml (copy to local.yaml)
+configs/      project.yaml (environments, blueprints, eda, analysis thresholds), experiments/ (one file per preset),
+              local.example.yaml (copy to local.yaml)
 docs/         blocks_schema.md, pilot.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
 experiments/  one folder per experiment: config, notebook and results
 labnotebook/  the authors' dated log, pixi run new-labnote
@@ -127,7 +128,7 @@ pixi run python -c "
 from pathlib import Path
 from axis_of_travel_rnn.blocks.__main__ import data_id
 print(data_id(Path('/path/to/processed-lab-data/blocks_v1')))"
-grep expected_data_id configs/blueprints/blocks_v1.yaml
+grep -A 20 "^  blocks_v1:" configs/project.yaml | grep expected_data_id
 ```
 
 ## The pilot

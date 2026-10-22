@@ -1,4 +1,4 @@
-# The smoke run (pixi run smoke): the template notebook on the committed sample (configs/blueprints/sample.yaml), a tiny
+# The smoke run (pixi run smoke): the template notebook on the committed sample (blueprints.sample in configs/project.yaml), a tiny
 # network for two epochs, so a library change that breaks the notebook surface fails in seconds. Its numbers mean nothing.
 data:
   blueprint: sample             # tests/fixtures/sample/, three synthetic sessions on three dates
@@ -24,6 +24,6 @@ training:
   patience: 2
   device: cpu
 analysis:
-  thresholds: configs/analysis/thresholds.yaml
+  thresholds: analysis.thresholds
   measures: [direction, axis, arena, distances, decoders]
 seed: 0

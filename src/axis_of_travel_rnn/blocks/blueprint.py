@@ -1,20 +1,19 @@
 """
-A blueprint: the one yaml file that says which blocks a build makes, read into a model that refuses an unknown key.
+A blueprint: the entry of configs/project.yaml that says which blocks a build makes, read into a model that refuses an unknown key.
 """
 
-from pathlib import Path
+import hashlib
+import json
 from typing import Literal
 
-import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from proj_helpers.paths import configs_dir
+from proj_helpers.project import section
 
 from . import RULES, SETTINGS
 
-# Blueprints live in configs/blueprints and are named by their file stem.
-BLUEPRINTS_DIR = "blueprints"
-YAML = ".yaml"
+# Blueprints live in the blueprints section of configs/project.yaml, keyed by name.
+SECTION = "blueprints"
 ALL_REVIEWED = "all_reviewed"
 FROM_REVIEWS = "from_reviews"
 
@@ -82,15 +81,22 @@ class Blueprint(BaseModel):
         return review.get("start_offset_m")
 
 
-def blueprint_path(name):
+def blueprint_section(name, project=None):
     """
-    The yaml file a blueprint argument names: a path when it ends in .yaml, else the file of that name under configs/blueprints.
+    The blueprint's own section of the project config (or of the yaml at project) as a plain dict, a KeyError when there is none.
     """
-    return Path(name) if str(name).endswith(YAML) else configs_dir() / BLUEPRINTS_DIR / f"{name}{YAML}"
+    return section(f"{SECTION}.{name}", project)
 
 
-def read_blueprint(path):
+def read_blueprint(name, project=None):
     """
-    The blueprint in the yaml file, a pydantic ValidationError when a key is unknown, missing or of the wrong type.
+    The named blueprint, a KeyError when the project config has none and a pydantic ValidationError when a key is unknown, missing or of the wrong type.
     """
-    return Blueprint.model_validate(yaml.safe_load(Path(path).read_text()))
+    return Blueprint.model_validate(blueprint_section(name, project))
+
+
+def blueprint_sha256(raw):
+    """
+    The sha256 of a blueprint's section in canonical json (sorted keys, no spaces), what the manifest records, so comments and key order in the yaml do not change it.
+    """
+    return hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

@@ -1,46 +1,28 @@
 """
-The geometry the engine registers a session against: an environment yaml under configs/environments built into plain data, with a person's start offset laid over the yaml's.
+The geometry the engine registers a session against: an entry of the environments section of configs/project.yaml built into plain data, with a person's start offset laid over the entry's.
 """
 
 from dataclasses import asdict
 
-import yaml
+from environments import build_environment, environment_config
 
-from environments import build_environment
-from proj_helpers.paths import environments_dir
-
-# A definition is a yaml file named for its environment. A file with a base is merged over the base. The start offset
-# applies to the one type with a start site up a stem.
-YAML = ".yaml"
-BASE_KEY = "base"
+# The start offset applies to the one type with a start site up a stem.
 START_OFFSET = "start_offset"
 OFFSET_TYPE = "triple_t"
 
 
-def read_config(name, root):
+def geometry(name, start_offset_m=None, project=None):
     """
-    The environment's yaml as a dict, its base file's params and keys merged under its own when it names a base.
+    The environment's geometry as a dict (room, boundary, centerline, reward sites, walls, params), built with this start offset in metres in place of the entry's when one is given and the type has a start site.
     """
-    config = yaml.safe_load((root / f"{name}{YAML}").read_text())
-    if BASE_KEY not in config:
-        return config
-    base = yaml.safe_load((root / f"{config[BASE_KEY]}{YAML}").read_text())
-    own = {key: value for key, value in config.items() if key != BASE_KEY}
-    return {**base, **own, "params": {**base.get("params", {}), **config.get("params", {})}}
-
-
-def geometry(name, start_offset_m=None, root=None):
-    """
-    The environment's geometry as a dict (room, boundary, centerline, reward sites, walls, params), built with this start offset in metres in place of the yaml's when one is given and the type has a start site.
-    """
-    config = read_config(name, environments_dir() if root is None else root)
+    config = environment_config(name, project)
     if start_offset_m is not None and config.get("type") == OFFSET_TYPE:
         config = {**config, "params": {**config.get("params", {}), START_OFFSET: start_offset_m}}
     return asdict(build_environment(config, name=name))
 
 
-def geometries(epochs, rules, start_offset_m=None, root=None):
+def geometries(epochs, rules, start_offset_m=None, project=None):
     """
     The geometry by name of the environments of the epochs of the rules' kinds, what session and blocks take.
     """
-    return {e["environment"]: geometry(e["environment"], start_offset_m, root) for e in epochs if e["epoch"] in rules["epochs"]}
+    return {e["environment"]: geometry(e["environment"], start_offset_m, project) for e in epochs if e["epoch"] in rules["epochs"]}

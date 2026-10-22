@@ -14,7 +14,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))  # the tests package holds the fixture
 
 import axis_of_travel_rnn.blocks.__main__ as entry  # noqa: E402
-from axis_of_travel_rnn.blocks.blueprint import blueprint_path, read_blueprint  # noqa: E402
+from axis_of_travel_rnn.blocks.blueprint import Blueprint, blueprint_section, blueprint_sha256  # noqa: E402
 from tests.unit.blocks.fixtures import S1, S4, S6, frames_table, write_transformed  # noqa: E402
 from tests.unit.blocks.test_build import accepted_review  # noqa: E402
 
@@ -41,8 +41,8 @@ def main():
     """
     Write the fixture's transformed folder and reviews to a temporary folder, build the sample there, replace tests/fixtures/sample with it and print its data id.
     """
-    path = blueprint_path(BLUEPRINT)
-    blueprint = read_blueprint(path)
+    raw = blueprint_section(BLUEPRINT)
+    blueprint = Blueprint.model_validate(raw)
     with tempfile.TemporaryDirectory() as tmp:
         transformed, reviews, out = Path(tmp) / "transformed", Path(tmp) / "reviews", Path(tmp) / BLUEPRINT
         write_transformed(transformed)
@@ -50,7 +50,7 @@ def main():
         reviews.mkdir()
         for sid in blueprint.sessions:
             (reviews / f"{sid}.json").write_text(json.dumps(review(transformed, sid)))
-        manifest = entry.build(blueprint, entry.sha256_of(path), transformed, reviews, out)
+        manifest = entry.build(blueprint, blueprint_sha256(raw), transformed, reviews, out)
         if SAMPLE.exists():
             shutil.rmtree(SAMPLE)
         shutil.copytree(out, SAMPLE)

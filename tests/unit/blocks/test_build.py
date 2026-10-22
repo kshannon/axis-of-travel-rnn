@@ -9,7 +9,7 @@ import yaml
 
 import axis_of_travel_rnn.blocks.__main__ as entry
 from axis_of_travel_rnn.blocks import RULES, BlockEngine, io
-from axis_of_travel_rnn.blocks.blueprint import read_blueprint
+from axis_of_travel_rnn.blocks.blueprint import blueprint_section, blueprint_sha256, read_blueprint
 
 from .fixtures import S1, S2, S6, STAMP, loaded
 
@@ -42,10 +42,11 @@ def reviews(tmp_path, transformed):
 
 def write_blueprint(tmp_path, reviews, **changes):
     """
-    The fixture blueprint written as yaml with the changes and no reviews key when reviews is none, its path.
+    A small project.yaml holding the fixture blueprint with the changes and no reviews key when reviews is none, its path.
     """
-    path = tmp_path / "fixture_v1.yaml"
-    path.write_text(yaml.safe_dump({**BLUEPRINT, **({} if reviews is None else {"reviews": str(reviews)}), **changes}))
+    path = tmp_path / "project.yaml"
+    blueprint = {**BLUEPRINT, **({} if reviews is None else {"reviews": str(reviews)}), **changes}
+    path.write_text(yaml.safe_dump({"blueprints": {BLUEPRINT["name"]: blueprint}}))
     return path
 
 
@@ -54,7 +55,8 @@ def built(tmp_path, transformed, reviews, folder):
     The manifest of the fixture blueprint built into the folder under tmp_path.
     """
     path = write_blueprint(tmp_path, reviews)
-    return entry.build(read_blueprint(path), entry.sha256_of(path), transformed, reviews, tmp_path / folder)
+    return entry.build(read_blueprint(BLUEPRINT["name"], path), blueprint_sha256(blueprint_section(BLUEPRINT["name"], path)),
+                       transformed, reviews, tmp_path / folder)
 
 
 def test_two_builds_give_the_same_data_id_and_a_session_without_a_review_is_skipped(tmp_path, transformed, reviews):
@@ -84,20 +86,20 @@ def test_a_changed_review_changes_the_data_id_and_an_excluded_session_writes_no_
 def test_main_exits_1_when_the_data_id_is_not_the_expected_one_and_0_when_it_is(tmp_path, transformed, reviews, capsys):
     config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(tmp_path / "processed")}
     path = write_blueprint(tmp_path, reviews, expected_data_id="0" * 64)
-    assert entry.main(["--blueprint", str(path)], config=config) == 1
+    assert entry.main(["--blueprint", "fixture_v1"], config=config, project=path) == 1
     found = json.loads((tmp_path / "processed" / "fixture_v1" / entry.MANIFEST).read_text())["data_id"]
     with pytest.raises(SystemExit) as stop:
-        entry.main(["--blueprint", str(path)], config=config)
+        entry.main(["--blueprint", "fixture_v1"], config=config, project=path)
     assert stop.value.code == 2 and "--replace" in capsys.readouterr().err
     path = write_blueprint(tmp_path, reviews, expected_data_id=found)
-    assert entry.main(["--blueprint", str(path), "--replace"], config=config) == 0
+    assert entry.main(["--blueprint", "fixture_v1", "--replace"], config=config, project=path) == 0
 
 
 def test_the_reviews_default_to_the_review_folder_beside_the_builds(tmp_path, transformed, reviews):
     config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(tmp_path / "processed")}
     (tmp_path / "processed").mkdir()
     reviews.rename(tmp_path / "processed" / entry.REVIEW_DIR)
-    assert entry.main(["--blueprint", str(write_blueprint(tmp_path, None))], config=config) == 0
+    assert entry.main(["--blueprint", "fixture_v1"], config=config, project=write_blueprint(tmp_path, None)) == 0
     assert json.loads((tmp_path / "processed" / "fixture_v1" / entry.MANIFEST).read_text())["counts"]["sessions_built"] == 2
 
 
@@ -105,6 +107,6 @@ def test_an_unknown_blueprint_key_or_rule_exits_2(tmp_path, transformed, reviews
     config = {"TRANSFORMED_LAB_DATA": str(transformed), "PROCESSED_LAB_DATA": str(tmp_path / "processed")}
     for changes in ({"window": 40}, {"rules": {"jump_metres": 1.0}}):
         with pytest.raises(SystemExit) as stop:
-            entry.main(["--blueprint", str(write_blueprint(tmp_path, reviews, **changes))], config=config)
+            entry.main(["--blueprint", "fixture_v1"], config=config, project=write_blueprint(tmp_path, reviews, **changes))
         assert stop.value.code == 2
     assert not (tmp_path / "processed").exists()

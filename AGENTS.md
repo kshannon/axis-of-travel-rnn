@@ -87,9 +87,11 @@ settings and dotfiles are never changed by project work.
   converter's spec, plan and tasks. `DATA_DICTIONARY.md` (root): what every
   attribute and term means. `docs/blocks_schema.md`: the review, block and
   manifest files of the block step, columns, keys and defaults.
-- `configs/`: declarative YAML. `environments/` today, `blueprints/` and
-  `experiments/` as they land. `configs/local.yaml` is the one machine-local
-  file: paths only, git-ignored, never hashed.
+- `configs/`: declarative YAML. `project.yaml` holds the environments, the
+  blueprints, the EDA defaults and the analysis thresholds, read by
+  `proj_helpers.project.section("blueprints.blocks_v1")` and the like.
+  `experiments/` holds one file per experiment preset. `configs/local.yaml` is
+  the one machine-local file: paths only, git-ignored, never hashed.
 - `src/axis_of_travel_rnn/`: `blocks/` (the block builder) and the training
   library (data, dataset, models, train, analysis, viz).
   `src/environments/`: environment geometry.

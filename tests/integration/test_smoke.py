@@ -4,11 +4,11 @@ The drift guard: the committed sample is the build its blueprint names, is found
 
 import axis_of_travel_rnn.blocks.__main__ as entry
 from axis_of_travel_rnn import data
-from axis_of_travel_rnn.blocks.blueprint import blueprint_path, read_blueprint
+from axis_of_travel_rnn.blocks.blueprint import read_blueprint
 from proj_helpers.paths import repo_root
 from proj_helpers.smoke import run_smoke
 
-SAMPLE = read_blueprint(blueprint_path("sample"))
+SAMPLE = read_blueprint("sample")
 
 
 def test_the_sample_is_found_without_local_config_and_has_the_blueprints_data_id():

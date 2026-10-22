@@ -10,7 +10,7 @@ import numpy as np
 from proj_helpers.paths import local_config, repo_root
 
 from .blocks import io
-from .blocks.blueprint import blueprint_path, read_blueprint
+from .blocks.blueprint import read_blueprint
 
 # The configs/local.yaml key of the folder the builds go under, and the three data roots this package never writes to.
 PROCESSED_KEY = "PROCESSED_LAB_DATA"
@@ -33,7 +33,7 @@ def built_folder(name, config=None):
     """
     The built folder of a blueprint, its built key relative to the repository when set, else PROCESSED_LAB_DATA/<name>/, refused when it has no manifest.
     """
-    built = read_blueprint(blueprint_path(name)).built
+    built = read_blueprint(name).built
     if built is not None:
         folder = repo_root() / built
     else:

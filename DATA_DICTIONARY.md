@@ -26,7 +26,7 @@ The Nitz lab's MATLAB files from the Olson 2017 experiments, read only, outside 
 | ACSF | Artificial cerebrospinal fluid, the infusion with no drug, the control for muscimol, 5 recordings. | file name |
 | bilateral, left | The first part of an infusion tag: both sides of the brain, or the left side only. | file name |
 | dark | A recording made in the dark, tag `dark`, one recording (NS14_rec23). | file name |
-| triple-T track | The paper's maze: 8 cm corridors in a 1.60 by 1.25 m envelope. The rat runs up the stem from the start, turns three times and reaches one of four goals, a 1.40 m run with turns at 0.51, 0.87 and 1.18 m. Geometry in `configs/environments/triple_t.yaml`. | the paper |
+| triple-T track | The paper's maze: 8 cm corridors in a 1.60 by 1.25 m envelope. The rat runs up the stem from the start, turns three times and reaches one of four goals, a 1.40 m run with turns at 0.51, 0.87 and 1.18 m. Geometry in `environments.triple_t` of `configs/project.yaml`. | the paper |
 | open arena | A round platform 0.6 m across, 0.2 m above the middle of the track, where the rat forages for crumbs. No runs are labelled in it. The lab calls it the platform. | the paper |
 | goal | One of the four reward sites a run ends at, an inner and an outer one on each side. | the paper |
 | route | One of the four ways from the start to a goal, named by the turn at the first T and the turn at the last junction: ee, ew, ww, we. How the lab's path ids map onto routes is open. | this project |
@@ -124,7 +124,7 @@ lab rate (`PROCESSED_LAB_DATA/<name>/`). Rules and settings are named by their k
 
 | name | meaning, unit | from |
 |---|---|---|
-| blueprint | The yaml that says which blocks a build makes: sessions, rule and setting overrides, start offsets, the reviews folder and the expected data id. | `configs/blueprints/` |
+| blueprint | The entry of the project config that says which blocks a build makes: sessions, rule and setting overrides, start offsets, the reviews folder and the expected data id. | `blueprints` in `configs/project.yaml` |
 | format version | The review tool's format version the reviews and blocks follow, recorded, not checked. | blueprint |
 | review | A person's decisions on one session: the kept blocks, cuts, flagged runs, exclusion, start offset and notes. | the review tool |
 | `reviewed_by`, `reviewed_at` | Who saved the review and when, ISO time. | review |

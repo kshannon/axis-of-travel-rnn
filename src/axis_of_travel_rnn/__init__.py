@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 from proj_helpers.paths import local_config, repo_root
 
 from . import viz
-from .analysis import axis_selectivity, frame_directions, load_thresholds, pca_scores, scale
+from .analysis import YAML, axis_selectivity, frame_directions, load_thresholds, pca_scores, scale
 from .analysis import measures as run_measures
 from .blocks.geometry import geometry
 from .config import ExperimentConfig, load_config, resolved
@@ -29,12 +29,15 @@ FIGURE_UNITS = 4  # the units drawn in the rate maps and tuning curves, the most
 TRACK_ENVIRONMENT = "triple_t"
 
 
-def thresholds_path(analysis):
+def thresholds_of(analysis):
     """
-    The thresholds yaml of the analysis section, relative to the repository unless absolute.
+    The thresholds the analysis section names: a section of configs/project.yaml, or a yaml path relative to the repository unless absolute.
     """
-    path = Path(analysis.thresholds)
-    return path if path.is_absolute() else repo_root() / path
+    source = analysis.thresholds
+    if not source.endswith(YAML):
+        return load_thresholds(source)
+    path = Path(source)
+    return load_thresholds(path if path.is_absolute() else repo_root() / path)
 
 
 def load_blocks(data, folder=None, config=None):
@@ -95,7 +98,7 @@ def measures(net, datasets, analysis, seed, device="cpu"):
     """
     with_hidden = {name: [{**block, "hidden": h} for block, h in zip(datasets[name].blocks, hidden_states(net, datasets[name], device))]
                    for name in ("validation", "test")}
-    found = run_measures(with_hidden["test"], with_hidden["validation"], load_thresholds(thresholds_path(analysis)), seed,
+    found = run_measures(with_hidden["test"], with_hidden["validation"], thresholds_of(analysis), seed,
                          analysis.measures)
     return {**found, "blocks": with_hidden["test"]}
 
@@ -104,7 +107,7 @@ def figures(config, loaded, rows, evaluation, found):
     """
     The loss curves, rate maps, heading tuning, direction heatmap and PCA of a run, each titled and captioned with the data that made it.
     """
-    thr = load_thresholds(thresholds_path(config.analysis))
+    thr = thresholds_of(config.analysis)
     track = [b for b in found["blocks"] if b["row"]["kind"] == "track"]
     h = scale(np.concatenate([b["hidden"] for b in track]), found["scaling"])
     pos = np.concatenate([np.column_stack([b["arrays"]["x"], b["arrays"]["y"]]) for b in track])

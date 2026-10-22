@@ -16,10 +16,6 @@ def configs_dir() -> Path:
     return repo_root() / "configs"
 
 
-def environments_dir() -> Path:
-    return configs_dir() / "environments"
-
-
 def local_config(path: Path | None = None) -> dict:
     """
     The machine-local paths file as a dict; empty when absent or not a mapping.

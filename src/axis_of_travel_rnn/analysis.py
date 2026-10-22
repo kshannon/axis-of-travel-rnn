@@ -8,6 +8,8 @@ import numpy as np
 import yaml
 from scipy import sparse
 
+from proj_helpers.project import section
+
 from .blocks.geometry import geometry
 
 # A direction is 2 * axis + (1 when the travel runs against the axis), the axis 0 east-west (a corridor at 0 degrees) and
@@ -25,13 +27,17 @@ MIN_SEGMENTS = 2  # an axis or a direction is general only when seen on at least
 PCA_COMPONENTS = 3
 RIDGE_ALPHA = 1.0  # penalty of the ridge decoders, small against the number of steps
 MEASURES = ("direction", "axis", "arena", "distances", "decoders")
+THRESHOLDS = "analysis.thresholds"  # the section of configs/project.yaml holding the pre-registered thresholds
+YAML = ".yaml"
 
 
-def load_thresholds(path):
+def load_thresholds(source=THRESHOLDS):
     """
-    The thresholds file as a plain dict.
+    The thresholds as a plain dict: a dotted section of configs/project.yaml, analysis.thresholds by default, or a yaml file when a path ending in .yaml is given.
     """
-    return yaml.safe_load(Path(path).read_text())
+    if str(source).endswith(YAML):
+        return yaml.safe_load(Path(source).read_text())
+    return section(source)
 
 
 # ---------------------------------------------------------------------------

@@ -74,6 +74,11 @@ holds no data folder. The review files stay with the data in `PROCESSED_LAB_DATA
 review tool writes them and where a blueprint without a `reviews` key reads them, and they travel with
 the processed folder when it is synced. The synthetic sample moved to `tests/fixtures/sample/`.
 
+Note, 2026-10-22: the configs collapsed to `configs/project.yaml` (sections `environments`, `blueprints`, `eda`, `analysis`)
+plus `configs/experiments/`, one file per preset. `configs/environments/`, `configs/blueprints/` and `configs/analysis/` are
+gone. A build's manifest now records the sha256 of the blueprint's own section in canonical json, not of a file's bytes, and
+the data id, which hashes the blocks, is unchanged. The paths named above are as they were on 2026-10-21.
+
 ## What the survey found, the facts the plans rest on
 
 - The name change is mostly done: the package is axis_of_travel_rnn, pyproject and pixi say

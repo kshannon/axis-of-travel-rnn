@@ -6,11 +6,9 @@ import numpy as np
 import pytest
 
 from axis_of_travel_rnn import analysis
-from proj_helpers.paths import repo_root
 
 from .handmade import corridor_travel, wandering
 
-THRESHOLDS = "configs/analysis/thresholds.yaml"
 EAST_WEST = ("cross_e", "cross_w", "bottom_w", "bottom_e", "approach_ee")
 NORTH_SOUTH = ("stem", "up_e", "up_w", "side_w", "side_e")
 REPEATS = 4
@@ -28,7 +26,7 @@ ROW = {name: i for i, name in enumerate(UNITS)}
 
 @pytest.fixture(scope="module")
 def found():
-    thr = analysis.load_thresholds(repo_root() / THRESHOLDS)
+    thr = analysis.load_thresholds()
     plan = [(name, forward) for _ in range(REPEATS) for name in EAST_WEST + NORTH_SOUTH for forward in (True, False)]
     block, direction, segment = corridor_travel(plan)
     noise = np.random.default_rng(0).normal(0.0, 0.05, (len(direction), len(UNITS)))

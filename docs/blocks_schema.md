@@ -104,7 +104,7 @@ metadata/{sid}.json         one per built session
 
 | key | holds |
 |---|---|
-| `blueprint` | `name`, `sha256` of the blueprint file, `format_version` |
+| `blueprint` | `name`, `sha256` of the blueprint's own section in canonical json (sorted keys, no spaces, so comments do not count), `format_version` |
 | `data_id` | sha256 hex |
 | `transformed_stamp` | str |
 | `git_commit`, `package_version`, `engine_version`, `built_at` | str, str, int, UTC time |
@@ -115,9 +115,11 @@ The data id hashes, in this order, `blocks.csv` then every `blocks/{block_id}.pa
 inside the build folder, a space, the sha256 of the file's bytes, a newline. `scripts/compare_blocks.py OLD NEW` compares two built
 folders by content.
 
-## Blueprint: `configs/blueprints/{name}.yaml`
+## Blueprint: `blueprints.{name}` in `configs/project.yaml`
 
-Read by `blocks/blueprint.py`, which refuses an unknown key, an unknown rule or setting name, and a wrong type.
+One entry of the `blueprints` section, keyed by its name. Read by `blocks/blueprint.py` (`read_blueprint(name)`), which refuses
+an unknown key, an unknown rule or setting name, and a wrong type. The manifest's `sha256` is of this section alone, as json with
+sorted keys and no spaces, so another section of the file changing leaves it as it is.
 
 | key | default |
 |---|---|

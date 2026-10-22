@@ -8,7 +8,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from .analysis import MEASURES
+from .analysis import MEASURES, THRESHOLDS
 from .dataset import ALLOWED_INPUTS, DEFAULT_INPUTS
 from .models import KINDS
 
@@ -99,10 +99,10 @@ class TrainingConfig(Section):
 
 class AnalysisConfig(Section):
     """
-    The thresholds yaml, relative to the repository, and the measures to run.
+    The thresholds, a section of configs/project.yaml (analysis.thresholds by default) or a yaml path relative to the repository, and the measures to run.
     """
 
-    thresholds: str
+    thresholds: str = THRESHOLDS
     measures: tuple[Literal[MEASURES], ...] = MEASURES
 
 
