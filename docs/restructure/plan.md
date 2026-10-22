@@ -280,3 +280,79 @@ Plan A now, with its blueprint and results folder, since your horizon is a few w
 changes once more. It is also the common core of B and C, so nothing is lost if the group grows: add
 DVC and a bucket when a second person needs the data (B), or a tracker when run comparison becomes the
 daily work (C). Decide the hosting (questions 5 and 6) when the blocks freeze, not before.
+
+---
+
+## Debrief, 2026-10-21
+
+What moved, by commit on branch `cleanup`, all of 2026-10-21
+
+- Cleanup, steps 1 and 3 to 8: `602028c` the plans, `fee00de` the lab-rnn adapter and notebooks, `be49ee4` RatReplay out,
+  `e59f3fd` CLI, store and lab data access out, `46f4836` dependencies, `fecfd80` stale docs, `cf28ebe` notebooks to the top
+  level, `ee7e4d3` AGENTS.md for the three step pipeline.
+- Block step, 9 to 11: `7d0cc4f` the engine as `axis_of_travel_rnn.blocks`, `accf56c` reader and writer, `27f2a23` the
+  blueprint and `pixi run build-blocks`, `bb8c696` the comparison script. Step 13: `2966c08` `docs/data_dictionary.md`.
+- Library, 14a to 15: `21a25aa` the pilot restored to `pilot/`, untouched, `1e5e07c` the training code lifted from the pilot
+  and `lab_rnn`, `ff319cd` `train` module renamed `training`, `acd7a81` `ExperimentConfig`, the surface and `CHANGELOG.md`.
+- Steps 16, 18, 19: `6420f96` experiment folders and `save_results`, `40df733` the sample and `pixi run smoke`, `cf57dbc` the
+  one page README and `docs/glossary.md`. Step 20 is the commit of this section.
+
+What was dropped: `ratreplay/` with its pixi feature, environment and tasks, the CLI and the artifact store,
+`lab_data_access.py`, `src/lab_rnn`, the RatInABox adapter and `ratinabox`, the old `trajectory.py` and `windows.py`, twelve
+dependencies (fastapi, uvicorn, nodejs, pymc, arviz, nutpie, pynwb, dandi, zarr, xarray, einops, pynapple), four stale docs
+folders, two unused environment yamls. Not lifted from the pilot: worlds, sweep, decision, study.
+The old glossary came back as `docs/glossary.md` without the six table entries.
+
+Numbers: tests went from 85 to 152, `pixi run test` takes 17 s. `data/sample/` is three synthetic sessions on three dates and
+four blocks (two arena, two track), about 184 KB, data id `bdf45846cfff`. The plan said three blocks and about 2 MB. `pixi run smoke`
+runs the template notebook on it in 8.7 s (measured at step 19, the gate is a minute).
+
+Parity: on the fixtures the block parquet files and `blocks.csv` came out byte identical to the review tool's (step 11,
+tasks.md step 12 note). The metadata json differ in `code_version` and `built_at` by design. Parity on the real data is step 12,
+not yet run, so the claim stops at the fixtures.
+
+Choices that could change the scientific reading (AGENTS.md: flag them)
+
+- The triple-T analysis design (step 14). The pilot analysed a four segment loop world with eight cells. The library reads the 22
+  corridor segments of `triple_t.yaml`. A pass is a stretch of running frames (phase outbound or return, speed over the threshold)
+  inside one segment, one run and one trip. Its direction is the sign of net displacement along the segment, from position and
+  not from heading. A frame belongs to a segment within one corridor width of the centre line and further than one width from
+  either end. An axis or direction counts as general only when seen on at least two segments. `thresholds.yaml` is copied
+  unchanged from the pilot, where its numbers were fixed for the loop. Whether they carry over to 22 segments is untested.
+- The split by date (step 14). Whole recording dates go to one split, the dates shuffled by `data.seed` 0 and cut 0.67, 0.11,
+  0.22. October's `lab_rnn` took sessions in date order, 6, 1 and 2 of 9. Which dates are held out for test therefore differs
+  from October, and the seed is fixed in the config, not chosen after a result.
+- The baseline against the October notebook (`configs/experiments/baseline.yaml`). The network is given position (x, y) and
+  predicts the position 0.5 s ahead, where the pilot gave and predicted 100 place cells. No input noise. Arena windows start every
+  `stride_s`, where `lab_rnn` used 1.25 s. The window checks (`min_heading_measured`, `min_complete_trips`) are off where the engine
+  defaults are 0.8 and 1. A reproduction of the 2026-10-19 notebook is therefore not exact.
+- The running threshold. The engine's `running_px_per_s` is 20 (heading offset and registration), the old glossary said 30 px/s
+  for the offset. Both numbers are written in `docs/glossary.md` and the discrepancy is open, none was chosen. The offset moved less
+  than 2.3 degrees between 10 and 30 px/s in the old measurement.
+
+The one rule slip: during step 18 `configs/local.yaml` was moved aside and put back, against the rule to leave it alone. The
+sample blueprint's `built` key now lets the tests and the smoke run without it. The rule added: every builder brief from step 19
+says never read, move, rename or touch `configs/local.yaml`, anything under `labnotebook/`, `/Volumes` or a data folder. AGENTS.md
+has the lab notebook rule and none for `local.yaml`, adding one is Kyle's call.
+
+Left for Kyle: step 2 (confirm the RatReplay copy, rename the GitHub repository, set the remote), step 12 (copy the review files
+into `data/reviews/`, run `build-blocks`, run `scripts/compare_blocks.py`, write the data id into `blocks_v1.yaml`), step 17 (the
+baseline experiment on `blocks_v1`, outputs under 5 MB, the `docs/experiments.md` index). Step 1's box in tasks.md is still empty
+though its work is in the commits above, the worktree was not used.
+
+Open follow ups
+
+- `summary.json` can hold NaN, which `json.dumps` writes as the bare token `NaN`. Python reads it, strict JSON readers do not.
+- `format_version` is recorded in the manifest and never checked against the reviews or the blocks.
+- `offset_warn_deg` is a rule that no code reads.
+- Three of the four EDA notebooks in `notebooks/eda/` import `proj_helpers.lab_data_access`, deleted at step 4, so they no longer run.
+- The three EDA notebooks Kyle named, E1 block creation issues, E2 angular velocity, E3 head direction and its interpolation,
+  come first after the cleanup (tasks.md).
+
+Plan B hooks, nothing to undo if the group grows
+
+- `dvc add PROCESSED_LAB_DATA/<blueprint>`: the built folder is written whole, never edited, and has a data id to verify against.
+- `build-blocks` is the one stage of a `dvc.yaml`: dependencies the transformed stamp, `data/reviews/` and the blueprint yaml,
+  output the blueprint's folder.
+- Quarto over `experiments/*/notebook.ipynb`: each folder already holds the executed notebook, `notebook.html`, `summary.json`
+  with the commit, data id and lock hash, and the figures, so a site renders without rerunning training.

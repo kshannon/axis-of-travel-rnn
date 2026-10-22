@@ -86,10 +86,10 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       no real recording) with its own blueprint and `configs/experiments/smoke.yaml`, `pixi run smoke`
       running the template notebook headless with papermill in under a minute, wrapped in a test.
       papermill as a dev dependency. (2 h)
-- [ ] 19. README to one page (the question, the three steps, quick start, starting an experiment,
+- [x] 19. README to one page (the question, the three steps, quick start, starting an experiment,
       layout, where data lives, how to get blocks_v1) and a documented `rclone` line for sharing the
       blocks with a sha256 manifest check. (1 h)
-- [ ] 20. Debrief appended to `docs/restructure/plan.md`: what moved, what was dropped, the parity
+- [x] 20. Debrief appended to `docs/restructure/plan.md`: what moved, what was dropped, the parity
       result, the Plan B hooks (`dvc add` on `processed/<blueprint>`, build-blocks as its one stage,
       Quarto over the experiment notebooks). (30 min)
 
