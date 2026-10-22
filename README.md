@@ -61,7 +61,7 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 
 - Committed: `config.yaml`, `notebook.ipynb`, `notebook.html`, `summary.json`, `metrics.csv` and `figures/`.
   `summary.json` holds the git commit, package version, blueprint, data id, resolved config, `pixi.lock` hash, times and metrics.
-- Not committed: everything else in the folder (`notebooks/experiments/.gitignore`), and the contents of `RUNS`.
+- Not committed: everything else in the folder (the Experiments block in `.gitignore`), and the contents of `RUNS`.
 - A folder is never edited after its run. A new idea is a new folder.
 - The notebook calls the library's surface, `help(axis_of_travel_rnn)`, which changes only with a line in `CHANGELOG.md`.
 - To rerun an old one: `git worktree add ../aot-old <git_commit of its summary.json>`, `pixi install` there, run.
