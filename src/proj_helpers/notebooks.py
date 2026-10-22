@@ -2,8 +2,10 @@
 New notebooks and lab notes: the slug, the author, and the template with its placeholders filled.
 """
 
+import argparse
 import re
 import subprocess
+import sys
 from datetime import date, datetime
 from pathlib import Path
 
@@ -99,3 +101,35 @@ def new_labnote(words: str = "", *, directory: Path | None = None,
     directory.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
     return path
+
+
+def main(argv: list[str] | None = None) -> int:
+    """
+    The command line behind the new-jupyter-nb and new-labnote tasks: print the path written.
+    """
+    parser = argparse.ArgumentParser(prog="python -m proj_helpers.notebooks")
+    kinds = parser.add_subparsers(dest="kind", required=True)
+    nb = kinds.add_parser("notebook", help="create a notebook from templates/notebook.ipynb")
+    nb.add_argument("name", nargs="+", help="notebook name, slugified, e.g. matlab axis analysis")
+    nb.add_argument("--title", help="header title (default: the name with spaces)")
+    nb.add_argument("--author", help="header author (default: git's user.name)")
+    nb.add_argument("--dir", type=Path, help="directory to write into (default: src/notebooks/)")
+    note = kinds.add_parser("labnote", help="create a lab notebook entry from templates/labnotebook.md")
+    note.add_argument("slug", nargs="*", help="optional words for the file name, e.g. axis analysis")
+    note.add_argument("--dir", type=Path, help="directory to write into (default: labnotebook/)")
+    args = parser.parse_args(argv)
+    try:
+        if args.kind == "notebook":
+            path = new_notebook(" ".join(args.name), title=args.title, author=args.author,
+                                directory=args.dir)
+        else:
+            path = new_labnote(" ".join(args.slug), directory=args.dir)
+    except (ValueError, FileExistsError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

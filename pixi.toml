@@ -8,11 +8,8 @@ version   = "0.1.0"
 
 ###################### ======== TASKS ======== ######################
 [tasks]
-# Project CLI is an installed console script, no task needed:
-#   pixi run axis-of-travel-rnn env list
-
 # Lab notebook: a dated entry from templates/labnotebook.md, optional slug words
-new-labnote = 'axis-of-travel-rnn labnote new'
+new-labnote = "python -m proj_helpers.notebooks labnote"
 
 # Lab data converter (docs/transform_lab_data/): MATLAB files to CSV and Parquet
 transform-lab-data = "python -m transform_lab_data"
@@ -22,7 +19,7 @@ test     = "python -m pytest"
 test-cov = "python -m pytest --cov=src --cov-report=term-missing"
 
 # Jupyter notebooks: create one from the template; strip outputs on commit (once per clone)
-new-jupyter-nb       = "axis-of-travel-rnn notebook new"
+new-jupyter-nb       = "python -m proj_helpers.notebooks notebook"
 nbstripout-install   = "nbstripout --install --attributes .gitattributes"
 
 

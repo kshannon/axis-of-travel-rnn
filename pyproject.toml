@@ -19,16 +19,12 @@ dependencies = [
   "zarr>=3,<4",
 ]
 
-[project.scripts]
-axis-of-travel-rnn = "cli:main"
-
 [tool.hatch.version]
 path = "src/axis_of_travel_rnn/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = [
   "src/axis_of_travel_rnn",
-  "src/cli",
   "src/environments",
   "src/proj_helpers",
   "src/transform_lab_data",

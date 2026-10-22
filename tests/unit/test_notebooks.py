@@ -11,7 +11,7 @@ from pathlib import Path
 import nbformat
 import pytest
 
-from proj_helpers.notebooks import new_labnote, new_notebook, slugify
+from proj_helpers.notebooks import main, new_labnote, new_notebook, slugify
 from proj_helpers.paths import repo_root
 
 
@@ -46,6 +46,13 @@ def test_new_notebook_fills_the_template_and_refuses_to_overwrite(tmp_path: Path
     assert slugify("  Hello,  World!! ") == "hello-world"
     with pytest.raises(ValueError, match="no letters or digits"):
         new_notebook("!!!", **options)
+
+
+def test_the_command_line_writes_a_dated_notebook(tmp_path: Path, capsys):
+    assert main(["notebook", "cli", "check", "--dir", str(tmp_path)]) == 0
+    written = Path(capsys.readouterr().out.strip())
+    assert written.parent == tmp_path and written.name.endswith("_cli-check.ipynb")
+    assert main(["notebook", "cli", "check", "--dir", str(tmp_path)]) == 2
 
 
 NOW = datetime(2026, 10, 12, 9, 5, 7, tzinfo=timezone(timedelta(hours=-7)))
