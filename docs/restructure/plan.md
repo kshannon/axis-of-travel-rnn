@@ -364,5 +364,25 @@ Plan B hooks, nothing to undo if the group grows
 - `dvc add PROCESSED_LAB_DATA/<blueprint>`: the built folder is written whole, never edited, and has a data id to verify against.
 - `build-blocks` is the one stage of a `dvc.yaml`: dependencies the transformed stamp, `data/reviews/` and the blueprint yaml,
   output the blueprint's folder.
-- Quarto over `experiments/*/notebook.ipynb`: each folder already holds the executed notebook, `notebook.html`, `summary.json`
+- Quarto over `notebooks/experiments/*/notebook.ipynb`: each folder already holds the executed notebook, `notebook.html`, `summary.json`
   with the commit, data id and lock hash, and the figures, so a site renders without rerunning training.
+
+### Simplify pass, 2026-10-22
+
+Aim: get process and code out of the way of running experiments. Five commits on `cleanup`.
+
+- Went: `src/proj_helpers/` (paths and project folded into `axis_of_travel_rnn/config.py`, `local_path(key)` and
+  `section(name)` beside `load_config`, the smoke now papermill in the pixi task), `new.py` (now `templates/new.sh`, same
+  slug, date prefix and folders, no tests), `src/environments/` (the triple-T and circle builders now in
+  `blocks/geometry.py`, the unused plus maze and spec hash dropped, the output checked equal to the old builders),
+  `scripts/` (`make_sample.py` now in `tests/fixtures/`, data id bdf45846cfff unchanged, `compare_blocks.py` now
+  `build-blocks --compare FOLDER`), the top level `experiments/` (now `notebooks/experiments/`), the `test-cov` task.
+- Stayed: the block engine, the converter, the library surface, the configs, the templates, the sample and its data id.
+- Tests: 159 before, 141 after. The plumbing tests (paths, notebooks, viz, training, the seeded weights, resampling, the
+  built folder lookup, new.py) went, config, results, models and the guard keep one each. Added: the `--compare` test,
+  reader tests per MATLAB file kind (a missing variable named, the v7.3 layout and its cells read as classic) and three
+  window seam tests (the dataset's windows are the engine's, the target is the position a horizon ahead frame for frame,
+  60 to 20 Hz keeps seconds).
+- AGENTS.md: rules only, about a page. The project goal now names two aims, emergence (position only, a negative result
+  valid) and construction (head direction and angular velocity as inputs, tuning done in the open), told apart by the
+  experiment's config, plus the long term direction.
