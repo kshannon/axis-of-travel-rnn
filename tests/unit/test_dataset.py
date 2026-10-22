@@ -1,5 +1,5 @@
 """
-The dataset: inputs are position only by default, the target is the position a horizon ahead, and the leakage assertion fires.
+The dataset: inputs are position only by default, heading is an input as its sine and cosine only when asked, the target is the position a horizon ahead, and the leakage assertion fires.
 """
 
 import numpy as np
@@ -42,6 +42,25 @@ def test_the_leakage_assertion_fires_on_a_folded_heading_or_a_column_not_allowed
         with pytest.raises(AssertionError, match="folded heading"):
             WindowDataset(found, windows, ("x", "y", "speed"), fit_scaler(found, ("x", "y", "speed")))
     with pytest.raises(AssertionError, match="not allowed"):
-        WindowDataset(found, windows, ("x", "y", "heading"), fit_scaler(found, ("x", "y", "heading")))
+        WindowDataset(found, windows, ("x", "y", "path_id"), fit_scaler(found, ("x", "y", "path_id")))
     x = np.column_stack([found[1]["arrays"]["x"], found[1]["arrays"]["y"]])
     assert_no_leakage(x, found[1]["arrays"]["heading"], ("x", "y"))
+
+
+def test_heading_as_an_input_is_a_sine_and_cosine_and_the_target_is_still_the_future_position():
+    found = blocks()
+    windows, _ = make_windows(found, SETTINGS)
+    columns = ("x", "y", "heading")
+    scaler = fit_scaler(found[:1], columns)
+    dataset = WindowDataset(found, windows, columns, scaler)
+    assert "heading" not in scaler and dataset.layout == ("x", "y", "heading_sin", "heading_cos") and dataset.skipped == 0
+    item = dataset[3]
+    assert item["x"].shape == (80, 4) and item["y"].shape == (80, 2)
+    assert np.abs(item["x"][:, 2:].numpy()).max() <= 1
+    assert np.array_equal(item["y"][:-HORIZON].numpy(), item["x"][HORIZON:, :2].numpy())  # the target is x, y ahead, heading is not in it
+    lost = 100  # one frame without a heading drops every window that holds it, and no other
+    held = sum(w["block"] == 0 and w["first"] <= lost < w["window_stop"] for w in windows)
+    found[0]["arrays"]["heading"][lost] = np.nan
+    assert held > 0
+    assert WindowDataset(found, windows, columns, scaler).skipped == held
+    assert WindowDataset(found, windows, DEFAULT_INPUTS, fit_scaler(found[:1], DEFAULT_INPUTS)).skipped == 0

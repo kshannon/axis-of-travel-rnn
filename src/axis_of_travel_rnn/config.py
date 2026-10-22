@@ -59,7 +59,7 @@ class WindowsConfig(Section):
 
 class InputsConfig(Section):
     """
-    The block columns the network is given, position only unless speed is added.
+    The block columns the network is given, position only by default, heading being given as two inputs, its sine and cosine (heading_sin and heading_cos).
     """
 
     columns: tuple[str, ...] = DEFAULT_INPUTS

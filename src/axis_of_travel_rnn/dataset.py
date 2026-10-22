@@ -7,11 +7,17 @@ import torch
 
 from .blocks import BlockEngine
 
-# The columns a network may be given (AGENTS.md rule 1): position, and speed, which is derived from position alone. No
-# heading, turn rate, phase, trip, run, path or anything derived from them. Position only is the default.
-ALLOWED_INPUTS = ("x", "y", "speed")
+# The columns a network may be given (AGENTS.md rule 1), the experiment's config choosing among them: position, speed
+# (derived from position), and the measured head signals heading and turn rate. Never phase, trip, run, path, clean or
+# anything else that labels axis of travel. Position only is the default and the control.
+ALLOWED_INPUTS = ("x", "y", "speed", "heading", "turn_rate")
 DEFAULT_INPUTS = ("x", "y")
 TARGETS = ("x", "y")  # the future position, scaled as the position inputs are
+
+# The one angle input is given as two feature columns, its sine and cosine, so heading in the config is two inputs of the
+# network. A frame without a heading gives NaN in both and the window holding it is dropped and counted.
+HEADING = "heading"
+HEADING_FEATURES = ("heading_sin", "heading_cos")
 
 LEAKAGE_CORRELATION = 0.999  # an input column correlated this much with a folded heading is a leak
 MIN_SD = 1e-12  # a column flatter than this counts as constant when standardising
@@ -31,12 +37,24 @@ def make_windows(blocks, settings):
     return windows, verdicts
 
 
+def layout(columns):
+    """
+    The feature columns the network sees for these input columns, heading becoming heading_sin and heading_cos.
+    """
+    names = []
+    for name in columns:
+        names.extend(HEADING_FEATURES if name == HEADING else (name,))
+    return tuple(names)
+
+
 def fit_scaler(train_blocks, columns):
     """
-    The mean and sd of each column over the finite frames of the training blocks only, as plain numbers.
+    The mean and sd of each column but heading over the finite frames of the training blocks only, as plain numbers.
     """
     scaler = {}
     for name in columns:
+        if name == HEADING:  # sine and cosine are already within -1 and 1, so heading is not scaled
+            continue
         values = np.concatenate([block["arrays"][name] for block in train_blocks]).astype(np.float64)
         values = values[np.isfinite(values)]
         scaler[name] = {"mean": float(values.mean()), "sd": float(max(values.std(), MIN_SD))}
@@ -45,10 +63,16 @@ def fit_scaler(train_blocks, columns):
 
 def scaled(block, columns, scaler):
     """
-    The columns of a block side by side (T, n) float32, each standardised by the scaler.
+    The feature columns of a block side by side (T, n) float32, position, speed and turn rate standardised by the scaler and heading as its sine and cosine, unscaled.
     """
-    return np.column_stack([(block["arrays"][name] - scaler[name]["mean"]) / scaler[name]["sd"]
-                            for name in columns]).astype(np.float32)
+    features = []
+    for name in columns:
+        values = block["arrays"][name]
+        if name == HEADING:
+            features += [np.sin(values), np.cos(values)]
+        else:
+            features.append((values - scaler[name]["mean"]) / scaler[name]["sd"])
+    return np.column_stack(features).astype(np.float32)
 
 
 def standardise(a):
@@ -61,22 +85,24 @@ def standardise(a):
 
 def assert_no_leakage(x, heading, columns):
     """
-    Fails unless every input column is allowed, x has exactly those columns and none of them is a folded heading.
+    Fails unless every input column is allowed, x has exactly their feature columns and none of them but heading's own sine and cosine is a folded heading.
     """
     assert set(columns) <= set(ALLOWED_INPUTS), f"inputs {sorted(set(columns) - set(ALLOWED_INPUTS))} are not allowed"
-    assert x.shape[1] == len(columns), x.shape
+    names = layout(columns)
+    assert x.shape[1] == len(names), x.shape
+    others = [i for i, name in enumerate(names) if name not in HEADING_FEATURES]  # the sine and cosine are the allowed heading
     keep = np.isfinite(heading) & np.isfinite(x).all(axis=1)
-    if keep.sum() < 2:
+    if not others or keep.sum() < 2:
         return
     folded = np.column_stack([np.mod(heading[keep], np.pi), np.cos(2 * heading[keep]), np.sin(2 * heading[keep])])
-    correlation = np.abs(standardise(x[keep]).T @ standardise(folded)) / keep.sum()
-    column = columns[int(np.argmax(correlation.max(axis=1)))]
+    correlation = np.abs(standardise(x[keep][:, others]).T @ standardise(folded)) / keep.sum()
+    column = names[others[int(np.argmax(correlation.max(axis=1)))]]
     assert correlation.max() <= LEAKAGE_CORRELATION, f"{column} is a folded heading: {correlation.max():.4f}"
 
 
-# An item is x (window, n_in) the scaled inputs, y (window, 2) the scaled position horizon steps ahead of each step,
-# current (window, 2) the scaled position at each step for the persistence baseline, loss_weight (window,) 0 in the burn
-# in, block (index into blocks) and first (the window's first frame).
+# An item is x (window, n_in) the inputs, n_in being len(layout), y (window, 2) the scaled position horizon steps ahead of
+# each step, current (window, 2) the scaled position at each step for the persistence baseline, loss_weight (window,) 0
+# in the burn in, block (index into blocks) and first (the window's first frame).
 class WindowDataset(torch.utils.data.Dataset):
     """
     The windows of these blocks as tensors, a window whose inputs or targets are not all finite left out and counted.
@@ -84,6 +110,7 @@ class WindowDataset(torch.utils.data.Dataset):
 
     def __init__(self, blocks, windows, columns, scaler):
         self.blocks, self.columns = blocks, tuple(columns)
+        self.layout = layout(self.columns)  # the network's input width is len(self.layout)
         self.features = [scaled(block, self.columns, scaler) for block in blocks]
         self.targets = [scaled(block, TARGETS, scaler) for block in blocks]
         for block, x in zip(blocks, self.features):

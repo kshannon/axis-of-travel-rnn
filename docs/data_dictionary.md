@@ -166,9 +166,22 @@ Rules shape the blocks, their defaults are `RULES` in `blocks/__init__.py`, grou
 Settings (`SETTINGS`) give each block its window count and verdict in the metadata, nothing else is stored: `window_s` 40.0, `stride_s` 10.0, `burn_in_s` 1.0, `horizon_s` 0.5,
 `rate_hz` 20 (recorded only, windows work at the block's rate), `min_heading_measured` 0.8, `min_complete_trips` 1.
 
-## What stays out of training
+## What reaches training and what never does
 
-The network sees position only, `x` and `y`, as AGENTS.md says. `heading`, `turn_rate`, `phase`, `trip`, `run`, `path_id` and `clean` are validation and analysis columns: they stay in the
-data for controls and post-hoc analysis and never reach training. A control that needs one must say so in its config. The remaining columns (`speed`, `n_lights`, the fill flags) are
-derived from position or describe its quality, and are not inputs either. `min_heading_measured` and `min_complete_trips` use heading and trips to choose which windows qualify,
-which selects data and feeds nothing to the network.
+The network's inputs are an experiment choice, the `inputs.columns` of its config (AGENTS.md rule 1). `dataset.ALLOWED_INPUTS` is the whole list and the config refuses any other column.
+
+| input column | network inputs | scaling |
+|---|---|---|
+| `x`, `y` | one each | standardised by the mean and sd of the training blocks |
+| `speed` | one | the same |
+| `turn_rate` | one | the same |
+| `heading` | two, `heading_sin` and `heading_cos`, the sine and cosine of the angle | none, they lie within minus one and one |
+
+Position only (`x`, `y`) is the default and the control (`configs/experiments/baseline.yaml`). `configs/experiments/biological.yaml` adds `speed`, `heading` and `turn_rate`, six network inputs.
+`heading` and `turn_rate` are measured signals, the head direction and the head's angular velocity, so a config may name them. A frame with no heading gives NaN in both heading columns and in
+`turn_rate`, and `turn_rate` is also NaN where heading is filled or held. A window holding such a frame is left out of the dataset and counted (`WindowDataset.skipped`). The target is the
+future position `x`, `y` in every experiment.
+
+Never reaches training: `phase`, `trip`, `run`, `path_id`, `clean`, axis labels, cell type, and any hand coded direction of travel. They stay in the data for validation, controls and post hoc analysis.
+A control that needs one must say so in its config. The remaining columns (`n_lights`, the fill flags) describe quality and are not inputs. `min_heading_measured` and `min_complete_trips` use heading and trips
+to choose which windows qualify, which selects data and feeds nothing to the network.

@@ -21,11 +21,14 @@ the review tool and the training code live outside it.
 
 ## Important Contextual Considerations When Working
 
-1. Nothing that encodes axis of travel reaches RNN training: no axis labels,
-   head direction, angular velocity, hand-coded travel direction, cell-type or
-   cell-class labels. These stay in the data for validation, controls and
-   post-hoc analysis. A control experiment that needs one must say so in its
-   config.
+1. The network's inputs are an experiment choice recorded in its config:
+   position only is the control, head direction and angular velocity (the
+   block's heading and turn_rate columns) may be added as inputs for a
+   biological model of subiculum inputs. Nothing that labels axis of travel
+   ever reaches training: no axis labels, phase, trip, run, path, clean, cell
+   type or hand coded travel direction. These stay in the data for validation,
+   controls and post hoc analysis. A control experiment that needs one must say
+   so in its config.
 1. Behavioral generation is validated on its own, against real behavior,
    before it feeds training. The model never shapes how behavior is generated.
 1. Raw recordings, transformed frames and block parquet files never enter the

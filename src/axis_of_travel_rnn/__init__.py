@@ -75,7 +75,7 @@ def train(datasets, model, training, seed, checkpoint_dir=None, config=None):
     """
     if checkpoint_dir is not None:
         guard(checkpoint_dir, local_config() if config is None else config)
-    net = make_model(model.kind, len(datasets["train"].columns), len(TARGETS), model.hidden_size, seed)
+    net = make_model(model.kind, len(datasets["train"].layout), len(TARGETS), model.hidden_size, seed)
     trainer = Trainer(net, training.learning_rate, training.batch_size, training.epochs, training.patience, training.device,
                       checkpoint_dir, seed)
     return net, trainer.fit(datasets["train"], datasets["validation"])
@@ -114,6 +114,8 @@ def figures(config, loaded, rows, evaluation, found):
     sessions = sorted({b["row"]["session_id"] for b in track})
     data = (f"{config.data.blueprint}, data id {loaded['data_id'][:12]}, the test split's track blocks of sessions "
             f"{', '.join(sessions)}, seed {config.seed}")
+    heading_input = ("Heading is also an input of this network." if "heading" in config.inputs.columns
+                     else "Heading is analysis only and never reaches the network.")
     return {
         "loss": viz.loss_figure(
             rows, "Training and validation loss", "Masked mean squared error of the predicted position per epoch, solid "
@@ -127,8 +129,8 @@ def figures(config, loaded, rows, evaluation, found):
         "heading_tuning": viz.heading_tuning_figure(
             h, heading, np.where(direction >= 0, direction // 2, -1), direction >= 0, units,
             "Heading tuning of the most axis selective units", "Mean scaled activity by head direction on running frames "
-            "in passes along east-west corridors (left) and north-south corridors (right), a row per unit. Heading is "
-            "analysis only and never reaches the network.", data),
+            f"in passes along east-west corridors (left) and north-south corridors (right), a row per unit. {heading_input}",
+            data),
         "heatmap": viz.cell_heatmap_figure(
             found["direction_means"], found["direction"], found["axis"], "Activity by direction of travel",
             "Mean scaled activity of every unit in each direction of travel, units sorted by east-west selectivity, the "
