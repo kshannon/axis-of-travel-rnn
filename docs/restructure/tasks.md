@@ -12,7 +12,7 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 
 ## The steps
 
-- [ ] 1. Worktree and stash: `git worktree add ../axis-of-travel-rnn-cleanup cleanup`, pop the stash
+- [x] 1. Worktree and stash: `git worktree add ../axis-of-travel-rnn-cleanup cleanup`, pop the stash
       there, commit src/lab_rnn and the two notebooks (outputs stripped), move `restructure-plans.md`
       to `docs/restructure/plan.md`. Check: `git status` clean. (1 h)
 - [ ] 2. Kyle: confirm the RatReplay copy in its own repository (branch `agents/synthetic` at 4b22a06 or
