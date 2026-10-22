@@ -66,11 +66,10 @@ position only, the control, and `configs/experiments/biological.yaml` adds speed
 
 ```text
 configs/      YAML: blueprints/, experiments/, analysis/, environments/, local.example.yaml (copy to local.yaml)
-docs/         blocks_schema.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
+docs/         blocks_schema.md, pilot.md, restructure/ and transform_lab_data/ (DATA_DICTIONARY.md sits at the root)
 experiments/  one folder per experiment: config, notebook and results
 labnotebook/  the authors' dated log, pixi run new-labnote
 notebooks/    working notebooks, eda/ for the exploratory ones
-pilot/        the October 2026 pilot kept for later, not imported by the library, its tests not collected
 scripts/      compare_blocks.py (two built folders by content), make_sample.py (rebuilds tests/fixtures/sample)
 src/          axis_of_travel_rnn/ (the library, blocks/ is the block engine), environments/ (maze geometry),
               proj_helpers/ (paths, new experiments, notebooks, notes), transform_lab_data/ (the converter)
@@ -122,10 +121,18 @@ print(data_id(Path('/path/to/processed-lab-data/blocks_v1')))"
 grep expected_data_id configs/blueprints/blocks_v1.yaml
 ```
 
+## The pilot
+
+Before touching real data, an October 2026 pilot proved that axis of travel tuning could be made to appear in a constrained
+artificial setting: a vanilla RNN trained on simulated RatInABox worlds, a square loop and an open field, with thresholds fixed
+before any network was trained. The library's models, trainer and analysis measures were lifted from it. Its code, tests and
+notebook are kept on branch `pilot`, see `docs/pilot.md` for what it was and what it found.
+
 ## Docs
 
 - `DATA_DICTIONARY.md`: what every attribute and term means, raw, transformed and built blocks, with units and sources.
 - `docs/blocks_schema.md`: the review, block and manifest files, their columns and keys in order, the blueprint keys and defaults.
+- `docs/pilot.md`: the October 2026 pilot on simulated worlds, what it found and where its code lives.
 - `docs/restructure/`: the plan, the tasks and the debrief of the restructure that made this pipeline.
 - `docs/transform_lab_data/`: the converter's spec, plan, tasks and `tables.md` (the lab's files and the transformed tables).
 

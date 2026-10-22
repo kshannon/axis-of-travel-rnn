@@ -11,4 +11,4 @@ October pilot and `src/lab_rnn` into `axis_of_travel_rnn` (data, dataset, models
 `ExperimentConfig` read from `configs/experiments/*.yaml`. The network is given position only and predicts the position a
 horizon ahead. `save_results(results_dir, config, data_id, metrics_rows, summary, figures, started, finished)` writes an
 experiment folder's summary.json, metrics.csv and figures. A blueprint's `built` key names a built folder inside the
-repository, which `load_blocks` reads with no configs/local.yaml, as the committed sample in tests/fixtures/sample does. RatInABox is no longer a dependency.
+repository, which `load_blocks` reads with no configs/local.yaml, as the committed sample in tests/fixtures/sample does. RatInABox stays a dependency for a block data viewer to come.

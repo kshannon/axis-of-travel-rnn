@@ -1,5 +1,5 @@
 # The baseline experiment: the pilot's settings as the 2026-10-19 lab-rnn notebook used them (LAB in src/lab_rnn/config.py, deleted in step 14,
-# over PILOT in pilot/pilot/config.py), in seconds where the pilot counted 0.05 s steps. Read by axis_of_travel_rnn.config,
+# over PILOT in pilot/pilot/config.py on branch pilot), in seconds where the pilot counted 0.05 s steps. Read by axis_of_travel_rnn.config,
 # which refuses an unknown key. What differs from that notebook: the network is given position (x, y) and predicts the
 # position a horizon ahead, where the pilot gave and predicted 100 place cells, there is no input noise, training windows
 # start every stride_s in the arena too (lab_rnn used 1.25 s there), and the split shuffles recording dates where lab_rnn
