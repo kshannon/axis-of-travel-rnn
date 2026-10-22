@@ -55,7 +55,7 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
       by content (the two lock files carry different pyarrow versions, so `diff -rq "$P/blocks" "$P/blocks_v1/blocks"`
       may differ in file bytes alone) and exits 1 on a difference. The metadata json files differ in code_version and
       built_at by design. On the fixtures the parquet files and blocks.csv came out byte identical to the review tool's.
-- [ ] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
+- [x] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
       blocks.csv, metadata, the blueprint keys, the data id, what stays out of training. It replaces
       the old dictionary and `outgoing_data_schema.txt`. (1 h)
 - [ ] 14a. The pilot work back on disk: restore the pilot package from branch `feature/pilot` into a

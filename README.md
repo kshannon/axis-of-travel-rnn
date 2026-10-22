@@ -101,7 +101,7 @@ notebooks/       the working Jupyter notebooks, notebooks/eda/ for the explorato
 templates/       the notebook and lab notebook templates
 datasets/        datasets on disk, git-ignored
 tests/           unit tests
-docs/            per-feature spec, plan and tasks (transform_lab_data/, restructure/)
+docs/            per-feature spec, plan and tasks (transform_lab_data/, restructure/), data_dictionary.md
 labnotebook/     dated entries, `pixi run new-labnote`
 ```
 
