@@ -5,13 +5,12 @@ BlockEngine.funnel and session over the synthetic fixtures: the epochs the funne
 import numpy as np
 import pytest
 
-from axis_of_travel_rnn.blocks import RULES, BlockEngine, cuts, room
+from axis_of_travel_rnn.blocks import RULES, BlockEngine, cuts, io, room
 from axis_of_travel_rnn.blocks import frame as new_frame
 from axis_of_travel_rnn.blocks import heading as new_heading
 from axis_of_travel_rnn.blocks import kinematics as new_kinematics
 
 from .fixtures import CIRCLE_PX, S1, S2, S3, S4, S5, S6, loaded
-from .fixtures import tables as read_tables
 
 NOISE_PX = 1.0
 SESSION_KEYS = {"rules", "session_id", "rate_hz", "n_frames", "epochs", "runs", "frame", "warnings", "kinematics", "heading_spans",
@@ -65,7 +64,7 @@ def turning(frames):
 
 
 def test_the_funnel_leaves_out_only_what_the_tool_cannot_work_with_and_shows_the_annotation_as_a_note(transformed):
-    tables = read_tables(transformed)
+    tables = io.sessions(transformed)
     found = BlockEngine().funnel(tables, RULES)
     # Only S1 and S6 have frames, S5 has no baseline arena or track epoch. No protocol, group or annotation rule applies.
     assert [sid for sid, f in found.items() if f["in_dataset"]] == [S1, S6]
@@ -82,7 +81,7 @@ def test_the_funnel_leaves_out_only_what_the_tool_cannot_work_with_and_shows_the
 
 
 def test_a_rotation_protocol_a_group_and_an_annotation_exclude_do_not_keep_a_session_out_of_the_funnel(transformed):
-    tables = read_tables(transformed)
+    tables = io.sessions(transformed)
     found = BlockEngine().funnel({**tables, "frames": [S1, S2, S3, S4, S6]}, RULES)
     by_id = {s["session_id"]: s for s in tables["sessions"]}
     assert by_id[S2]["protocol"] == "rotation" and by_id[S4]["group"] == "JL1HPCData" and found[S3]["annotated_exclude"] is True

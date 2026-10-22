@@ -1,5 +1,5 @@
 """
-A synthetic transformed folder for the block tests: six sessions, two with frames, and a session read back as the engine takes it.
+A synthetic transformed folder for the block tests: six sessions, two with frames, and a session read back with its geometry.
 """
 
 import json
@@ -9,7 +9,7 @@ import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
-from axis_of_travel_rnn.blocks import RULES
+from axis_of_travel_rnn.blocks import RULES, io
 from axis_of_travel_rnn.blocks.geometry import geometries
 
 # S1 and S6 are the sessions the funnel keeps: S2 to S4 have no frames and S5 has no baseline arena or track epoch.
@@ -115,28 +115,10 @@ def write_transformed(root):
         pq.write_table(frames_table(session_id, **cuts), root / "frames" / f"{session_id}.parquet")
 
 
-def session(root, sid):
-    """
-    One session of the folder as the engine takes it: its row, epochs, runs, frames as writable numpy arrays and the manifest stamp.
-    """
-    rows = {name: pacsv.read_csv(root / f"{name}.csv").to_pylist() for name in ("sessions", "epochs", "runs")}
-    table = pq.read_table(root / "frames" / f"{sid}.parquet")
-    return {"session": next(s for s in rows["sessions"] if s["session_id"] == sid),
-            "epochs": [e for e in rows["epochs"] if e["session_id"] == sid], "runs": [r for r in rows["runs"] if r["session_id"] == sid],
-            "arrays": {name: table.column(name).to_numpy().copy() for name in table.column_names}, "stamp": STAMP}
-
-
-def tables(root):
-    """
-    The sessions, epochs, runs and annotations tables of the folder as row dicts and the ids of the sessions with frames.
-    """
-    found = {name: pacsv.read_csv(root / f"{name}.csv").to_pylist() for name in ("sessions", "epochs", "runs", "annotations")}
-    return {**found, "frames": sorted(path.stem for path in (root / "frames").glob("*.parquet"))}
-
-
 def loaded(root, sid):
     """
-    The session as the engine takes it and the geometry by name of the environments of its epochs of the default rules' kinds.
+    The session as io gives it, with writable copies of its arrays, and the geometry by name of the environments of its epochs of the default rules' kinds.
     """
-    found = session(root, sid)
+    found = io.session(root, sid)
+    found = {**found, "arrays": {name: values.copy() for name, values in found["arrays"].items()}}
     return found, geometries(found["epochs"], RULES)
