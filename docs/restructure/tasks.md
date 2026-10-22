@@ -58,7 +58,7 @@ stash@{0} of 2026-10-21. The pilot code is in tmp/pilot, git ignored, on disk.
 - [x] 13. `docs/data_dictionary.md`, one page: the three folders, the block columns with units,
       blocks.csv, metadata, the blueprint keys, the data id, what stays out of training. It replaces
       the old dictionary and `outgoing_data_schema.txt`. (1 h)
-- [ ] 14a. The pilot work back on disk: restore the pilot package from branch `feature/pilot` into a
+- [x] 14a. The pilot work back on disk: restore the pilot package from branch `feature/pilot` into a
       `pilot/` folder at the root, untouched (tmp/pilot left the disk on 2026-10-21, Kyle keeps the
       pilot as a separate folder to deal with later). Git ignores nothing there, it is committed as it
       was, with a README line saying it is the October pilot and not imported by the library. (30 min)

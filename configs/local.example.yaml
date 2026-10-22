@@ -1,5 +1,5 @@
-STORE: /path/to/subiculum-rnn-store
-LAB_DATA: /path/to/lab-matlab-files
-TRANSFORMED_LAB_DATA: /path/to/transformed-lab-data # conversion of lab .mat data to .csv/.parquets
-PROCESSED_LAB_DATA: /path/to/processed-lab-data # blocks built from the transformed data and the reviews
-SYNTHETIC_DATA: /path/to/synthetic-data # synthetic sets of blocks
+# Machine-local paths, copied to configs/local.yaml (git-ignored). Paths only, never hashed.
+LAB_DATA: /path/to/lab-matlab-files # the lab's MATLAB files, read by the converter
+TRANSFORMED_LAB_DATA: /path/to/transformed-lab-data # the converter's tables and frames
+PROCESSED_LAB_DATA: /path/to/processed-lab-data # the built blocks, one folder per blueprint
+RUNS: /path/to/runs # experiment outputs that stay out of git (checkpoints, tensors)
